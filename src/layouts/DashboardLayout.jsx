@@ -7,29 +7,52 @@ import { userAvatar, userRoleLabel } from "../lib/user.js";
 
 // ─── Account chip (top-right) ────────────────────────────────────────────────
 
-function AccountChip({ user, config, onLogout }) {
+function AccountMenu({ user, config, open, setOpen, onLogout }) {
+  const role = userRoleLabel(user, config);
   return (
-    <div className="flex items-center gap-2.5">
-      <img
-        src={userAvatar(user)}
-        className="h-9 w-9 rounded-full border border-white/10 object-cover"
-        alt={user.username}
-      />
-      <div className="hidden min-w-0 sm:block">
-        <div className="max-w-[160px] truncate text-sm font-semibold leading-tight text-white">
-          {user.username}
-        </div>
-        <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-primary)]">
-          {userRoleLabel(user, config)}
-        </div>
-      </div>
+    <div className="relative">
       <button
-        onClick={onLogout}
-        title="Sign out"
-        className="rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-2 text-slate-400 transition hover:border-[color:var(--color-border-strong)] hover:text-white"
+        onClick={() => setOpen(!open)}
+        className={`flex items-center gap-2.5 rounded-full border bg-[var(--color-surface-2)] py-1 pl-1 pr-2.5 transition ${
+          open
+            ? "border-[color:var(--color-border-strong)]"
+            : "border-white/10 hover:border-[color:var(--color-border)]"
+        }`}
       >
-        <LogOut size={16} strokeWidth={2.4} />
+        <img
+          src={userAvatar(user)}
+          className="h-8 w-8 rounded-full border border-white/10 object-cover"
+          alt={user.username}
+        />
+        <div className="hidden min-w-0 text-left sm:block">
+          <div className="max-w-[160px] truncate text-sm font-semibold leading-tight text-white">
+            {user.username}
+          </div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-primary)]">
+            {role}
+          </div>
+        </div>
+        <ChevronDown size={15} className={`text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
+
+      {open && (
+        <div className="hub-menu hub-menu-floating absolute right-0 top-full z-50 mt-2 min-w-[230px] p-2">
+          <div className="px-3 py-2">
+            <div className="truncate text-sm font-semibold text-white">{user.username}</div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-primary)]">
+              {role}
+            </div>
+          </div>
+          <div className="my-1 h-px bg-white/10" />
+          <button
+            onClick={onLogout}
+            className="hub-menu-item flex items-center gap-2 text-red-300 hover:bg-red-500/10 hover:text-red-200"
+          >
+            <LogOut size={16} strokeWidth={2.4} />
+            Sign out
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -163,28 +186,29 @@ export default function DashboardLayout({
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState(null);
+  const [accountOpen, setAccountOpen] = useState(false);
   const nav = buildNav(config, user);
   const branding = config?.branding || {};
   const dropdownGroups = config?.dropdownGroups || [];
-  const anyMenuOpen = mobileOpen || openGroup !== null;
+  const anyMenuOpen = mobileOpen || openGroup !== null || accountOpen;
+
+  const closeAll = () => {
+    setMobileOpen(false);
+    setOpenGroup(null);
+    setAccountOpen(false);
+  };
 
   // Close menus on Escape.
   useEffect(() => {
     if (!anyMenuOpen) return;
-    const onKey = (e) => {
-      if (e.key === "Escape") {
-        setMobileOpen(false);
-        setOpenGroup(null);
-      }
-    };
+    const onKey = (e) => e.key === "Escape" && closeAll();
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [anyMenuOpen]);
 
   function navigate(pageId) {
     onNavigate(pageId);
-    setMobileOpen(false);
-    setOpenGroup(null);
+    closeAll();
   }
 
   return (
@@ -198,6 +222,7 @@ export default function DashboardLayout({
             onClick={() => {
               setMobileOpen((p) => !p);
               setOpenGroup(null);
+              setAccountOpen(false);
             }}
             className="rounded-xl border border-white/10 bg-[var(--color-surface-1)] p-2 text-slate-200 transition hover:border-[color:var(--color-border)] lg:hidden"
             aria-label="Toggle navigation"
@@ -243,7 +268,17 @@ export default function DashboardLayout({
 
           {/* Account */}
           <div className="shrink-0">
-            <AccountChip user={user} config={config} onLogout={onLogout} />
+            <AccountMenu
+              user={user}
+              config={config}
+              open={accountOpen}
+              setOpen={(v) => {
+                setOpenGroup(null);
+                setMobileOpen(false);
+                setAccountOpen(v);
+              }}
+              onLogout={onLogout}
+            />
           </div>
 
           {mobileOpen && (
@@ -256,10 +291,7 @@ export default function DashboardLayout({
       {anyMenuOpen && (
         <button
           aria-label="Close menu"
-          onClick={() => {
-            setMobileOpen(false);
-            setOpenGroup(null);
-          }}
+          onClick={closeAll}
           className="fixed inset-0 z-[60] cursor-default bg-black/40 lg:bg-transparent"
         />
       )}
