@@ -1,0 +1,24 @@
+{
+  "name": "ssrp-department-hub",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Modular, fully configurable department hub boilerplate. Front-end only; backend (MariaDB + Discord auth) wired separately.",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "dependencies": {
+    "framer-motion": "latest",
+    "lucide-react": "latest",
+    "react": "latest",
+    "react-dom": "latest"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "latest",
+    "@vitejs/plugin-react": "latest",
+    "tailwindcss": "latest",
+    "vite": "latest"
+  }
+}

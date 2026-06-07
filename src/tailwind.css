@@ -1,0 +1,180 @@
+@import "tailwindcss";
+
+/*
+ * Theme variables. These defaults are overwritten at runtime by the active
+ * department's branding (see src/lib/theme.js → applyTheme). Every component
+ * styles against these vars so a department can fully reskin the hub from the
+ * Builder Portal without touching code.
+ */
+:root {
+  color-scheme: dark;
+  --color-primary: #3b82f6;
+  --color-hover: #2563eb;
+  --color-bg: #0f1629;
+  --color-surface-1: #131b2e;
+  --color-surface-2: #131d35;
+  --color-body-bg: #111827;
+  --color-border: rgba(59, 130, 246, 0.2);
+  --color-border-strong: rgba(59, 130, 246, 0.36);
+  --color-text: #f1f5f9;
+  --color-text-muted: #9eabc3;
+  --font-body: Ubuntu, "Segoe UI", "Trebuchet MS", sans-serif;
+  --font-display: Syne, Ubuntu, "Segoe UI", sans-serif;
+  scrollbar-color: #3f587b var(--color-body-bg);
+}
+
+html,
+body {
+  background: var(--color-body-bg);
+}
+
+html {
+  font-family: var(--font-body);
+}
+
+body {
+  min-height: 100vh;
+  color: var(--color-text);
+  font-family: var(--font-body);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+button,
+[role="button"],
+summary,
+.font-display {
+  font-family: var(--font-display);
+}
+
+p,
+li,
+label,
+input,
+textarea,
+select {
+  color: inherit;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-primary) 24%, transparent);
+  color: #fff;
+}
+
+*,
+html,
+body {
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar,
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+*::-webkit-scrollbar-track,
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track {
+  background: var(--color-body-bg);
+}
+
+*::-webkit-scrollbar-thumb,
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb {
+  border: 2px solid var(--color-body-bg);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #4c678c 0%, #355071 100%);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #5a789f 0%, #3c5c82 100%);
+}
+
+@keyframes pageFade {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-pageFade {
+  animation: pageFade 280ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalPop {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-modalFade {
+  animation: modalFade 180ms ease-out;
+}
+
+.animate-modalPop {
+  animation: modalPop 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ─── Reusable surface helpers (themeable via vars) ─────────────────────────── */
+
+.hub-shell-gradient {
+  background:
+    radial-gradient(circle at 50% -14%, color-mix(in srgb, var(--color-primary) 12%, transparent), transparent 28%),
+    radial-gradient(circle at 18% 0%, rgba(47, 71, 116, 0.36), transparent 28%),
+    linear-gradient(180deg, var(--color-body-bg) 0%, var(--color-bg) 58%, #0d1320 100%);
+}
+
+.hub-panel {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, var(--color-surface-1) 0%, var(--color-body-bg) 100%);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.22);
+}
+
+.hub-pill {
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+  color: var(--color-primary);
+}
+
+.hub-kicker {
+  color: var(--color-primary);
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
