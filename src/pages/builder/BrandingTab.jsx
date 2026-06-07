@@ -38,7 +38,7 @@ export default function BrandingTab() {
           <Field label="Department name">
             <Input value={b.name} onChange={(e) => setBrand({ name: e.target.value })} />
           </Field>
-          <Field label="Short name" hint="Shown in the sidebar.">
+          <Field label="Short name" hint="Shown in the top bar.">
             <Input value={b.shortName} onChange={(e) => setBrand({ shortName: e.target.value })} />
           </Field>
           <Field label="Organization / tagline line">

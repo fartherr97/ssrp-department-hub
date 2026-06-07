@@ -43,7 +43,7 @@ The entire hub is driven by one config object (see
 
 - **branding** — name, logo, login copy, theme colors, footer
 - **groups** — permission tiers (member → admin), ordered by `level`
-- **navGroups** — sidebar section headers
+- **navGroups** — top-bar nav groups (each becomes a dropdown menu)
 - **pages** — every page: label, icon, nav group, `access` groups, type, and
   (for content pages) hero text + content blocks
 - **roster** — `memberFields` (shared custom columns) + `subdivisions` (each a
@@ -149,7 +149,7 @@ src/
     api.js                  # ← data layer / backend contract (swap point)
     configContext.jsx       # loads config, themes, autosaves
     theme.js                # branding colors → CSS variables
-    navigation.js           # derive sidebar from config
+    navigation.js           # derive top-bar nav from config
     permissions.js          # group-based access checks
     roster.js               # pure roster edit operations
     icons.js                # icon registry (string → Lucide)
@@ -160,7 +160,7 @@ src/
     common/                 # Panel, Button, Modal, Field, … + Logo
     auth/AuthScreens.jsx    # login + loading
     content/BlockRenderer   # renders page content blocks
-  layouts/DashboardLayout   # sidebar + shell, driven by config
+  layouts/DashboardLayout   # top-bar nav + shell, driven by config
   pages/
     Home, Roster, ContentPage, BuilderPortal
     builder/                # Builder Portal tabs

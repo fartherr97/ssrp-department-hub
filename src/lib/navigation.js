@@ -1,7 +1,7 @@
 /*
  * Navigation is derived entirely from config.pages + config.navGroups, filtered
  * by what the current user may access. Returns ordered groups, each with its
- * visible pages, so the sidebar can render without any hard-coded routes.
+ * visible pages, so the top-bar nav can render without any hard-coded routes.
  */
 import { canAccessPage } from "./permissions.js";
 

@@ -179,7 +179,7 @@ body::-webkit-scrollbar-thumb {
   text-transform: uppercase;
 }
 
-/* ─── Sidebar nav (Staff Hub style, theme-driven via --color-primary) ───────── */
+/* ─── Nav items (Staff Hub style, theme-driven via --color-primary) ─────────── */
 
 .hub-nav-group {
   background: linear-gradient(

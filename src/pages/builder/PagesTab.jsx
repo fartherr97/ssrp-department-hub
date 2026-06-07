@@ -168,7 +168,7 @@ function NavGroups() {
 
   return (
     <Panel className="p-5">
-      <SectionHeader title="Navigation groups" subtitle="Section headers in the sidebar." />
+      <SectionHeader title="Navigation groups" subtitle="Each becomes a dropdown menu in the top bar." />
       <div className="flex flex-wrap gap-2">
         {config.navGroups.map((g) => {
           const used = config.pages.some((p) => p.navGroup === g);
