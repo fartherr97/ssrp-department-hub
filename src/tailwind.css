@@ -223,3 +223,37 @@ body::-webkit-scrollbar-thumb {
     0 0 0 1px color-mix(in srgb, var(--color-primary) 10%, transparent),
     0 12px 24px rgba(0, 0, 0, 0.22);
 }
+
+/*
+ * Top-bar nav link with an underline that swipes in from the left on hover
+ * (and stays lit on the active page), in the department's primary color.
+ */
+.hub-nav-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: 4rem;
+}
+
+.hub-nav-link::after {
+  content: "";
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: 0;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--color-primary),
+    color-mix(in srgb, var(--color-primary) 55%, #ffffff)
+  );
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 280ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hub-nav-link:hover::after,
+.hub-nav-link-active::after {
+  transform: scaleX(1);
+}

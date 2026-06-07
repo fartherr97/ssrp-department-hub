@@ -20,6 +20,7 @@ export const defaultConfig = {
     organization: "Your Department",
     tagline: "Internal Operations Platform",
     logoUrl: "", // empty → a generated monogram/shield is shown
+    bannerUrl: "", // hero background banner on the Home page (empty → gradient only)
     loginHeadline: "Department Hub",
     loginSubtext:
       "Centralized access for personnel, resources, and internal operations.",
@@ -61,6 +62,11 @@ export const defaultConfig = {
   ],
 
   navGroups: ["Main", "Resources", "Administration"],
+
+  // Nav groups whose pages collapse into a dropdown menu in the top bar instead
+  // of showing each page inline (e.g. "Rank Access", "Exam Backend"). Groups not
+  // listed here render their pages inline as individual top-bar links.
+  dropdownGroups: [],
 
   pages: [
     {

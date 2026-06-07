@@ -153,6 +153,7 @@ function PageModal({ open, onClose, config, page, onSave }) {
 function NavGroups() {
   const { config, mutate } = useConfig();
   const [name, setName] = useState("");
+  const dropdownGroups = config.dropdownGroups || [];
 
   function add() {
     const trimmed = name.trim();
@@ -163,30 +164,63 @@ function NavGroups() {
   function remove(group) {
     // Don't orphan pages: only allow removing empty groups.
     if (config.pages.some((p) => p.navGroup === group)) return;
-    mutate((cfg) => ({ ...cfg, navGroups: cfg.navGroups.filter((g) => g !== group) }));
+    mutate((cfg) => ({
+      ...cfg,
+      navGroups: cfg.navGroups.filter((g) => g !== group),
+      dropdownGroups: (cfg.dropdownGroups || []).filter((g) => g !== group),
+    }));
+  }
+  function setMode(group, asDropdown) {
+    mutate((cfg) => {
+      const set = new Set(cfg.dropdownGroups || []);
+      asDropdown ? set.add(group) : set.delete(group);
+      return { ...cfg, dropdownGroups: [...set] };
+    });
   }
 
   return (
     <Panel className="p-5">
-      <SectionHeader title="Navigation groups" subtitle="Each becomes a dropdown menu in the top bar." />
-      <div className="flex flex-wrap gap-2">
+      <SectionHeader
+        title="Navigation groups"
+        subtitle="Inline groups show each page as a top-bar link; dropdown groups collapse into a menu."
+      />
+      <div className="grid gap-2">
         {config.navGroups.map((g) => {
           const used = config.pages.some((p) => p.navGroup === g);
+          const isDropdown = dropdownGroups.includes(g);
           return (
-            <span
+            <div
               key={g}
-              className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-[var(--color-surface-2)] px-3 py-1 text-sm text-slate-200"
+              className="flex items-center gap-3 rounded-xl border border-white/10 bg-[var(--color-surface-2)] px-3 py-2"
             >
-              {g}
+              <span className="flex-1 truncate text-sm font-semibold text-white">{g}</span>
+              <div className="flex overflow-hidden rounded-lg border border-white/10">
+                {[
+                  ["Inline", false],
+                  ["Dropdown", true],
+                ].map(([label, val]) => (
+                  <button
+                    key={label}
+                    onClick={() => setMode(g, val)}
+                    className={`px-3 py-1 text-xs font-semibold transition ${
+                      isDropdown === val
+                        ? "bg-[color:var(--color-primary)]/20 text-white"
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
               <button
                 onClick={() => remove(g)}
                 disabled={used}
                 title={used ? "Group has pages" : "Remove group"}
                 className="text-slate-500 transition hover:text-red-300 disabled:opacity-30"
               >
-                <Trash2 size={13} />
+                <Trash2 size={15} />
               </button>
-            </span>
+            </div>
           );
         })}
       </div>

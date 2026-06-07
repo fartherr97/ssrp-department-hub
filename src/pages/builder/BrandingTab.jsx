@@ -50,11 +50,24 @@ export default function BrandingTab() {
           <Field label="Logo URL" hint="Leave blank for an auto-generated monogram.">
             <Input value={b.logoUrl} onChange={(e) => setBrand({ logoUrl: e.target.value })} />
           </Field>
+          <Field
+            label="Home banner image URL"
+            hint="Background image for the Home page hero. Leave blank for a plain gradient."
+          >
+            <Input value={b.bannerUrl} onChange={(e) => setBrand({ bannerUrl: e.target.value })} />
+          </Field>
         </div>
         <div className="mt-4 flex items-center gap-3 rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-3">
           <Logo branding={b} size={48} />
           <div className="text-sm text-slate-400">Logo preview</div>
         </div>
+        {b.bannerUrl && (
+          <div
+            className="mt-3 h-24 rounded-xl border border-white/10 bg-cover bg-center"
+            style={{ backgroundImage: `url(${b.bannerUrl})` }}
+            title="Banner preview"
+          />
+        )}
       </Panel>
 
       <Panel className="p-5">

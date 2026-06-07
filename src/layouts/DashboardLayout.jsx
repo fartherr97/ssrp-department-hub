@@ -61,52 +61,48 @@ function PageItem({ page, active, onNavigate }) {
 
 // ─── Desktop top-bar nav (grouped dropdown menus) ────────────────────────────
 
-function TopNav({ nav, activePage, openGroup, setOpenGroup, onNavigate }) {
+function TopNav({ nav, activePage, dropdownGroups, openGroup, setOpenGroup, onNavigate }) {
   return (
-    <nav className="hidden items-center gap-1 lg:flex">
+    <nav className="hidden h-16 items-center gap-1 lg:flex">
       {nav.map((group) => {
-        const containsActive = group.pages.some((p) => p.id === activePage);
+        const asDropdown = dropdownGroups.includes(group.name);
 
-        // Single-page groups render as a direct button (no dropdown).
-        if (group.pages.length === 1) {
-          const page = group.pages[0];
-          const Icon = getIcon(page.icon);
-          const active = page.id === activePage;
-          return (
-            <button
-              key={group.name}
-              onClick={() => onNavigate(page.id)}
-              className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold transition ${
-                active
-                  ? "border border-[color:var(--color-border-strong)] bg-[color:var(--color-primary)]/12 text-white"
-                  : "border border-transparent text-slate-300 hover:bg-white/5 hover:text-white"
-              }`}
-            >
-              <Icon size={16} className={active ? "text-[var(--color-primary)]" : "text-[#7f9ec8]"} />
-              {page.label}
-            </button>
-          );
+        // Inline group: render each page as a top-bar link with the swipe underline.
+        if (!asDropdown) {
+          return group.pages.map((page) => {
+            const active = page.id === activePage;
+            return (
+              <button
+                key={page.id}
+                onClick={() => onNavigate(page.id)}
+                className={`hub-nav-link px-3 text-sm font-semibold transition-colors ${
+                  active ? "hub-nav-link-active text-white" : "text-slate-300 hover:text-white"
+                }`}
+              >
+                {page.label}
+              </button>
+            );
+          });
         }
 
+        // Dropdown group: a single labelled menu (e.g. "Rank Access ⌄").
+        const containsActive = group.pages.some((p) => p.id === activePage);
         const open = openGroup === group.name;
         return (
-          <div key={group.name} className="relative">
+          <div key={group.name} className="relative flex h-16 items-center">
             <button
               onClick={() => setOpenGroup(open ? null : group.name)}
-              className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold transition ${
+              className={`hub-nav-link gap-1.5 px-3 text-sm font-semibold transition-colors ${
                 open || containsActive
-                  ? "border border-[color:var(--color-border-strong)] bg-[color:var(--color-primary)]/12 text-white"
-                  : "border border-transparent text-slate-300 hover:bg-white/5 hover:text-white"
+                  ? "hub-nav-link-active text-white"
+                  : "text-slate-300 hover:text-white"
               }`}
             >
               {group.name}
-              <ChevronDown
-                size={15}
-                className={`transition-transform ${open ? "rotate-180" : ""}`}
-              />
+              <ChevronDown size={15} className={`transition-transform ${open ? "rotate-180" : ""}`} />
             </button>
             {open && (
-              <div className="hub-panel absolute left-0 top-full z-50 mt-2 grid min-w-[230px] gap-1 rounded-xl p-2">
+              <div className="hub-panel absolute left-0 top-full z-50 mt-1 grid min-w-[230px] gap-1 rounded-xl p-2">
                 {group.pages.map((page) => (
                   <PageItem
                     key={page.id}
@@ -165,6 +161,7 @@ export default function DashboardLayout({
   const [openGroup, setOpenGroup] = useState(null);
   const nav = buildNav(config, user);
   const branding = config?.branding || {};
+  const dropdownGroups = config?.dropdownGroups || [];
   const anyMenuOpen = mobileOpen || openGroup !== null;
 
   // Close menus on Escape.
@@ -226,6 +223,7 @@ export default function DashboardLayout({
             <TopNav
               nav={nav}
               activePage={activePage}
+              dropdownGroups={dropdownGroups}
               openGroup={openGroup}
               setOpenGroup={setOpenGroup}
               onNavigate={navigate}
