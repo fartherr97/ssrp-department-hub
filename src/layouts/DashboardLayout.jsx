@@ -44,10 +44,7 @@ function AccountMenu({ user, config, open, setOpen, onLogout }) {
             </div>
           </div>
           <div className="my-1 h-px bg-white/10" />
-          <button
-            onClick={onLogout}
-            className="hub-menu-item flex items-center gap-2 text-red-300 hover:bg-red-500/10 hover:text-red-200"
-          >
+          <button onClick={onLogout} className="hub-menu-item hub-menu-item-danger">
             <LogOut size={16} strokeWidth={2.4} />
             Sign out
           </button>
@@ -112,7 +109,12 @@ function TopNav({ nav, activePage, dropdownGroups, openGroup, setOpenGroup, onNa
         const containsActive = group.pages.some((p) => p.id === activePage);
         const open = openGroup === group.name;
         return (
-          <div key={group.name} className="relative flex h-16 items-center">
+          <div
+            key={group.name}
+            className="relative flex h-16 items-center"
+            onMouseEnter={() => setOpenGroup(group.name)}
+            onMouseLeave={() => setOpenGroup((g) => (g === group.name ? null : g))}
+          >
             <button
               onClick={() => setOpenGroup(open ? null : group.name)}
               className={`hub-nav-link gap-1.5 px-3 text-sm font-semibold transition-colors ${

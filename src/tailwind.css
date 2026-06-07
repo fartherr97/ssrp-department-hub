@@ -232,7 +232,8 @@ body::-webkit-scrollbar-thumb {
   position: relative;
   display: inline-flex;
   align-items: center;
-  height: 4rem;
+  /* Small gap between the label and its underline (keeps the line close to the text). */
+  padding-bottom: 6px;
 }
 
 .hub-nav-link::after {
@@ -274,7 +275,10 @@ body::-webkit-scrollbar-thumb {
 }
 
 .hub-menu-item {
-  display: block;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   width: 100%;
   border-radius: 0.5rem;
   padding: 0.6rem 0.85rem;
@@ -282,12 +286,36 @@ body::-webkit-scrollbar-thumb {
   font-size: 0.875rem;
   font-weight: 500;
   color: #cbd5e1;
-  transition: background 150ms ease, color 150ms ease;
+  transition: background 150ms ease, color 150ms ease, transform 150ms ease,
+    box-shadow 150ms ease;
+}
+
+/* Left accent bar — animates in on hover and stays for the active item. */
+.hub-menu-item::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 7px;
+  bottom: 7px;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--color-primary);
+  transform: scaleY(0);
+  transform-origin: center;
+  transition: transform 160ms ease;
 }
 
 .hub-menu-item:hover {
   background: rgba(255, 255, 255, 0.05);
   color: #ffffff;
+  /* Subtle lift on hover. */
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+}
+
+.hub-menu-item:hover::before,
+.hub-menu-item-active::before {
+  transform: scaleY(1);
 }
 
 .hub-menu-item-active {
@@ -298,4 +326,18 @@ body::-webkit-scrollbar-thumb {
   );
   color: #ffffff;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+/* Danger item (Sign out) — defined after .hub-menu-item so the red wins. */
+.hub-menu-item-danger {
+  color: #fca5a5;
+}
+
+.hub-menu-item-danger::before {
+  background: #ef4444;
+}
+
+.hub-menu-item-danger:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: #fecaca;
 }
