@@ -102,15 +102,19 @@ function TopNav({ nav, activePage, dropdownGroups, openGroup, setOpenGroup, onNa
               <ChevronDown size={15} className={`transition-transform ${open ? "rotate-180" : ""}`} />
             </button>
             {open && (
-              <div className="hub-panel absolute left-0 top-full z-50 mt-1 grid min-w-[230px] gap-1 rounded-xl p-2">
-                {group.pages.map((page) => (
-                  <PageItem
-                    key={page.id}
-                    page={page}
-                    active={page.id === activePage}
-                    onNavigate={onNavigate}
-                  />
-                ))}
+              <div className="hub-menu absolute left-0 top-full z-50 grid min-w-[240px] gap-0.5 p-2">
+                {group.pages.map((page) => {
+                  const active = page.id === activePage;
+                  return (
+                    <button
+                      key={page.id}
+                      onClick={() => onNavigate(page.id)}
+                      className={active ? "hub-menu-item hub-menu-item-active" : "hub-menu-item"}
+                    >
+                      {page.label}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
