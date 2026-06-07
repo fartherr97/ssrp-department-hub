@@ -46,7 +46,8 @@ The entire hub is driven by one config object (see
 - **navGroups** — sidebar section headers
 - **pages** — every page: label, icon, nav group, `access` groups, type, and
   (for content pages) hero text + content blocks
-- **roster** — `memberFields` (custom columns) + `ranks` (each with members)
+- **roster** — `memberFields` (shared custom columns) + `subdivisions` (each a
+  tabbed roster with its own `ranks`, each rank holding members)
 - **auth** — Discord guild id + role→group mappings, dev-login toggle
 
 `ConfigProvider` (`src/lib/configContext.jsx`) loads it, applies the theme, and
@@ -77,7 +78,8 @@ Admins configure the hub here (auto-saves):
 - **Access & Roles** — permission groups + Discord role → group mappings
 - **Advanced** — export/import config JSON, reset to blank template
 
-The **Roster** page itself supports add/edit/delete/reorder of ranks and
+The **Roster** page itself supports **subdivision tabs** (e.g. Patrol, K9,
+Traffic — each its own roster), plus add/edit/delete/reorder of ranks and
 members, custom columns, and drag-to-move members between ranks.
 
 ---
