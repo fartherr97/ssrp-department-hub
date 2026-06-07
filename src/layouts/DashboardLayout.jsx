@@ -37,7 +37,7 @@ function SidebarNav({ nav, activePage, onNavigate }) {
     <nav className="space-y-6 px-3 pb-5">
       {nav.map((group) => (
         <section key={group.name}>
-          <div className="mb-2 px-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500/90">
+          <div className="hub-nav-group mb-2 px-3 text-[11px] font-black uppercase tracking-[0.2em]">
             {group.name}
           </div>
           <div>
@@ -48,16 +48,18 @@ function SidebarNav({ nav, activePage, onNavigate }) {
                 <button
                   key={page.id}
                   onClick={() => onNavigate(page.id)}
-                  className={`mb-1 flex min-h-[42px] w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition last:mb-0 ${
-                    active
-                      ? "border border-[color:var(--color-border-strong)] bg-[color:var(--color-primary)]/12 text-white shadow-[0_12px_24px_rgba(0,0,0,0.22)]"
-                      : "border border-transparent text-slate-300 hover:bg-[var(--color-surface-2)] hover:text-white"
+                  className={`group/navitem mb-1 flex min-h-[42px] w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium last:mb-0 ${
+                    active ? "hub-nav-item-active" : "hub-nav-item"
                   }`}
                 >
                   <Icon
                     size={16}
                     strokeWidth={2.35}
-                    className={active ? "text-[var(--color-primary)]" : "text-[#7f9ec8]"}
+                    className={
+                      active
+                        ? "text-[var(--color-primary)]"
+                        : "text-[#7f9ec8] transition-colors group-hover/navitem:text-[var(--color-primary)]"
+                    }
                   />
                   <span className="truncate">{page.label}</span>
                 </button>

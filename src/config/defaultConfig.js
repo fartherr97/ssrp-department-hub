@@ -134,7 +134,8 @@ export const defaultConfig = {
   ],
 
   roster: {
-    // Custom columns shown for every member. Types: text | select | badge | date
+    // Custom columns shown for every member, across all subdivisions.
+    // Types: text | select | date
     memberFields: [
       { id: "callsign", label: "Callsign", type: "text" },
       {
@@ -144,39 +145,47 @@ export const defaultConfig = {
         options: ["Active", "LOA", "Inactive"],
       },
     ],
-    // Ranks are the rows/sections of the roster. Reorderable; each holds members.
-    ranks: [
+    // Each subdivision is its own roster (its own ranks + members), shown as a
+    // tab at the top of the Roster page. Departments can add as many as they
+    // like (e.g. Patrol, K9, Traffic, Command Staff).
+    subdivisions: [
       {
-        id: "rank-command",
-        name: "Command",
-        color: "#f59e0b",
-        members: [
+        id: "sub-main",
+        name: "Department",
+        ranks: [
           {
-            id: "member-1",
-            name: "Jane Doe",
-            discordId: "",
-            avatarUrl: "",
-            fields: { callsign: "C-1", status: "Active" },
+            id: "rank-command",
+            name: "Command",
+            color: "#f59e0b",
+            members: [
+              {
+                id: "member-1",
+                name: "Jane Doe",
+                discordId: "",
+                avatarUrl: "",
+                fields: { callsign: "C-1", status: "Active" },
+              },
+            ],
           },
-        ],
-      },
-      {
-        id: "rank-supervisor",
-        name: "Supervisors",
-        color: "#3b82f6",
-        members: [],
-      },
-      {
-        id: "rank-member",
-        name: "Members",
-        color: "#22c55e",
-        members: [
           {
-            id: "member-2",
-            name: "John Smith",
-            discordId: "",
-            avatarUrl: "",
-            fields: { callsign: "M-14", status: "Active" },
+            id: "rank-supervisor",
+            name: "Supervisors",
+            color: "#3b82f6",
+            members: [],
+          },
+          {
+            id: "rank-member",
+            name: "Members",
+            color: "#22c55e",
+            members: [
+              {
+                id: "member-2",
+                name: "John Smith",
+                discordId: "",
+                avatarUrl: "",
+                fields: { callsign: "M-14", status: "Active" },
+              },
+            ],
           },
         ],
       },

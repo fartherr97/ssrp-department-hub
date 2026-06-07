@@ -178,3 +178,48 @@ body::-webkit-scrollbar-thumb {
   letter-spacing: 0.22em;
   text-transform: uppercase;
 }
+
+/* ─── Sidebar nav (Staff Hub style, theme-driven via --color-primary) ───────── */
+
+.hub-nav-group {
+  background: linear-gradient(
+    90deg,
+    var(--color-primary) 0%,
+    color-mix(in srgb, var(--color-primary) 50%, #ffffff) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.hub-nav-item {
+  border: 1px solid transparent;
+  color: #cbd5e1;
+  transition: all 160ms ease;
+}
+
+.hub-nav-item:hover {
+  border-color: var(--color-border);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--color-primary) 10%, transparent) 0%,
+    color-mix(in srgb, var(--color-primary) 5%, transparent) 55%,
+    rgba(255, 255, 255, 0.015) 100%
+  );
+  color: color-mix(in srgb, var(--color-primary) 28%, #ffffff);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+}
+
+.hub-nav-item-active {
+  border: 1px solid var(--color-border-strong);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--color-primary) 16%, transparent) 0%,
+    color-mix(in srgb, var(--color-primary) 8%, transparent) 55%,
+    rgba(255, 255, 255, 0.02) 100%
+  );
+  color: color-mix(in srgb, var(--color-primary) 32%, #ffffff);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--color-primary) 10%, transparent),
+    0 12px 24px rgba(0, 0, 0, 0.22);
+}

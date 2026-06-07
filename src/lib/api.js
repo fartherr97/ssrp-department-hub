@@ -61,6 +61,22 @@ function migrateConfig(saved) {
   // Arrays (pages, ranks, groups…) are owned by the saved config once it exists;
   // scalars/objects fall back to defaults for any newly introduced field.
   const merged = deepMerge(defaults, saved);
+
+  // v0 → v1: roster.ranks (a single flat roster) became roster.subdivisions
+  // (multiple tabbed rosters). Wrap any legacy ranks into a default subdivision.
+  if (merged.roster && Array.isArray(merged.roster.ranks)) {
+    if (!Array.isArray(saved?.roster?.subdivisions)) {
+      merged.roster.subdivisions = [
+        { id: "sub-main", name: "Department", ranks: merged.roster.ranks },
+      ];
+    }
+    delete merged.roster.ranks;
+  }
+  if (!Array.isArray(merged.roster?.subdivisions) || merged.roster.subdivisions.length === 0) {
+    merged.roster = merged.roster || {};
+    merged.roster.subdivisions = cloneDefaultConfig().roster.subdivisions;
+  }
+
   merged.version = CONFIG_VERSION;
   return merged;
 }

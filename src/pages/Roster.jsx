@@ -5,6 +5,8 @@ import {
   Trash2,
   ChevronUp,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   GripVertical,
   Users,
   Columns3,
@@ -55,12 +57,10 @@ function MemberAvatar({ member }) {
 
 // ─── Member edit modal ───────────────────────────────────────────────────────
 
-function MemberModal({ open, onClose, config, rankId, member, onSave }) {
-  const fields = config.roster.memberFields || [];
+function MemberModal({ open, onClose, fields, ranks, rankId, member, onSave }) {
   const [draft, setDraft] = useState(member);
   const [targetRank, setTargetRank] = useState(rankId);
 
-  // Re-seed when a different member is opened.
   if (open && draft.id !== member.id) {
     setDraft(member);
     setTargetRank(rankId);
@@ -135,7 +135,7 @@ function MemberModal({ open, onClose, config, rankId, member, onSave }) {
 
         <Field label="Rank" hint="Move this member to a different rank.">
           <Select value={targetRank} onChange={(e) => setTargetRank(e.target.value)}>
-            {config.roster.ranks.map((r) => (
+            {ranks.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
               </option>
@@ -195,7 +195,33 @@ function RankModal({ open, onClose, rank, onSave }) {
   );
 }
 
-// ─── Column (member field) editor ────────────────────────────────────────────
+// ─── Subdivision rename modal ────────────────────────────────────────────────
+
+function SubdivisionModal({ open, onClose, subdivision, onSave }) {
+  const [name, setName] = useState(subdivision.name);
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={subdivision.isNew ? "Add subdivision" : "Rename subdivision"}
+      size="sm"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={() => onSave(name)}>Save</Button>
+        </>
+      }
+    >
+      <Field label="Subdivision name" hint="Shown as a tab at the top of the roster.">
+        <Input value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+      </Field>
+    </Modal>
+  );
+}
+
+// ─── Columns (shared member fields) editor ───────────────────────────────────
 
 function ColumnsModal({ open, onClose }) {
   const { config, mutate } = useConfig();
@@ -214,7 +240,7 @@ function ColumnsModal({ open, onClose }) {
     >
       <div className="grid gap-3">
         <p className="text-sm text-slate-400">
-          Custom fields shown for every member. Changes apply across the whole roster.
+          Custom fields shown for every member, across all subdivisions.
         </p>
         {fields.map((f) => (
           <div
@@ -325,17 +351,92 @@ function MemberRow({ member, rank, fields, canEdit, onEdit, onDelete, onDragStar
   );
 }
 
+// ─── Subdivision tab bar ─────────────────────────────────────────────────────
+
+function SubdivisionTabs({ subdivisions, activeId, canEdit, onSelect, onAdd, onRename, onMove, onDelete }) {
+  const active = subdivisions.find((s) => s.id === activeId);
+  const idx = subdivisions.findIndex((s) => s.id === activeId);
+
+  return (
+    <div className="mb-5 flex flex-wrap items-center gap-2 border-b border-white/10 pb-3">
+      <div className="flex flex-wrap items-center gap-1.5">
+        {subdivisions.map((s) => {
+          const isActive = s.id === activeId;
+          const count = s.ranks.reduce((n, r) => n + r.members.length, 0);
+          return (
+            <button
+              key={s.id}
+              onClick={() => onSelect(s.id)}
+              className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold transition ${
+                isActive
+                  ? "border border-[color:var(--color-border-strong)] bg-[color:var(--color-primary)]/14 text-white"
+                  : "border border-transparent text-slate-300 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              {s.name}
+              <span
+                className={`rounded-full px-1.5 text-[11px] font-bold ${
+                  isActive ? "bg-[color:var(--color-primary)]/30 text-white" : "bg-white/10 text-slate-400"
+                }`}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
+        {canEdit && (
+          <IconButton icon={Plus} label="Add subdivision" onClick={onAdd} className="rounded-xl" />
+        )}
+      </div>
+
+      {canEdit && active && (
+        <div className="ml-auto flex items-center gap-1">
+          <IconButton
+            icon={ChevronLeft}
+            label="Move subdivision left"
+            disabled={idx <= 0}
+            onClick={() => onMove(active.id, -1)}
+            className="disabled:opacity-30"
+          />
+          <IconButton
+            icon={ChevronRight}
+            label="Move subdivision right"
+            disabled={idx >= subdivisions.length - 1}
+            onClick={() => onMove(active.id, 1)}
+            className="disabled:opacity-30"
+          />
+          <IconButton icon={Pencil} label="Rename subdivision" onClick={() => onRename(active)} />
+          <IconButton
+            icon={Trash2}
+            label="Delete subdivision"
+            disabled={subdivisions.length <= 1}
+            onClick={() => onDelete(active)}
+            className="hover:border-red-500/40 hover:text-red-300 disabled:opacity-30"
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function Roster({ user }) {
   const { config, mutate } = useConfig();
   const canEdit = canEditRoster(user, config);
-  const ranks = config.roster.ranks || [];
   const fields = config.roster.memberFields || [];
+  const subdivisions = config.roster.subdivisions || [];
+
+  const [activeSubId, setActiveSubId] = useState(subdivisions[0]?.id);
+  // Active subdivision (fall back to first if the current one was deleted).
+  const activeSub = subdivisions.find((s) => s.id === activeSubId) || subdivisions[0];
+  const subId = activeSub?.id;
+  const ranks = activeSub?.ranks || [];
   const totalMembers = ranks.reduce((n, r) => n + r.members.length, 0);
 
   const [memberModal, setMemberModal] = useState(null); // { rankId, member }
   const [rankModal, setRankModal] = useState(null); // rank
+  const [subModal, setSubModal] = useState(null); // subdivision
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [confirm, setConfirm] = useState(null); // { type, ... }
   const [dragOverRank, setDragOverRank] = useState(null);
@@ -351,12 +452,10 @@ export default function Roster({ user }) {
     const { rankId } = memberModal;
     const { isNew, ...clean } = draft;
     mutate((cfg) => {
-      let next = isNew
-        ? R.addMember(cfg, rankId, clean)
-        : R.updateMember(cfg, rankId, clean.id, clean);
-      const id = isNew ? next.roster.ranks.find((r) => r.id === rankId)?.members.at(-1)?.id : clean.id;
-      if (!isNew && targetRank && targetRank !== rankId && id) {
-        next = R.moveMember(next, rankId, id, targetRank);
+      if (isNew) return R.addMember(cfg, subId, rankId, clean);
+      let next = R.updateMember(cfg, subId, rankId, clean.id, clean);
+      if (targetRank && targetRank !== rankId) {
+        next = R.moveMember(next, subId, rankId, clean.id, targetRank);
       }
       return next;
     });
@@ -368,13 +467,26 @@ export default function Roster({ user }) {
     const { isNew, ...clean } = draft;
     mutate((cfg) =>
       isNew
-        ? R.addRank(cfg, { name: clean.name, color: clean.color })
-        : R.updateRank(cfg, clean.id, { name: clean.name, color: clean.color })
+        ? R.addRank(cfg, subId, { name: clean.name, color: clean.color })
+        : R.updateRank(cfg, subId, clean.id, { name: clean.name, color: clean.color })
     );
     setRankModal(null);
   }
 
-  // ── Drag and drop ──
+  // ── Subdivision handlers ──
+  function saveSubdivision(name) {
+    const sub = subModal;
+    if (sub.isNew) {
+      const newId = R.uid("sub");
+      mutate((cfg) => R.addSubdivision(cfg, { id: newId, name: name || "New Subdivision" }));
+      setActiveSubId(newId);
+    } else {
+      mutate(R.updateSubdivision(config, sub.id, { name }));
+    }
+    setSubModal(null);
+  }
+
+  // ── Drag and drop (within the active subdivision) ──
   function onDragStart(e, fromRankId, memberId) {
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", JSON.stringify({ fromRankId, memberId }));
@@ -385,7 +497,7 @@ export default function Roster({ user }) {
     try {
       const { fromRankId, memberId } = JSON.parse(e.dataTransfer.getData("text/plain"));
       if (fromRankId !== toRankId) {
-        mutate((cfg) => R.moveMember(cfg, fromRankId, memberId, toRankId));
+        mutate((cfg) => R.moveMember(cfg, subId, fromRankId, memberId, toRankId));
       }
     } catch {
       /* ignore malformed drop */
@@ -397,7 +509,11 @@ export default function Roster({ user }) {
       <PageHeader
         kicker="Personnel"
         title="Roster"
-        subtitle={`${totalMembers} member${totalMembers === 1 ? "" : "s"} across ${ranks.length} rank${ranks.length === 1 ? "" : "s"}.`}
+        subtitle={
+          activeSub
+            ? `${activeSub.name} · ${totalMembers} member${totalMembers === 1 ? "" : "s"} across ${ranks.length} rank${ranks.length === 1 ? "" : "s"}.`
+            : "No subdivisions yet."
+        }
         actions={
           canEdit && (
             <>
@@ -415,11 +531,22 @@ export default function Roster({ user }) {
         }
       />
 
+      <SubdivisionTabs
+        subdivisions={subdivisions}
+        activeId={subId}
+        canEdit={canEdit}
+        onSelect={setActiveSubId}
+        onAdd={() => setSubModal({ id: R.uid("sub"), name: "", isNew: true })}
+        onRename={(sub) => setSubModal(sub)}
+        onMove={(id, dir) => mutate(R.moveSubdivision(config, id, dir))}
+        onDelete={(sub) => setConfirm({ type: "subdivision", subdivision: sub })}
+      />
+
       {ranks.length === 0 ? (
         <EmptyState
           icon={Users}
           title="No ranks yet"
-          subtitle="Add your first rank to start building the roster."
+          subtitle={`Add your first rank to start building the ${activeSub?.name || "roster"}.`}
           action={
             canEdit && (
               <Button
@@ -464,14 +591,14 @@ export default function Roster({ user }) {
                         icon={ChevronUp}
                         label="Move rank up"
                         disabled={idx === 0}
-                        onClick={() => mutate(R.moveRank(config, rank.id, -1))}
+                        onClick={() => mutate(R.moveRank(config, subId, rank.id, -1))}
                         className="disabled:opacity-30"
                       />
                       <IconButton
                         icon={ChevronDown}
                         label="Move rank down"
                         disabled={idx === ranks.length - 1}
-                        onClick={() => mutate(R.moveRank(config, rank.id, 1))}
+                        onClick={() => mutate(R.moveRank(config, subId, rank.id, 1))}
                         className="disabled:opacity-30"
                       />
                       <IconButton icon={UserPlus} label="Add member" onClick={() => openNewMember(rank.id)} />
@@ -517,7 +644,8 @@ export default function Roster({ user }) {
         <MemberModal
           open
           onClose={() => setMemberModal(null)}
-          config={config}
+          fields={fields}
+          ranks={ranks}
           rankId={memberModal.rankId}
           member={memberModal.member}
           onSave={saveMember}
@@ -526,21 +654,50 @@ export default function Roster({ user }) {
       {rankModal && (
         <RankModal open onClose={() => setRankModal(null)} rank={rankModal} onSave={saveRank} />
       )}
+      {subModal && (
+        <SubdivisionModal
+          key={subModal.id}
+          open
+          onClose={() => setSubModal(null)}
+          subdivision={subModal}
+          onSave={saveSubdivision}
+        />
+      )}
       <ColumnsModal open={columnsOpen} onClose={() => setColumnsOpen(false)} />
 
       <ConfirmDialog
         open={Boolean(confirm)}
-        title={confirm?.type === "rank" ? "Delete rank?" : "Remove member?"}
+        title={
+          confirm?.type === "rank"
+            ? "Delete rank?"
+            : confirm?.type === "subdivision"
+            ? "Delete subdivision?"
+            : "Remove member?"
+        }
         message={
           confirm?.type === "rank"
             ? `Delete "${confirm?.rank?.name}" and all ${confirm?.rank?.members?.length || 0} member(s) in it? This can't be undone.`
+            : confirm?.type === "subdivision"
+            ? `Delete the "${confirm?.subdivision?.name}" subdivision and its entire roster? This can't be undone.`
             : `Remove "${confirm?.member?.name}" from the roster?`
         }
-        confirmLabel={confirm?.type === "rank" ? "Delete rank" : "Remove"}
+        confirmLabel={
+          confirm?.type === "rank"
+            ? "Delete rank"
+            : confirm?.type === "subdivision"
+            ? "Delete subdivision"
+            : "Remove"
+        }
         onCancel={() => setConfirm(null)}
         onConfirm={() => {
-          if (confirm.type === "rank") mutate(R.deleteRank(config, confirm.rank.id));
-          else mutate(R.deleteMember(config, confirm.rankId, confirm.member.id));
+          if (confirm.type === "rank") mutate(R.deleteRank(config, subId, confirm.rank.id));
+          else if (confirm.type === "subdivision") {
+            mutate(R.deleteSubdivision(config, confirm.subdivision.id));
+            if (confirm.subdivision.id === activeSubId) {
+              const fallback = subdivisions.find((s) => s.id !== confirm.subdivision.id);
+              setActiveSubId(fallback?.id);
+            }
+          } else mutate(R.deleteMember(config, subId, confirm.rankId, confirm.member.id));
           setConfirm(null);
         }}
       />

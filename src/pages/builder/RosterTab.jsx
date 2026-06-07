@@ -1,4 +1,4 @@
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { useConfig } from "../../lib/configContext.jsx";
 import {
   Panel,
@@ -14,14 +14,68 @@ import * as R from "../../lib/roster.js";
 export default function RosterTab() {
   const { config, mutate } = useConfig();
   const fields = config.roster.memberFields || [];
-  const ranks = config.roster.ranks || [];
+  const subdivisions = config.roster.subdivisions || [];
 
   return (
     <div className="grid gap-6">
       <Panel className="p-5">
         <SectionHeader
+          title="Subdivisions"
+          subtitle="Each subdivision is a separate roster tab (e.g. Patrol, K9, Traffic). Ranks and members are managed on the Roster page."
+          actions={
+            <Button icon={Plus} onClick={() => mutate(R.addSubdivision(config, { name: "New Subdivision" }))}>
+              Add subdivision
+            </Button>
+          }
+        />
+        <div className="grid gap-2">
+          {subdivisions.map((s, idx) => (
+            <div
+              key={s.id}
+              className="flex items-center gap-3 rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-3"
+            >
+              <Input
+                value={s.name}
+                onChange={(e) => mutate(R.updateSubdivision(config, s.id, { name: e.target.value }))}
+                className="flex-1"
+              />
+              <span className="shrink-0 text-xs text-slate-500">
+                {s.ranks.length} rank(s) ·{" "}
+                {s.ranks.reduce((n, r) => n + r.members.length, 0)} member(s)
+              </span>
+              <IconButton
+                icon={ChevronUp}
+                label="Move up"
+                disabled={idx === 0}
+                onClick={() => mutate(R.moveSubdivision(config, s.id, -1))}
+                className="disabled:opacity-30"
+              />
+              <IconButton
+                icon={ChevronDown}
+                label="Move down"
+                disabled={idx === subdivisions.length - 1}
+                onClick={() => mutate(R.moveSubdivision(config, s.id, 1))}
+                className="disabled:opacity-30"
+              />
+              <IconButton
+                icon={Trash2}
+                label="Delete subdivision"
+                disabled={subdivisions.length <= 1}
+                onClick={() => mutate(R.deleteSubdivision(config, s.id))}
+                className="hover:border-red-500/40 hover:text-red-300 disabled:opacity-30"
+              />
+            </div>
+          ))}
+          {subdivisions.length === 0 && (
+            <p className="text-sm text-slate-500">No subdivisions yet.</p>
+          )}
+        </div>
+      </Panel>
+
+      <Panel className="p-5">
+        <SectionHeader
           title="Member columns"
-          subtitle="Custom fields captured for every roster member."
+          subtitle="Custom fields captured for every member, shared across all subdivisions."
           actions={
             <Button
               icon={Plus}
@@ -77,49 +131,7 @@ export default function RosterTab() {
               )}
             </div>
           ))}
-          {fields.length === 0 && (
-            <p className="text-sm text-slate-500">No custom columns yet.</p>
-          )}
-        </div>
-      </Panel>
-
-      <Panel className="p-5">
-        <SectionHeader
-          title="Ranks"
-          subtitle="The sections of the roster. Members are added on the Roster page."
-          actions={
-            <Button icon={Plus} onClick={() => mutate(R.addRank(config, { name: "New Rank" }))}>
-              Add rank
-            </Button>
-          }
-        />
-        <div className="grid gap-2">
-          {ranks.map((rank) => (
-            <div
-              key={rank.id}
-              className="flex items-center gap-3 rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-3"
-            >
-              <input
-                type="color"
-                value={rank.color || "#3b82f6"}
-                onChange={(e) => mutate(R.updateRank(config, rank.id, { color: e.target.value }))}
-                className="h-9 w-10 shrink-0 cursor-pointer rounded-lg border border-white/10 bg-transparent"
-              />
-              <Input
-                value={rank.name}
-                onChange={(e) => mutate(R.updateRank(config, rank.id, { name: e.target.value }))}
-                className="flex-1"
-              />
-              <span className="text-xs text-slate-500">{rank.members.length} member(s)</span>
-              <IconButton
-                icon={Trash2}
-                label="Delete rank"
-                onClick={() => mutate(R.deleteRank(config, rank.id))}
-                className="hover:border-red-500/40 hover:text-red-300"
-              />
-            </div>
-          ))}
-          {ranks.length === 0 && <p className="text-sm text-slate-500">No ranks yet.</p>}
+          {fields.length === 0 && <p className="text-sm text-slate-500">No custom columns yet.</p>}
         </div>
       </Panel>
     </div>
