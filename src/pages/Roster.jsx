@@ -12,6 +12,7 @@ import {
   Columns3,
   UserPlus,
   Search,
+  Check,
 } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
 import { isAdmin, groupLevel } from "../lib/permissions.js";
@@ -61,6 +62,159 @@ const STATUS_TONES = [
 function statusTone(value) {
   const hit = STATUS_TONES.find((t) => t.test.test(value || ""));
   return hit || { badge: "bg-slate-500/15 text-slate-300 border-slate-500/30", dot: "#94a3b8" };
+}
+
+// A select field renders as a colored status pill if it opts in (`pill`) or is
+// the detected status field. A per-option color (optionColors) wins over the tone.
+function isPillField(field, statusFieldId) {
+  return field.type === "select" && (field.pill || field.id === statusFieldId);
+}
+
+function selectPillProps(field, value) {
+  const custom = field.optionColors?.[value];
+  if (custom) {
+    return {
+      style: {
+        backgroundColor: `color-mix(in srgb, ${custom} 16%, transparent)`,
+        borderColor: `color-mix(in srgb, ${custom} 45%, transparent)`,
+        color: custom,
+      },
+      className: "",
+    };
+  }
+  return { style: undefined, className: statusTone(value).badge };
+}
+
+// Renders one member field cell by type: checkbox (✓), cert (CERTIFIED/N/A),
+// colored status pill, or plain text.
+function FieldValue({ field, value, statusFieldId, accent }) {
+  if (field.type === "checkbox") {
+    return value ? (
+      <Check size={16} strokeWidth={3} className="mx-auto" style={{ color: accent }} />
+    ) : (
+      <span className="mx-auto block h-3.5 w-3.5 rounded-[3px] border border-white/15" />
+    );
+  }
+  if (field.type === "cert") {
+    return value ? (
+      <span className="inline-flex items-center rounded-md border border-green-500/30 bg-green-500/15 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-green-300">
+        Certified
+      </span>
+    ) : (
+      <span className="inline-flex items-center rounded-md border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+        N/A
+      </span>
+    );
+  }
+  if (value === undefined || value === null || value === "") {
+    return <span className="text-slate-600">—</span>;
+  }
+  if (isPillField(field, statusFieldId)) {
+    const p = selectPillProps(field, value);
+    return (
+      <span
+        style={p.style}
+        className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold ${p.className}`}
+      >
+        {value}
+      </span>
+    );
+  }
+  return <span className="text-slate-300">{value}</span>;
+}
+
+// ─── Subdivision banner (department-style header for the active tab) ──────────
+
+function RosterBanner({ sub, accent }) {
+  const b = sub?.banner;
+  const hasContent = b && (b.imageUrl || b.logoUrl || b.logoUrl2 || b.title || b.subtitle);
+  if (!hasContent) return null;
+  const title = b.title || sub.name;
+  return (
+    <div className="relative mb-5 overflow-hidden rounded-2xl border border-white/10">
+      {b.imageUrl && (
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: `url(${b.imageUrl})` }}
+        />
+      )}
+      <div
+        className="absolute inset-0"
+        style={{
+          background: b.imageUrl
+            ? `linear-gradient(90deg, rgba(6,12,24,0.92) 0%, rgba(6,12,24,0.7) 55%, color-mix(in srgb, ${accent} 24%, rgba(6,12,24,0.5)) 100%)`
+            : `linear-gradient(120deg, color-mix(in srgb, ${accent} 22%, #0b1424) 0%, #0b1424 62%)`,
+        }}
+      />
+      <div className="relative flex items-center gap-4 px-5 py-6 sm:px-8">
+        {b.logoUrl && (
+          <img src={b.logoUrl} alt="" className="h-14 w-14 shrink-0 object-contain sm:h-16 sm:w-16" />
+        )}
+        <div className="min-w-0 flex-1 text-center">
+          <h2
+            className="truncate text-xl font-extrabold tracking-tight sm:text-3xl"
+            style={{ color: accent }}
+          >
+            {title}
+          </h2>
+          {b.subtitle && (
+            <div className="mt-0.5 truncate text-xs font-semibold uppercase tracking-[0.18em] text-slate-300 sm:text-sm">
+              {b.subtitle}
+            </div>
+          )}
+        </div>
+        {b.logoUrl2 ? (
+          <img src={b.logoUrl2} alt="" className="h-14 w-14 shrink-0 object-contain sm:h-16 sm:w-16" />
+        ) : b.logoUrl ? (
+          <div className="hidden h-14 w-14 shrink-0 sm:block sm:h-16 sm:w-16" />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+// ─── Department stats box ─────────────────────────────────────────────────────
+
+function computeStat(item, ranks, statusField) {
+  if (item.mode === "manual") return item.value || "—";
+  let count = 0;
+  for (const r of ranks) {
+    for (const m of r.members) {
+      if (item.mode === "total") count++;
+      else if (item.mode === "status") {
+        if (statusField && m.fields?.[statusField.id] === item.statusValue) count++;
+      } else if (item.mode === "cert") {
+        if (item.fieldId && m.fields?.[item.fieldId]) count++;
+      }
+    }
+  }
+  return count;
+}
+
+function StatsPanel({ stats, ranks, statusField, accent }) {
+  if (!stats?.show || !stats.items?.length) return null;
+  return (
+    <Panel className="mb-4 p-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        {stats.items.map((item) => (
+          <div
+            key={item.id}
+            className="rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2.5"
+          >
+            <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-cad-muted">
+              {item.label}
+            </div>
+            <div
+              className="mt-0.5 text-2xl font-black tabular-nums"
+              style={{ color: item.color || accent }}
+            >
+              {computeStat(item, ranks, statusField)}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
 }
 
 // ─── Member avatar ───────────────────────────────────────────────────────────
@@ -136,29 +290,50 @@ function MemberModal({ open, onClose, fields, ranks, rankId, member, onSave }) {
           </Field>
         </div>
 
-        {fields.map((f) => (
-          <Field key={f.id} label={f.label}>
-            {f.type === "select" ? (
-              <Select
-                value={draft.fields?.[f.id] || ""}
-                onChange={(e) => setField(f.id, e.target.value)}
+        {fields.map((f) => {
+          if (f.type === "checkbox" || f.type === "cert") {
+            return (
+              <label
+                key={f.id}
+                className="flex cursor-pointer items-center gap-3 rounded-xl border border-white/10 bg-app-input px-3 py-2.5"
               >
-                <option value="">—</option>
-                {(f.options || []).map((o) => (
-                  <option key={o} value={o}>
-                    {o}
-                  </option>
-                ))}
-              </Select>
-            ) : (
-              <Input
-                type={f.type === "date" ? "date" : "text"}
-                value={draft.fields?.[f.id] || ""}
-                onChange={(e) => setField(f.id, e.target.value)}
-              />
-            )}
-          </Field>
-        ))}
+                <input
+                  type="checkbox"
+                  checked={!!draft.fields?.[f.id]}
+                  onChange={(e) => setField(f.id, e.target.checked)}
+                  className="h-4 w-4 accent-[var(--color-primary)]"
+                />
+                <span className="text-sm font-medium text-cad-text">{f.label}</span>
+                <span className="ml-auto text-[11px] font-bold uppercase tracking-wide text-cad-muted">
+                  {f.type === "cert" ? "Certified" : "Yes / No"}
+                </span>
+              </label>
+            );
+          }
+          return (
+            <Field key={f.id} label={f.label}>
+              {f.type === "select" ? (
+                <Select
+                  value={draft.fields?.[f.id] || ""}
+                  onChange={(e) => setField(f.id, e.target.value)}
+                >
+                  <option value="">—</option>
+                  {(f.options || []).map((o) => (
+                    <option key={o} value={o}>
+                      {o}
+                    </option>
+                  ))}
+                </Select>
+              ) : (
+                <Input
+                  type={f.type === "date" ? "date" : "text"}
+                  value={draft.fields?.[f.id] || ""}
+                  onChange={(e) => setField(f.id, e.target.value)}
+                />
+              )}
+            </Field>
+          );
+        })}
 
         <Field label="Rank" hint="Move this member to a different rank.">
           <Select value={targetRank} onChange={(e) => setTargetRank(e.target.value)}>
@@ -214,6 +389,18 @@ function RankModal({ open, onClose, rank, onSave }) {
               value={draft.color || ""}
               onChange={(e) => setDraft({ ...draft, color: e.target.value })}
               className="font-mono"
+            />
+          </div>
+        </Field>
+        <Field label="Insignia image URL" hint="Optional icon shown on the rank header.">
+          <div className="flex items-center gap-2">
+            {draft.insigniaUrl && (
+              <img src={draft.insigniaUrl} alt="" className="h-9 w-9 shrink-0 object-contain" />
+            )}
+            <Input
+              value={draft.insigniaUrl || ""}
+              onChange={(e) => setDraft({ ...draft, insigniaUrl: e.target.value })}
+              placeholder="https://…"
             />
           </div>
         </Field>
@@ -292,6 +479,8 @@ function ColumnsModal({ open, onClose }) {
                 <option value="text">Text</option>
                 <option value="select">Dropdown</option>
                 <option value="date">Date</option>
+                <option value="checkbox">Checkbox</option>
+                <option value="cert">Certification</option>
               </Select>
             </Field>
             <IconButton
@@ -345,20 +534,34 @@ function SubdivisionTabs({ subdivisions, activeId, canEdit, onSelect, onAdd, onR
         {subdivisions.map((s) => {
           const isActive = s.id === activeId;
           const count = s.ranks.reduce((n, r) => n + r.members.length, 0);
+          const tabAccent = s.accent || "var(--color-primary)";
           return (
             <button
               key={s.id}
               onClick={() => onSelect(s.id)}
-              className={`press flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold transition ${
+              style={
                 isActive
-                  ? "border border-[color:var(--color-border-strong)] bg-[color:var(--color-primary)]/14 text-white"
-                  : "border border-transparent text-slate-300 hover:bg-white/5 hover:text-white"
+                  ? {
+                      borderColor: `color-mix(in srgb, ${tabAccent} 55%, transparent)`,
+                      backgroundColor: `color-mix(in srgb, ${tabAccent} 16%, transparent)`,
+                    }
+                  : undefined
+              }
+              className={`press flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-semibold transition ${
+                isActive
+                  ? "text-white"
+                  : "border-transparent text-slate-300 hover:bg-white/5 hover:text-white"
               }`}
             >
               {s.name}
               <span
+                style={
+                  isActive
+                    ? { backgroundColor: `color-mix(in srgb, ${tabAccent} 30%, transparent)` }
+                    : undefined
+                }
                 className={`rounded-full px-1.5 text-[11px] font-bold ${
-                  isActive ? "bg-[color:var(--color-primary)]/30 text-white" : "bg-white/10 text-slate-400"
+                  isActive ? "text-white" : "bg-white/10 text-slate-400"
                 }`}
               >
                 {count}
@@ -427,7 +630,7 @@ function StatPills({ total, statusField, counts }) {
 
 // ─── Member table row ────────────────────────────────────────────────────────
 
-function MemberRow({ member, rank, fields, statusFieldId, colCount, canEdit, onEdit, onDelete, onDragStart }) {
+function MemberRow({ member, rank, fields, statusFieldId, accent, colCount, canEdit, onEdit, onDelete, onDragStart }) {
   return (
     <tr
       draggable={canEdit}
@@ -451,25 +654,16 @@ function MemberRow({ member, rank, fields, statusFieldId, colCount, canEdit, onE
           </div>
         </div>
       </td>
-      {fields.map((f) => {
-        const val = member.fields?.[f.id];
-        const isStatus = f.id === statusFieldId;
-        return (
-          <td key={f.id} className="px-3 py-2.5 align-middle text-sm">
-            {!val ? (
-              <span className="text-slate-600">—</span>
-            ) : isStatus ? (
-              <span
-                className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold ${statusTone(val).badge}`}
-              >
-                {val}
-              </span>
-            ) : (
-              <span className="text-slate-300">{val}</span>
-            )}
-          </td>
-        );
-      })}
+      {fields.map((f) => (
+        <td key={f.id} className="px-3 py-2.5 align-middle text-sm">
+          <FieldValue
+            field={f}
+            value={member.fields?.[f.id]}
+            statusFieldId={statusFieldId}
+            accent={accent}
+          />
+        </td>
+      ))}
       {canEdit && (
         <td className="px-3 py-2.5">
           <div className="flex items-center justify-end gap-1 opacity-0 transition group-hover:opacity-100">
@@ -502,6 +696,9 @@ export default function Roster({ user }) {
   const ranks = activeSub?.ranks || [];
   const totalMembers = ranks.reduce((n, r) => n + r.members.length, 0);
   const colCount = 1 + fields.length + (canEdit ? 1 : 0);
+  const accent = activeSub?.accent || "var(--color-primary)";
+  const stats = config.roster.stats;
+  const statsShown = Boolean(stats?.show && stats.items?.length);
 
   const [query, setQuery] = useState("");
   const [rankFilter, setRankFilter] = useState("all");
@@ -561,10 +758,9 @@ export default function Roster({ user }) {
   // ── Rank handlers ──
   function saveRank(draft) {
     const { isNew, ...clean } = draft;
+    const patch = { name: clean.name, color: clean.color, insigniaUrl: clean.insigniaUrl || "" };
     mutate((cfg) =>
-      isNew
-        ? R.addRank(cfg, subId, { name: clean.name, color: clean.color })
-        : R.updateRank(cfg, subId, clean.id, { name: clean.name, color: clean.color })
+      isNew ? R.addRank(cfg, subId, patch) : R.updateRank(cfg, subId, clean.id, patch)
     );
     setRankModal(null);
   }
@@ -643,9 +839,16 @@ export default function Roster({ user }) {
         onDelete={(sub) => setConfirm({ type: "subdivision", subdivision: sub })}
       />
 
+      <RosterBanner sub={activeSub} accent={accent} />
+      <StatsPanel stats={stats} ranks={ranks} statusField={statusField} accent={accent} />
+
       {/* Summary + controls */}
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <StatPills total={totalMembers} statusField={statusField} counts={statusCounts} />
+        {statsShown ? (
+          <div />
+        ) : (
+          <StatPills total={totalMembers} statusField={statusField} counts={statusCounts} />
+        )}
         <div className="flex items-center gap-2">
           <div className="relative">
             <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -724,6 +927,13 @@ export default function Roster({ user }) {
                         }}
                       >
                         <div className="flex items-center gap-2">
+                          {rank.insigniaUrl && (
+                            <img
+                              src={rank.insigniaUrl}
+                              alt=""
+                              className="h-5 w-5 shrink-0 object-contain"
+                            />
+                          )}
                           <span
                             className="text-xs font-black uppercase tracking-[0.15em]"
                             style={{ color: rank.color || "#3b82f6" }}
@@ -785,6 +995,7 @@ export default function Roster({ user }) {
                           rank={rank}
                           fields={fields}
                           statusFieldId={statusField?.id}
+                          accent={accent}
                           colCount={colCount}
                           canEdit={canEdit}
                           onEdit={openEditMember}

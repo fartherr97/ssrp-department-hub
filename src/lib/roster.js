@@ -70,8 +70,8 @@ export function moveSubdivision(config, subId, dir) {
 
 // ─── Ranks (within a subdivision) ────────────────────────────────────────────
 
-export function addRank(config, subId, { name = "New Rank", color = "#3b82f6" } = {}) {
-  const rank = { id: uid("rank"), name, color, members: [] };
+export function addRank(config, subId, { name = "New Rank", color = "#3b82f6", insigniaUrl = "" } = {}) {
+  const rank = { id: uid("rank"), name, color, insigniaUrl, members: [] };
   return mapRanks(config, subId, (ranks) => [...ranks, rank]);
 }
 

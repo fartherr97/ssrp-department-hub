@@ -147,7 +147,9 @@ export const defaultConfig = {
 
   roster: {
     // Custom columns shown for every member, across all subdivisions.
-    // Types: text | select | date
+    // Types: text | select | date | checkbox | cert
+    //  - select  may set `pill: true` + `optionColors` to render colored status pills
+    //  - checkbox renders a ✓ tick; cert renders a CERTIFIED / N/A pill
     memberFields: [
       { id: "callsign", label: "Callsign", type: "text" },
       {
@@ -155,27 +157,53 @@ export const defaultConfig = {
         label: "Status",
         type: "select",
         options: ["Active", "LOA", "Inactive"],
+        pill: true,
+        optionColors: { Active: "#1eb854", LOA: "#a855f7", Inactive: "#94a3b8" },
       },
+      { id: "fto", label: "FTO", type: "cert" },
+      { id: "academy", label: "Academy", type: "checkbox" },
     ],
-    // Each subdivision is its own roster (its own ranks + members), shown as a
-    // tab at the top of the Roster page. Departments can add as many as they
-    // like (e.g. Patrol, K9, Traffic, Command Staff).
+
+    // Optional department metrics box, computed over the active subdivision.
+    // mode: total | status | cert | manual
+    stats: {
+      show: true,
+      items: [
+        { id: "st-total", label: "Members", mode: "total" },
+        { id: "st-active", label: "Active", mode: "status", statusValue: "Active" },
+        { id: "st-loa", label: "LOA", mode: "status", statusValue: "LOA" },
+        { id: "st-fto", label: "FTO Certified", mode: "cert", fieldId: "fto" },
+      ],
+    },
+
+    // Each subdivision is its own roster (ranks + members), shown as a tab at the
+    // top of the Roster page. Each can carry its own accent color and a banner
+    // (background image, flanking logos, title) for a distinct department look.
     subdivisions: [
       {
         id: "sub-main",
         name: "Department",
+        accent: "#3d82f0",
+        banner: {
+          imageUrl: "",
+          logoUrl: "",
+          logoUrl2: "",
+          title: "Department Roster",
+          subtitle: "Personnel & Assignments",
+        },
         ranks: [
           {
             id: "rank-command",
             name: "Command",
             color: "#f59e0b",
+            insigniaUrl: "",
             members: [
               {
                 id: "member-1",
                 name: "Jane Doe",
                 discordId: "",
                 avatarUrl: "",
-                fields: { callsign: "C-1", status: "Active" },
+                fields: { callsign: "C-1", status: "Active", fto: true, academy: true },
               },
             ],
           },
@@ -183,12 +211,14 @@ export const defaultConfig = {
             id: "rank-supervisor",
             name: "Supervisors",
             color: "#3b82f6",
+            insigniaUrl: "",
             members: [],
           },
           {
             id: "rank-member",
             name: "Members",
             color: "#22c55e",
+            insigniaUrl: "",
             members: [
               {
                 id: "member-2",
