@@ -16,6 +16,7 @@ import {
   Award,
   BarChart3,
   SlidersHorizontal,
+  Undo2,
 } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
 import { canEditSubdivision, canEditRosterStructure } from "../lib/permissions.js";
@@ -1085,7 +1086,7 @@ function SubRoster({
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function Roster({ user }) {
-  const { config, mutate } = useConfig();
+  const { config, mutate, undo, canUndo } = useConfig();
   // Structural edits (subdivisions, shared columns) vs. per-subdivision editing.
   const canEditStructure = canEditRosterStructure(user, config);
   const fields = config.roster.memberFields || [];
@@ -1348,8 +1349,19 @@ export default function Roster({ user }) {
             : "No subdivisions yet."
         }
         actions={
-          (canEditStructure || (layout === "tabs" && canEditActive)) && (
+          (canEditStructure || canEditActive) && (
             <>
+              <Button
+                variant="secondary"
+                icon={Undo2}
+                disabled={!canUndo}
+                title={canUndo ? "Revert the most recent change (roster or site-wide)" : "Nothing to undo yet"}
+                onClick={() => {
+                  if (undo()) show("Last change undone");
+                }}
+              >
+                Undo
+              </Button>
               {canEditStructure && (
                 <>
                   <Button variant="secondary" icon={Columns3} onClick={() => setColumnsOpen(true)}>
