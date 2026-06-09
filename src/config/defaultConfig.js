@@ -25,6 +25,7 @@ export const defaultConfig = {
     loginSubtext:
       "Centralized access for personnel, resources, and internal operations.",
     footerText: "© 2026 Your Department. All rights reserved.",
+    footerNote: "Department Hub v1.0", // small right-aligned note in the login footer bar
     colors: {
       // SSRP CAD palette — dark navy / slate with brand blue accent.
       primary: "#3d82f0",
@@ -34,8 +35,10 @@ export const defaultConfig = {
       surface2: "#192f4d",
       bodyBg: "#0b1424",
     },
+    // Community links shown on the login screen ("Connect With Us"). icon is a
+    // name from src/lib/icons.js (ICON_NAMES). Edit these in the Builder Portal.
     socials: [
-      // { id, label, url, icon }  e.g. { id:"discord", label:"Discord", url:"https://discord.gg/...", icon:"MessageCircle" }
+      { id: "discord", label: "Discord", url: "https://discord.gg/", icon: "MessageCircle" },
     ],
   },
 

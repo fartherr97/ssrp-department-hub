@@ -2,6 +2,7 @@ import { useState } from "react";
 import { LogIn } from "lucide-react";
 import Logo from "../common/Logo.jsx";
 import { Button } from "../common/index.jsx";
+import { getIcon } from "../../lib/icons.js";
 
 // ─── Loading ─────────────────────────────────────────────────────────────────
 
@@ -67,56 +68,113 @@ function DevLogin({ groups, onDevLogin }) {
   );
 }
 
+// ─── Community socials row ("Connect With Us") ───────────────────────────────
+
+function SocialRow({ socials }) {
+  if (!socials?.length) return null;
+  return (
+    <div className="mt-9 flex flex-col items-center gap-3">
+      <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-muted)]">
+        Connect With Us
+      </div>
+      <div className="flex items-center gap-3">
+        {socials.map((s, i) => {
+          const Icon = getIcon(s.icon);
+          return (
+            <a
+              key={s.id || s.url || i}
+              href={s.url || "#"}
+              target={s.url && s.url !== "#" ? "_blank" : undefined}
+              rel="noreferrer"
+              aria-label={s.label}
+              title={s.label}
+              className="lift flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-[var(--color-text-muted)] hover:border-[color:var(--color-border-strong)] hover:text-[var(--color-primary)]"
+            >
+              <Icon size={20} />
+            </a>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── Login screen ────────────────────────────────────────────────────────────
 
 export function LoginScreen({ config, onDevLogin }) {
   const branding = config?.branding || {};
   const devEnabled = config?.auth?.devLoginEnabled;
+  const socials = branding.socials || [];
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[var(--color-body-bg)] text-white">
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-[var(--color-body-bg)] text-white">
       <div className="hub-shell-gradient pointer-events-none absolute inset-0" />
 
-      <header className="relative z-10 border-b border-white/10 bg-[color:var(--color-bg)]/80">
-        <div className="mx-auto flex h-[82px] w-full max-w-6xl items-center justify-between px-5">
-          <div className="flex items-center gap-3">
-            <Logo branding={branding} size={48} />
-            <div>
-              <div className="text-lg font-semibold leading-tight text-white">
-                {branding.name}
-              </div>
-              <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">
+      {/* ── Header bar ── */}
+      <header className="relative z-10 flex h-[52px] shrink-0 items-center gap-4 border-b border-white/10 bg-app-toolbar/85 px-4 backdrop-blur-md sm:h-[60px] sm:px-8">
+        <div className="flex items-center gap-3">
+          <Logo branding={branding} size={36} />
+          <div className="leading-tight">
+            <div className="text-[13px] font-extrabold tracking-[-0.2px] text-white sm:text-[15px]">
+              {branding.shortName || branding.name}
+            </div>
+            {branding.organization && (
+              <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[var(--color-primary)] sm:text-[10px]">
                 {branding.organization}
               </div>
-            </div>
+            )}
           </div>
-          <DiscordButton className="hidden sm:inline-flex" />
         </div>
+        <div className="ml-auto" />
       </header>
 
-      <main className="relative z-10 flex min-h-[calc(100vh-82px)] flex-col items-center justify-center px-5 py-14 text-center">
-        <Logo branding={branding} size={120} className="drop-shadow-2xl" />
+      {/* ── Main (centered) ── */}
+      <main className="relative z-10 flex flex-1 items-center justify-center px-5 py-10">
+        <div className="flex w-full max-w-md flex-col items-center text-center">
+          <Logo branding={branding} size={104} className="mb-5 drop-shadow-2xl" />
 
-        <div className="mt-6 inline-flex rounded-full border border-[color:var(--color-primary)]/40 bg-[color:var(--color-primary)]/10 px-5 py-2 text-sm font-semibold uppercase tracking-[0.08em] text-[var(--color-primary)]">
-          {branding.organization}
+          {branding.organization && (
+            <div className="mb-5 inline-flex rounded-full border border-[color:var(--color-primary)]/40 bg-[color:var(--color-primary)]/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--color-primary)]">
+              {branding.organization}
+            </div>
+          )}
+
+          <h1 className="text-3xl font-bold leading-[1.1] text-white sm:text-4xl">
+            {branding.loginHeadline || branding.name}
+          </h1>
+
+          {branding.loginSubtext && (
+            <p className="mt-3 max-w-sm text-sm leading-7 text-[var(--color-text-muted)]">
+              {branding.loginSubtext}
+            </p>
+          )}
+
+          {/* Connect Discord — centered */}
+          <DiscordButton className="mt-8" />
+          <div className="mt-3 text-[11px] text-[var(--color-text-muted)]">
+            Connect with Discord to access the system
+          </div>
+
+          <SocialRow socials={socials} />
+
+          {devEnabled && <DevLogin groups={config?.groups} onDevLogin={onDevLogin} />}
         </div>
-
-        <h1 className="mt-6 max-w-3xl text-4xl leading-[1] text-white sm:text-5xl lg:text-6xl">
-          {branding.loginHeadline || branding.name}
-        </h1>
-
-        <p className="mt-5 max-w-2xl text-base font-normal leading-7 text-[var(--color-text-muted)] sm:text-lg">
-          {branding.loginSubtext}
-        </p>
-
-        <DiscordButton className="mt-8" />
-
-        {devEnabled && <DevLogin groups={config?.groups} onDevLogin={onDevLogin} />}
-
-        <footer className="mt-20 text-center">
-          <p className="text-sm text-slate-400">{branding.footerText}</p>
-        </footer>
       </main>
+
+      {/* ── Footer bar ── */}
+      <footer className="relative z-10 w-full shrink-0 border-t border-white/10 bg-app-toolbar/80 backdrop-blur-md">
+        <div className="flex items-center gap-4 px-4 py-2.5 sm:px-6">
+          <div className="flex items-center gap-2.5">
+            <Logo branding={branding} size={20} className="opacity-70" />
+            <span className="text-[11px] text-slate-500">{branding.footerText}</span>
+          </div>
+          {branding.footerNote && (
+            <div className="ml-auto hidden text-[10.5px] font-medium text-slate-600 md:block">
+              {branding.footerNote}
+            </div>
+          )}
+        </div>
+      </footer>
     </div>
   );
 }

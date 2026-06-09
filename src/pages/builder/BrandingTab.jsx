@@ -1,11 +1,16 @@
+import { Plus, Trash2 } from "lucide-react";
 import { useConfig } from "../../lib/configContext.jsx";
 import Logo from "../../components/common/Logo.jsx";
+import { getIcon, ICON_NAMES } from "../../lib/icons.js";
 import {
   Panel,
   SectionHeader,
+  Button,
+  IconButton,
   Field,
   Input,
   Textarea,
+  Select,
   ColorInput,
 } from "../../components/common/index.jsx";
 
@@ -60,6 +65,19 @@ export default function BrandingTab() {
       branding: { ...cfg.branding, colors: { ...cfg.branding.colors, ...colors } },
     }));
 
+  // Community links shown on the login screen ("Connect With Us").
+  const socials = b.socials || [];
+  const setSocials = (next) =>
+    mutate((cfg) => ({ ...cfg, branding: { ...cfg.branding, socials: next } }));
+  const addSocial = () =>
+    setSocials([
+      ...socials,
+      { id: `social-${Date.now()}`, label: "New link", url: "", icon: "LinkIcon" },
+    ]);
+  const updateSocial = (id, patch) =>
+    setSocials(socials.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+  const removeSocial = (id) => setSocials(socials.filter((s) => s.id !== id));
+
   return (
     <div className="grid gap-6">
       <Panel className="p-5">
@@ -101,9 +119,12 @@ export default function BrandingTab() {
       </Panel>
 
       <Panel className="p-5">
-        <SectionHeader title="Login screen" subtitle="The signed-out landing page." />
+        <SectionHeader
+          title="Login screen"
+          subtitle="The signed-out landing page — header, headline, footer, and community links."
+        />
         <div className="grid gap-4">
-          <Field label="Headline">
+          <Field label="Headline" hint="The large title under the logo.">
             <Input
               value={b.loginHeadline}
               onChange={(e) => setBrand({ loginHeadline: e.target.value })}
@@ -116,9 +137,79 @@ export default function BrandingTab() {
               onChange={(e) => setBrand({ loginSubtext: e.target.value })}
             />
           </Field>
-          <Field label="Footer text">
-            <Input value={b.footerText} onChange={(e) => setBrand({ footerText: e.target.value })} />
-          </Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Footer text" hint="Copyright line on the left of the footer bar.">
+              <Input
+                value={b.footerText}
+                onChange={(e) => setBrand({ footerText: e.target.value })}
+              />
+            </Field>
+            <Field label="Footer note" hint="Small text on the right (e.g. a version).">
+              <Input
+                value={b.footerNote || ""}
+                onChange={(e) => setBrand({ footerNote: e.target.value })}
+              />
+            </Field>
+          </div>
+
+          {/* Community links ("Connect With Us") */}
+          <div>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span className="text-[11px] font-bold uppercase tracking-[0.5px] text-cad-muted">
+                Community links
+              </span>
+              <Button variant="secondary" icon={Plus} onClick={addSocial}>
+                Add link
+              </Button>
+            </div>
+            <div className="grid gap-2">
+              {socials.length === 0 && (
+                <p className="text-sm text-slate-500">
+                  No links yet. Add Discord, TikTok, or other community links.
+                </p>
+              )}
+              {socials.map((s) => {
+                const Icon = getIcon(s.icon);
+                return (
+                  <div
+                    key={s.id}
+                    className="grid grid-cols-[auto_1fr_1fr_auto_auto] items-center gap-2 rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-2"
+                  >
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/5 text-[var(--color-primary)]">
+                      <Icon size={16} />
+                    </div>
+                    <Input
+                      value={s.label || ""}
+                      placeholder="Label"
+                      onChange={(e) => updateSocial(s.id, { label: e.target.value })}
+                    />
+                    <Input
+                      value={s.url || ""}
+                      placeholder="https://…"
+                      onChange={(e) => updateSocial(s.id, { url: e.target.value })}
+                    />
+                    <Select
+                      value={s.icon || "LinkIcon"}
+                      onChange={(e) => updateSocial(s.id, { icon: e.target.value })}
+                      className="w-32"
+                    >
+                      {ICON_NAMES.map((n) => (
+                        <option key={n} value={n}>
+                          {n}
+                        </option>
+                      ))}
+                    </Select>
+                    <IconButton
+                      icon={Trash2}
+                      label="Remove link"
+                      onClick={() => removeSocial(s.id)}
+                      className="hover:border-red-500/40 hover:text-red-300"
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </Panel>
 
