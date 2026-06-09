@@ -830,22 +830,30 @@ function StatPills({ total, statusField, counts }) {
 
 // ─── Member table row ────────────────────────────────────────────────────────
 
-function MemberRow({ member, category, fields, statusFieldId, accent, rankById, canEdit, onEdit, onDelete, onDragStart, onRowDrop, selected, onToggleSelect }) {
+function MemberRow({ member, category, fields, statusFieldId, accent, rankById, canEdit, onEdit, onDelete, onDragStart, onDragEnd, onRowDrop, dropTarget, setDropTarget, selected, onToggleSelect }) {
   const rt = rankById[member.rank];
+  const isDropTarget =
+    dropTarget && dropTarget.catId === category.id && dropTarget.memberId === member.id;
   return (
     <tr
       draggable={canEdit}
       onDragStart={(e) => canEdit && onDragStart(e, category.id, member.id)}
-      onDragOver={(e) => canEdit && e.preventDefault()}
+      onDragEnd={() => canEdit && onDragEnd()}
+      onDragOver={(e) => {
+        if (!canEdit) return;
+        e.preventDefault();
+        if (!isDropTarget) setDropTarget({ catId: category.id, memberId: member.id });
+      }}
       onDrop={(e) => {
         if (!canEdit) return;
         e.preventDefault();
         e.stopPropagation(); // don't also fire the category-level drop
         onRowDrop(e, category.id, member.id);
       }}
+      style={isDropTarget ? { boxShadow: "inset 0 3px 0 0 var(--color-primary)" } : undefined}
       className={`group border-t border-white/5 transition hover:bg-white/[0.03] ${
         selected ? "bg-[color:var(--color-primary)]/8" : ""
-      }`}
+      } ${isDropTarget ? "bg-[color:var(--color-primary)]/10" : ""}`}
     >
       <td className="px-3 py-2.5">
         <div className="flex items-center gap-3">
@@ -930,7 +938,10 @@ function SubRoster({
   filtering,
   dragOverCat,
   setDragOverCat,
+  dropTarget,
+  setDropTarget,
   onDragStart,
+  onDragEnd,
   onDrop,
   onRowDrop,
   selectedIds,
@@ -986,10 +997,21 @@ function SubRoster({
               }}
               onDragLeave={() => setDragOverCat((c) => (c === cat.id ? null : c))}
               onDrop={(e) => canEdit && onDrop(e, sub.id, cat.id)}
-              className={dragOverCat === cat.id ? "bg-[color:var(--color-primary)]/5" : ""}
+              className={
+                dragOverCat === cat.id
+                  ? "bg-[color:var(--color-primary)]/10 outline outline-1 -outline-offset-1 outline-[color:var(--color-border-strong)]"
+                  : ""
+              }
             >
               {/* Colored category band header */}
-              <tr>
+              <tr
+                onDragOver={(e) => {
+                  if (!canEdit) return;
+                  e.preventDefault();
+                  // Hovering the band itself appends to the end — no row line.
+                  setDropTarget(null);
+                }}
+              >
                 <td
                   colSpan={colCount}
                   className="border-t border-white/10 px-3 py-2"
@@ -1050,7 +1072,13 @@ function SubRoster({
               </tr>
 
               {members.length === 0 ? (
-                <tr>
+                <tr
+                  onDragOver={(e) => {
+                    if (!canEdit) return;
+                    e.preventDefault();
+                    setDropTarget(null);
+                  }}
+                >
                   <td colSpan={colCount} className="px-3 py-3 text-sm text-slate-500">
                     No members{canEdit ? " — add one or drag a member here." : "."}
                   </td>
@@ -1069,7 +1097,10 @@ function SubRoster({
                     onEdit={(catId, m) => onEditMember(sub.id, catId, m)}
                     onDelete={(catId, m) => onDeleteMember(sub.id, catId, m)}
                     onDragStart={onDragStart}
+                    onDragEnd={onDragEnd}
                     onRowDrop={(e, catId, beforeId) => onRowDrop(e, sub.id, catId, beforeId)}
+                    dropTarget={dropTarget}
+                    setDropTarget={setDropTarget}
                     selected={Boolean(selectedIds?.has(member.id))}
                     onToggleSelect={(catId, id) => onToggleSelect(sub.id, catId, id)}
                   />
@@ -1120,6 +1151,8 @@ export default function Roster({ user }) {
   const [rankTitlesSubId, setRankTitlesSubId] = useState(null);
   const [confirm, setConfirm] = useState(null);
   const [dragOverCat, setDragOverCat] = useState(null);
+  // The row a dragged member would land before (insertion indicator).
+  const [dropTarget, setDropTarget] = useState(null);
   // Mass promotion/demotion: selected member ids (within one subdivision).
   const [selected, setSelected] = useState(() => new Set());
   const [selSubId, setSelSubId] = useState(null);
@@ -1243,9 +1276,14 @@ export default function Roster({ user }) {
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", JSON.stringify({ fromCatId, memberId }));
   }
+  function onDragEnd() {
+    setDragOverCat(null);
+    setDropTarget(null);
+  }
   function onDrop(e, toSubId, toCatId) {
     e.preventDefault();
     setDragOverCat(null);
+    setDropTarget(null);
     try {
       const { fromCatId, memberId } = JSON.parse(e.dataTransfer.getData("text/plain"));
       if (fromCatId !== toCatId) {
@@ -1267,6 +1305,7 @@ export default function Roster({ user }) {
   // Drop directly on a row: place the member right before that row.
   function onRowDrop(e, toSubId, toCatId, beforeMemberId) {
     setDragOverCat(null);
+    setDropTarget(null);
     try {
       const { fromCatId, memberId } = JSON.parse(e.dataTransfer.getData("text/plain"));
       if (memberId === beforeMemberId) return;
@@ -1316,7 +1355,10 @@ export default function Roster({ user }) {
     filtering,
     dragOverCat,
     setDragOverCat,
+    dropTarget,
+    setDropTarget,
     onDragStart,
+    onDragEnd,
     onDrop,
     onRowDrop,
     selectedIds: selected,
