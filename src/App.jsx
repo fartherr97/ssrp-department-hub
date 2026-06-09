@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect, useState, startTransition } from "react";
 import useAuth from "./hooks/useAuth.js";
 import { useConfig } from "./lib/configContext.jsx";
+import * as audit from "./lib/audit.js";
 import { canAccessPage } from "./lib/permissions.js";
 import { getInitialPageId, getPagePath } from "./lib/navigation.js";
 import { LoadingScreen, LoginScreen } from "./components/auth/AuthScreens.jsx";
@@ -12,6 +13,7 @@ const Home = lazy(() => import("./pages/Home.jsx"));
 const Roster = lazy(() => import("./pages/Roster.jsx"));
 const ContentPage = lazy(() => import("./pages/ContentPage.jsx"));
 const BuilderPortal = lazy(() => import("./pages/BuilderPortal.jsx"));
+const AuditLog = lazy(() => import("./pages/AuditLog.jsx"));
 
 // Map a page's `type` to the component that renders it.
 const PAGE_COMPONENTS = {
@@ -19,6 +21,7 @@ const PAGE_COMPONENTS = {
   roster: Roster,
   content: ContentPage,
   builder: BuilderPortal,
+  audit: AuditLog,
 };
 
 function ViewLoading() {
@@ -39,6 +42,11 @@ export default function App() {
   const { config, ready } = useConfig();
   const { user, checking, devLogin, logout } = useAuth();
   const [activePageId, setActivePageId] = useState(null);
+
+  // Tell the audit log who is currently acting.
+  useEffect(() => {
+    audit.setActor(user);
+  }, [user]);
 
   // Resolve the initial page once config is loaded.
   useEffect(() => {

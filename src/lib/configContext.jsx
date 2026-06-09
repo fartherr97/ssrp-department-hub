@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import * as api from "./api.js";
+import * as audit from "./audit.js";
 import { applyTheme } from "./theme.js";
 
 const ConfigContext = createContext(null);
@@ -16,6 +17,8 @@ export function ConfigProvider({ children }) {
   const [ready, setReady] = useState(false);
   const [saving, setSaving] = useState(false);
   const saveTimer = useRef(null);
+  // The last persisted config, so audit can diff net changes per save.
+  const lastSavedRef = useRef(null);
 
   // Initial load.
   useEffect(() => {
@@ -23,6 +26,7 @@ export function ConfigProvider({ children }) {
     api.getConfig().then((loaded) => {
       if (!alive) return;
       setConfigState(loaded);
+      lastSavedRef.current = loaded;
       applyTheme(loaded?.branding?.colors);
       setReady(true);
     });
@@ -41,6 +45,9 @@ export function ConfigProvider({ children }) {
     clearTimeout(saveTimer.current);
     // Debounce so rapid edits (sliders, typing) don't thrash storage/the API.
     saveTimer.current = setTimeout(() => {
+      // Record who changed what (net change since the last save), then persist.
+      audit.recordChange(lastSavedRef.current, next);
+      lastSavedRef.current = next;
       api.saveConfig(next).finally(() => setSaving(false));
     }, 300);
   }, []);
@@ -70,7 +77,9 @@ export function ConfigProvider({ children }) {
   const resetConfig = useCallback(async () => {
     const fresh = await api.resetConfig();
     setConfigState(fresh);
+    lastSavedRef.current = fresh;
     applyTheme(fresh?.branding?.colors);
+    audit.logEvent("config", "Reset the configuration to defaults");
     return fresh;
   }, []);
 

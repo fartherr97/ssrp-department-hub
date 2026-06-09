@@ -137,6 +137,14 @@ export const defaultConfig = {
       },
     },
     {
+      id: "audit",
+      label: "Audit Log",
+      navGroup: "Administration",
+      icon: "ClipboardList",
+      type: "audit",
+      access: ["command", "admin"],
+    },
+    {
       id: "builder",
       label: "Builder Portal",
       navGroup: "Administration",

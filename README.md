@@ -60,6 +60,7 @@ exposes `mutate()` so any edit auto-saves (debounced) through `api.saveConfig`.
 | `home`    | `Home.jsx`        | Hero + content blocks                  |
 | `content` | `ContentPage.jsx` | Generic page of content blocks         |
 | `roster`  | `Roster.jsx`      | Fully editable roster                  |
+| `audit`   | `AuditLog.jsx`    | Who changed what, and when             |
 | `builder` | `BuilderPortal`   | Admin configuration portal (locked)    |
 
 Add a new page type by creating a component and registering it in

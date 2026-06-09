@@ -20,6 +20,8 @@ const USE_BACKEND =
 
 const CONFIG_KEY = "config";
 const SESSION_KEY = "session";
+const AUDIT_KEY = "audit";
+const AUDIT_LIMIT = 500;
 
 // ─── Real backend transport (used when USE_BACKEND) ──────────────────────────
 
@@ -107,6 +109,12 @@ function migrateConfig(saved) {
     }));
   }
 
+  // Ensure the Audit Log page exists for configs created before it was added.
+  if (Array.isArray(merged.pages) && !merged.pages.some((p) => p.type === "audit")) {
+    const auditPage = cloneDefaultConfig().pages.find((p) => p.type === "audit");
+    if (auditPage) merged.pages = [...merged.pages, auditPage];
+  }
+
   merged.version = CONFIG_VERSION;
   return merged;
 }
@@ -131,6 +139,31 @@ export async function resetConfig() {
   if (USE_BACKEND) return http("/config/reset", { method: "POST" });
   removeKey(CONFIG_KEY);
   return cloneDefaultConfig();
+}
+
+// ─── AUDIT LOG ───────────────────────────────────────────────────────────────
+// Records of who changed what, newest first. Backend would store these in a
+// table and expose GET/POST /api/audit; the mock keeps the last AUDIT_LIMIT.
+
+export async function getAuditLog() {
+  if (USE_BACKEND) return http("/audit");
+  return readJSON(AUDIT_KEY, []);
+}
+
+export async function appendAuditLog(entry) {
+  if (USE_BACKEND) {
+    return http("/audit", { method: "POST", body: JSON.stringify(entry) });
+  }
+  const log = readJSON(AUDIT_KEY, []);
+  const next = [entry, ...log].slice(0, AUDIT_LIMIT);
+  writeJSON(AUDIT_KEY, next);
+  return entry;
+}
+
+export async function clearAuditLog() {
+  if (USE_BACKEND) return http("/audit", { method: "DELETE" });
+  removeKey(AUDIT_KEY);
+  return [];
 }
 
 // ─── AUTH / SESSION ──────────────────────────────────────────────────────────
