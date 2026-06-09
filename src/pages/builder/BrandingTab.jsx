@@ -23,8 +23,8 @@ const COLOR_FIELDS = [
   { key: "surface2", label: "Surface 2" },
 ];
 
-// One-click palettes. "SSRP CAD" is the kit's dark-navy default; the rest are
-// the same surface recipe re-hued for departments that want a different accent.
+// One-click full palettes — each sets the accent AND the whole surface stack so
+// the department reads distinctly (not just a re-accented navy).
 const PRESETS = [
   {
     id: "ssrp-cad",
@@ -32,34 +32,22 @@ const PRESETS = [
     colors: { primary: "#3d82f0", hover: "#5a97f5", bg: "#101d31", surface1: "#13233b", surface2: "#192f4d", bodyBg: "#0b1424" },
   },
   {
+    // Florida Highway Patrol — black & tan.
     id: "fhp",
     label: "FHP",
-    colors: { primary: "#d2b48c", hover: "#e3cda9", bg: "#101d31", surface1: "#13233b", surface2: "#192f4d", bodyBg: "#0b1424" },
+    colors: { primary: "#d2b48c", hover: "#e6d0a8", bg: "#15140f", surface1: "#1d1b15", surface2: "#2a261c", bodyBg: "#0a0908" },
   },
   {
+    // Tampa Police — deep blue.
     id: "tpd",
     label: "TPD",
-    colors: { primary: "#2e69f1", hover: "#5586f4", bg: "#101d31", surface1: "#13233b", surface2: "#192f4d", bodyBg: "#0b1424" },
+    colors: { primary: "#2e69f1", hover: "#5586f4", bg: "#0b1430", surface1: "#101c40", surface2: "#1a2c58", bodyBg: "#060a16" },
   },
   {
+    // Hillsborough County Sheriff — green.
     id: "hcso",
     label: "HCSO",
-    colors: { primary: "#1f8b4c", hover: "#27a85d", bg: "#101d31", surface1: "#13233b", surface2: "#192f4d", bodyBg: "#0b1424" },
-  },
-  {
-    id: "emerald",
-    label: "Emerald",
-    colors: { primary: "#10b981", hover: "#34d399", bg: "#102420", surface1: "#13291f", surface2: "#1b3a2c", bodyBg: "#08140f" },
-  },
-  {
-    id: "crimson",
-    label: "Crimson",
-    colors: { primary: "#ef4444", hover: "#f87171", bg: "#241318", surface1: "#2c151c", surface2: "#3b1c25", bodyBg: "#150a0d" },
-  },
-  {
-    id: "violet",
-    label: "Violet",
-    colors: { primary: "#8b5cf6", hover: "#a78bfa", bg: "#1b1733", surface1: "#211b3c", surface2: "#2e2551", bodyBg: "#100c20" },
+    colors: { primary: "#1f8b4c", hover: "#2aa55c", bg: "#0c1d14", surface1: "#10261a", surface2: "#173827", bodyBg: "#07130c" },
   },
 ];
 
