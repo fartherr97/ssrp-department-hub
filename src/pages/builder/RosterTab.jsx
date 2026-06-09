@@ -123,7 +123,7 @@ function ColumnEditor({ field }) {
         <div className="grid gap-3 sm:col-span-3">
           <Field
             label="Counts days since"
-            hint="Shows days since this date column. Rank changes stamp that date to today, resetting the count automatically."
+            hint="Shows days since this date column; the count restarts when the date is stamped to today (see “Resets when”)."
           >
             <Select
               value={field.sourceFieldId || ""}
@@ -139,15 +139,17 @@ function ColumnEditor({ field }) {
                 ))}
             </Select>
           </Field>
-          <label className="flex items-center gap-2 text-sm text-slate-300">
-            <input
-              type="checkbox"
-              checked={field.resetOnCategory !== false}
-              onChange={(e) => update({ resetOnCategory: e.target.checked })}
-              className="h-4 w-4 accent-[var(--color-primary)]"
-            />
-            Also reset when moved to a new category (rank changes always reset)
-          </label>
+          <Field label="Resets when" hint="What stamps the date to today, restarting the count.">
+            <Select
+              value={field.resetOn || "category"}
+              onChange={(e) => update({ resetOn: e.target.value })}
+            >
+              <option value="category">Moved to a new category</option>
+              <option value="rank">Rank changes</option>
+              <option value="both">Rank or category changes</option>
+              <option value="never">Never (manual date edits only)</option>
+            </Select>
+          </Field>
         </div>
       )}
 

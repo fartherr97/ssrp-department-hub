@@ -70,7 +70,7 @@ const GLOSSARY = [
       { term: "Stats box", def: "The metrics strip above the roster — total members, actives, certified counts, or any manual number. Configured under Roster Setup." },
       { term: "Insignia", def: "The small image next to a rank (chevrons, bars, stars). Added when editing ranks on the Roster page." },
       { term: "LOA", def: "Leave of Absence — a common status for members temporarily away." },
-      { term: "Time in grade", def: "A column type that automatically counts the days since a date column (usually Date of Promotion). It resets by itself whenever someone's rank or category changes — never typed by hand." },
+      { term: "Time in grade", def: "A column type that automatically counts the days since a date column (usually Date of Promotion). Its “resets when” setting decides what restarts the count: a category move, a rank change, either, or never — no typing by hand." },
       { term: "Promotion tool", def: "On the Roster page, tick the checkboxes next to members, pick a new rank in the bar that appears, and apply. It sets the rank, stamps Date of Promotion to today, and hands out new callsigns automatically." },
       { term: "Callsign format", def: "An optional pattern on a rank — like “91##” — where # digits auto-number. When the promotion tool assigns that rank, each member gets the next free callsign (9100, 9101…). Set it in the Ranks editor." },
     ],

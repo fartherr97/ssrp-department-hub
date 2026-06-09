@@ -689,17 +689,22 @@ function ColumnsModal({ open, onClose }) {
                       ))}
                   </Select>
                 </Field>
-                <label className="flex items-center gap-2 text-sm text-slate-300">
-                  <input
-                    type="checkbox"
-                    checked={f.resetOnCategory !== false}
+                <Field
+                  label="Resets when"
+                  hint="What stamps the date to today, restarting the count."
+                >
+                  <Select
+                    value={f.resetOn || "category"}
                     onChange={(e) =>
-                      mutate(R.updateMemberField(config, f.id, { resetOnCategory: e.target.checked }))
+                      mutate(R.updateMemberField(config, f.id, { resetOn: e.target.value }))
                     }
-                    className="h-4 w-4 accent-[var(--color-primary)]"
-                  />
-                  Also reset when moved to a new category (rank changes always reset)
-                </label>
+                  >
+                    <option value="category">Moved to a new category</option>
+                    <option value="rank">Rank changes</option>
+                    <option value="both">Rank or category changes</option>
+                    <option value="never">Never (manual date edits only)</option>
+                  </Select>
+                </Field>
               </div>
             )}
           </div>
@@ -1167,11 +1172,11 @@ export default function Roster({ user }) {
       const promoId = R.promotionDateFieldId(cfg);
       let fields = clean.fields || {};
       if (promoId) {
-        const rankChanged = !isNew && clean.rank !== orig.rank;
-        const catResets = catChanged && R.tenureResetsOnCategoryChange(cfg);
+        const rankResets = !isNew && clean.rank !== orig.rank && R.tenureResetsOn(cfg, "rank");
+        const catResets = catChanged && R.tenureResetsOn(cfg, "category");
         const editedByHand = (fields[promoId] || "") !== (orig.fields?.[promoId] || "");
         const blankOnNew = isNew && !fields[promoId];
-        if (((rankChanged || catResets) && !editedByHand) || blankOnNew) {
+        if (((rankResets || catResets) && !editedByHand) || blankOnNew) {
           fields = { ...fields, [promoId]: new Date().toISOString().slice(0, 10) };
         }
       }
@@ -1617,8 +1622,9 @@ export default function Roster({ user }) {
               Clear
             </Button>
             <p className="w-full text-[11px] text-slate-500">
-              Sets the new rank, stamps Date of Promotion to today (resetting time in grade),
-              and auto-assigns callsigns when the rank has a callsign format (set in Ranks).
+              Sets the new rank, updates Date of Promotion per your Time in Grade “resets
+              when” setting, and auto-assigns callsigns when the rank has a callsign format
+              (set in Ranks).
             </p>
           </Panel>
         </div>

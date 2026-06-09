@@ -240,17 +240,26 @@ export function tenureDays(member, field, fields) {
   return Math.max(0, Math.floor((Date.now() - d.getTime()) / 86400000));
 }
 
-// Whether moving someone to a new category resets time in grade (stamps the
-// promotion date). Controlled per tenure column; defaults to on.
-export function tenureResetsOnCategoryChange(config) {
+// What resets time in grade (stamps the promotion date): "category" moves,
+// "rank" changes, "both", or "never". Set on the tenure column; defaults to
+// category-change-only. Without a tenure column, both events stamp the date.
+export function tenureResetOn(config) {
   const tenure = (config.roster.memberFields || []).find((f) => f.type === "tenure");
-  return tenure ? tenure.resetOnCategory !== false : true;
+  if (!tenure) return "both";
+  return ["rank", "category", "both", "never"].includes(tenure.resetOn)
+    ? tenure.resetOn
+    : "category";
+}
+
+export function tenureResetsOn(config, kind) {
+  const v = tenureResetOn(config);
+  return v === "both" || v === kind;
 }
 
 // Like touchPromotionDate, but for *category* moves — respects the tenure
-// column's "reset on category change" option.
+// column's "resets when" setting.
 export function touchPromotionDateOnCategoryChange(config, subId, catId, memberId) {
-  if (!tenureResetsOnCategoryChange(config)) return config;
+  if (!tenureResetsOn(config, "category")) return config;
   return touchPromotionDate(config, subId, catId, memberId);
 }
 
@@ -340,7 +349,7 @@ export function applyPromotion(config, subId, memberIds, { rankId }) {
       members: c.members.map((m) => {
         if (!ids.has(m.id)) return m;
         const fields = { ...(m.fields || {}) };
-        if (promoId) fields[promoId] = todayISO();
+        if (promoId && tenureResetsOn(config, "rank")) fields[promoId] = todayISO();
         if (nextCallsign) {
           const cs = nextCallsign();
           if (cs) fields[csId] = cs;
