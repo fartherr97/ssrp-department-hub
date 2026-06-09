@@ -1,34 +1,26 @@
 import { useState } from "react";
-import { Palette, LayoutList, Users, Lock, Database, Check } from "lucide-react";
+import { Palette, LayoutList, Users, Database, Check } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
-import { canManageSite, canManageAccess, isManagerOfAny } from "../lib/permissions.js";
+import { canManageSite } from "../lib/permissions.js";
 import { PageHeader } from "../components/common/index.jsx";
 import BrandingTab from "./builder/BrandingTab.jsx";
 import PagesTab from "./builder/PagesTab.jsx";
 import RosterTab from "./builder/RosterTab.jsx";
-import AccessTab from "./builder/AccessTab.jsx";
 import AdvancedTab from "./builder/AdvancedTab.jsx";
 
-// Site config tabs require manageSite; Access & Roles is also open to anyone
-// who can manage access or is a manager of a group.
-const siteCap = (u, c) => canManageSite(u, c);
+// All Builder tabs are site configuration — they require the manageSite
+// capability. Access & Roles lives on its own page under Administration.
 const TABS = [
-  { id: "branding", label: "Branding", icon: Palette, Component: BrandingTab, can: siteCap },
-  { id: "pages", label: "Pages & Nav", icon: LayoutList, Component: PagesTab, can: siteCap },
-  { id: "roster", label: "Roster Schema", icon: Users, Component: RosterTab, can: siteCap },
-  {
-    id: "access",
-    label: "Access & Roles",
-    icon: Lock,
-    Component: AccessTab,
-    can: (u, c) => canManageAccess(u, c) || isManagerOfAny(u, c),
-  },
-  { id: "advanced", label: "Advanced", icon: Database, Component: AdvancedTab, can: siteCap },
+  { id: "branding", label: "Branding", icon: Palette, Component: BrandingTab },
+  { id: "pages", label: "Pages & Nav", icon: LayoutList, Component: PagesTab },
+  { id: "roster", label: "Roster Schema", icon: Users, Component: RosterTab },
+  { id: "advanced", label: "Advanced", icon: Database, Component: AdvancedTab },
 ];
 
 export default function BuilderPortal({ user }) {
   const { config, saving } = useConfig();
-  const tabs = TABS.filter((t) => t.can(user, config));
+  const allowed = canManageSite(user, config);
+  const tabs = allowed ? TABS : [];
   const [tab, setTab] = useState(tabs[0]?.id);
   const active = tabs.find((t) => t.id === tab) || tabs[0];
   const Active = active?.Component;

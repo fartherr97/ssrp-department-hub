@@ -1,18 +1,18 @@
 import { useState } from "react";
 import { Plus, Trash2, UserPlus, Users, Lock } from "lucide-react";
-import { useConfig } from "../../lib/configContext.jsx";
-import { uid } from "../../lib/roster.js";
-import { initials } from "../../lib/user.js";
+import { useConfig } from "../lib/configContext.jsx";
+import { uid } from "../lib/roster.js";
+import { initials } from "../lib/user.js";
 import {
   canManageSite,
   canManageAccess,
   canAdministerGroup,
   canManageGroupMembers,
   hasCapability,
-  userLevel,
-} from "../../lib/permissions.js";
+} from "../lib/permissions.js";
 import {
   Panel,
+  PageHeader,
   SectionHeader,
   Button,
   IconButton,
@@ -20,7 +20,7 @@ import {
   Input,
   Select,
   Badge,
-} from "../../components/common/index.jsx";
+} from "../components/common/index.jsx";
 
 const CAPS = [
   { key: "manageSite", title: "Manage site", desc: "Open the Builder Portal — branding, pages, roster schema, advanced." },
@@ -206,8 +206,6 @@ function GroupCard({ group, user }) {
                 title={cap.title}
                 desc={cap.desc}
                 checked={!!group[cap.key]}
-                // Can't grant a capability you don't hold yourself, and only on
-                // groups at or below your level.
                 disabled={!canAdmin || !hasCapability(user, config, cap.key)}
                 onChange={(v) => update({ [cap.key]: v })}
               />
@@ -307,7 +305,9 @@ function DiscordSettings() {
   );
 }
 
-export default function AccessTab({ user }) {
+// ─── Access & Roles page ──────────────────────────────────────────────────────
+
+export default function AccessRoles({ user }) {
   const { config, mutate } = useConfig();
   const groups = [...(config.groups || [])].sort((a, b) => b.level - a.level);
   const mayAdd = canManageAccess(user, config);
@@ -332,27 +332,26 @@ export default function AccessTab({ user }) {
     }));
 
   return (
-    <div className="grid gap-6">
-      <div className="flex items-end justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="text-lg font-semibold text-white">Groups</h2>
-          <p className="mt-0.5 text-sm text-[var(--color-text-muted)]">
-            Toggle what each group can do, then assign people by name + Discord ID. You can only
-            manage groups at or below your own level.
-          </p>
-        </div>
-        {mayAdd && (
-          <Button icon={Plus} onClick={addGroup}>
-            Add group
-          </Button>
-        )}
+    <div>
+      <PageHeader
+        kicker="Administration"
+        title="Access & Roles"
+        subtitle="Set what each group can do, then assign people by name + Discord ID. You can only manage groups at or below your own level."
+        actions={
+          mayAdd && (
+            <Button icon={Plus} onClick={addGroup}>
+              Add group
+            </Button>
+          )
+        }
+      />
+
+      <div className="grid gap-6">
+        {groups.map((g) => (
+          <GroupCard key={g.id} group={g} user={user} />
+        ))}
+        {maySite && <DiscordSettings />}
       </div>
-
-      {groups.map((g) => (
-        <GroupCard key={g.id} group={g} user={user} />
-      ))}
-
-      {maySite && <DiscordSettings />}
     </div>
   );
 }

@@ -70,12 +70,12 @@ export const defaultConfig = {
     { id: "subdivisions", label: "Subdivisions", level: 1, manageSite: false, manageAccess: false, editRoster: false, editSubdivisions: true, members: [] },
   ],
 
-  navGroups: ["Main", "Resources", "Administration"],
+  navGroups: ["Main", "Resources", "Administration", "Builder"],
 
   // Nav groups whose pages collapse into a dropdown menu in the top bar instead
-  // of showing each page inline (e.g. "Rank Access", "Exam Backend"). Groups not
-  // listed here render their pages inline as individual top-bar links.
-  dropdownGroups: [],
+  // of showing each page inline. "Administration" groups the admin tools (Access
+  // & Roles, Audit Log); the Builder Portal sits on its own inline.
+  dropdownGroups: ["Administration"],
 
   pages: [
     {
@@ -138,20 +138,25 @@ export const defaultConfig = {
       },
     },
     {
+      id: "access",
+      label: "Access & Roles",
+      navGroup: "Administration",
+      icon: "Shield",
+      type: "access",
+    },
+    {
       id: "audit",
       label: "Audit Log",
       navGroup: "Administration",
       icon: "ClipboardList",
       type: "audit",
-      access: ["command", "admin"],
     },
     {
       id: "builder",
       label: "Builder Portal",
-      navGroup: "Administration",
+      navGroup: "Builder",
       icon: "Settings",
       type: "builder",
-      access: ["admin"],
       locked: true, // cannot be deleted from the Builder Portal
     },
   ],

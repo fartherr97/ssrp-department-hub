@@ -132,10 +132,26 @@ function migrateConfig(saved) {
     }));
   }
 
-  // Ensure the Audit Log page exists for configs created before it was added.
-  if (Array.isArray(merged.pages) && !merged.pages.some((p) => p.type === "audit")) {
-    const auditPage = cloneDefaultConfig().pages.find((p) => p.type === "audit");
-    if (auditPage) merged.pages = [...merged.pages, auditPage];
+  // Ensure the Administration pages (Access & Roles, Audit Log) exist, give the
+  // Builder Portal its own nav group, and make Administration a dropdown.
+  if (Array.isArray(merged.pages)) {
+    const defaults = cloneDefaultConfig();
+    for (const type of ["access", "audit"]) {
+      if (!merged.pages.some((p) => p.type === type)) {
+        const page = defaults.pages.find((p) => p.type === type);
+        if (page) merged.pages = [...merged.pages, page];
+      }
+    }
+    merged.pages = merged.pages.map((p) =>
+      p.type === "builder" && p.navGroup === "Administration" ? { ...p, navGroup: "Builder" } : p
+    );
+    if (Array.isArray(merged.navGroups) && !merged.navGroups.includes("Builder")) {
+      merged.navGroups = [...merged.navGroups, "Builder"];
+    }
+    merged.dropdownGroups = Array.isArray(merged.dropdownGroups) ? merged.dropdownGroups : [];
+    if (!merged.dropdownGroups.includes("Administration")) {
+      merged.dropdownGroups = [...merged.dropdownGroups, "Administration"];
+    }
   }
 
   merged.version = CONFIG_VERSION;

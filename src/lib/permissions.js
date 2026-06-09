@@ -96,7 +96,8 @@ export function canEditRosterStructure(user, config) {
 
 export function canAccessPage(user, page, config) {
   if (!user || !page) return false;
-  if (page.type === "builder") return canOpenBuilder(user, config);
+  if (page.type === "builder") return canManageSite(user, config);
+  if (page.type === "access") return canManageAccess(user, config) || isManagerOfAny(user, config);
   return true; // every other page is viewable by any signed-in member
 }
 
