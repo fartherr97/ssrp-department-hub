@@ -45,7 +45,7 @@ function LinksBlock({ block }) {
             href={item.url || "#"}
             target={item.url && item.url !== "#" ? "_blank" : undefined}
             rel="noreferrer"
-            className="flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-[var(--color-surface-2)] px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-[color:var(--color-border)] hover:text-white"
+            className="lift flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-[var(--color-surface-2)] px-4 py-3 text-sm font-medium text-slate-200 hover:border-[color:var(--color-border-strong)] hover:text-white"
           >
             <span className="truncate">{item.label}</span>
             <ExternalLink size={15} className="shrink-0 text-slate-500" />

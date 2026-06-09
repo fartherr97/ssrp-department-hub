@@ -26,12 +26,13 @@ export const defaultConfig = {
       "Centralized access for personnel, resources, and internal operations.",
     footerText: "© 2026 Your Department. All rights reserved.",
     colors: {
-      primary: "#3b82f6",
-      hover: "#2563eb",
-      bg: "#0f1629",
-      surface1: "#131b2e",
-      surface2: "#131d35",
-      bodyBg: "#111827",
+      // SSRP CAD palette — dark navy / slate with brand blue accent.
+      primary: "#3d82f0",
+      hover: "#5a97f5",
+      bg: "#101d31",
+      surface1: "#13233b",
+      surface2: "#192f4d",
+      bodyBg: "#0b1424",
     },
     socials: [
       // { id, label, url, icon }  e.g. { id:"discord", label:"Discord", url:"https://discord.gg/...", icon:"MessageCircle" }

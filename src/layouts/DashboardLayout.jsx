@@ -13,7 +13,7 @@ function AccountMenu({ user, config, open, setOpen, onLogout }) {
     <div className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className={`flex items-center gap-2.5 rounded-full border bg-[var(--color-surface-2)] py-1 pl-1 pr-2.5 transition ${
+        className={`press flex items-center gap-2.5 rounded-full border bg-[var(--color-surface-2)] py-1 pl-1 pr-2.5 transition ${
           open
             ? "border-[color:var(--color-border-strong)]"
             : "border-white/10 hover:border-[color:var(--color-border)]"
@@ -36,7 +36,7 @@ function AccountMenu({ user, config, open, setOpen, onLogout }) {
       </button>
 
       {open && (
-        <div className="hub-menu hub-menu-floating absolute right-0 top-full z-50 mt-2 min-w-[230px] p-2">
+        <div className="hub-menu hub-menu-floating anim-dropdown-in absolute right-0 top-full z-50 mt-2 min-w-[230px] p-2">
           <div className="px-3 py-2">
             <div className="truncate text-sm font-semibold text-white">{user.username}</div>
             <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-primary)]">
@@ -61,7 +61,7 @@ function PageItem({ page, active, onNavigate }) {
   return (
     <button
       onClick={() => onNavigate(page.id)}
-      className={`group/navitem flex min-h-[40px] w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium ${
+      className={`press group/navitem flex min-h-[40px] w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium ${
         active ? "hub-nav-item-active" : "hub-nav-item"
       }`}
     >
@@ -95,7 +95,7 @@ function TopNav({ nav, activePage, dropdownGroups, openGroup, setOpenGroup, onNa
               <button
                 key={page.id}
                 onClick={() => onNavigate(page.id)}
-                className={`hub-nav-link px-3 text-sm font-semibold transition-colors ${
+                className={`press hub-nav-link px-3 text-sm font-semibold transition-colors ${
                   active ? "hub-nav-link-active text-white" : "text-slate-300 hover:text-white"
                 }`}
               >
@@ -117,7 +117,7 @@ function TopNav({ nav, activePage, dropdownGroups, openGroup, setOpenGroup, onNa
           >
             <button
               onClick={() => setOpenGroup(open ? null : group.name)}
-              className={`hub-nav-link gap-1.5 px-3 text-sm font-semibold transition-colors ${
+              className={`press hub-nav-link gap-1.5 px-3 text-sm font-semibold transition-colors ${
                 open || containsActive
                   ? "hub-nav-link-active text-white"
                   : "text-slate-300 hover:text-white"
@@ -127,7 +127,7 @@ function TopNav({ nav, activePage, dropdownGroups, openGroup, setOpenGroup, onNa
               <ChevronDown size={15} className={`transition-transform ${open ? "rotate-180" : ""}`} />
             </button>
             {open && (
-              <div className="hub-menu absolute left-0 top-full z-50 grid min-w-[240px] gap-0.5 p-2">
+              <div className="hub-menu anim-dropdown-in absolute left-0 top-full z-50 grid min-w-[240px] gap-0.5 p-2">
                 {group.pages.map((page) => {
                   const active = page.id === activePage;
                   return (
@@ -153,7 +153,7 @@ function TopNav({ nav, activePage, dropdownGroups, openGroup, setOpenGroup, onNa
 
 function MobileNav({ nav, activePage, onNavigate }) {
   return (
-    <div className="hub-panel absolute left-3 right-3 top-full z-50 mt-2 max-h-[70vh] space-y-4 overflow-y-auto rounded-2xl p-4 lg:hidden">
+    <div className="hub-panel anim-dropdown-in absolute left-3 right-3 top-full z-50 mt-2 max-h-[70vh] space-y-4 overflow-y-auto rounded-2xl p-4 lg:hidden">
       {nav.map((group) => (
         <section key={group.name}>
           <div className="hub-nav-group mb-1.5 px-2 text-[11px] font-black uppercase tracking-[0.2em]">
@@ -226,7 +226,7 @@ export default function DashboardLayout({
               setOpenGroup(null);
               setAccountOpen(false);
             }}
-            className="rounded-xl border border-white/10 bg-[var(--color-surface-1)] p-2 text-slate-200 transition hover:border-[color:var(--color-border)] lg:hidden"
+            className="press rounded-xl border border-white/10 bg-[var(--color-surface-1)] p-2 text-slate-200 transition hover:border-[color:var(--color-border)] lg:hidden"
             aria-label="Toggle navigation"
             aria-expanded={mobileOpen}
           >
@@ -236,7 +236,7 @@ export default function DashboardLayout({
           {/* Brand */}
           <button
             onClick={() => nav[0]?.pages[0] && navigate(nav[0].pages[0].id)}
-            className="flex shrink-0 items-center gap-3"
+            className="press flex shrink-0 items-center gap-3"
           >
             <Logo branding={branding} size={40} />
             <div className="hidden min-w-0 text-left sm:block">

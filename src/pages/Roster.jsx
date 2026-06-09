@@ -349,7 +349,7 @@ function SubdivisionTabs({ subdivisions, activeId, canEdit, onSelect, onAdd, onR
             <button
               key={s.id}
               onClick={() => onSelect(s.id)}
-              className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold transition ${
+              className={`press flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold transition ${
                 isActive
                   ? "border border-[color:var(--color-border-strong)] bg-[color:var(--color-primary)]/14 text-white"
                   : "border border-transparent text-slate-300 hover:bg-white/5 hover:text-white"

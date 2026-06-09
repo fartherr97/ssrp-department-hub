@@ -50,7 +50,7 @@ export default function BuilderPortal() {
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className={`flex shrink-0 items-center gap-2.5 rounded-xl px-4 py-2.5 text-left text-sm font-semibold transition ${
+                className={`press flex shrink-0 items-center gap-2.5 rounded-xl px-4 py-2.5 text-left text-sm font-semibold transition ${
                   active
                     ? "border border-[color:var(--color-border-strong)] bg-[color:var(--color-primary)]/12 text-white"
                     : "border border-transparent text-slate-300 hover:bg-white/5 hover:text-white"

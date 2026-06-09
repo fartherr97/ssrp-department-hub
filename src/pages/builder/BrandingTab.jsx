@@ -18,6 +18,31 @@ const COLOR_FIELDS = [
   { key: "surface2", label: "Surface 2" },
 ];
 
+// One-click palettes. "SSRP CAD" is the kit's dark-navy default; the rest are
+// the same surface recipe re-hued for departments that want a different accent.
+const PRESETS = [
+  {
+    id: "ssrp-cad",
+    label: "SSRP CAD",
+    colors: { primary: "#3d82f0", hover: "#5a97f5", bg: "#101d31", surface1: "#13233b", surface2: "#192f4d", bodyBg: "#0b1424" },
+  },
+  {
+    id: "emerald",
+    label: "Emerald",
+    colors: { primary: "#10b981", hover: "#34d399", bg: "#102420", surface1: "#13291f", surface2: "#1b3a2c", bodyBg: "#08140f" },
+  },
+  {
+    id: "crimson",
+    label: "Crimson",
+    colors: { primary: "#ef4444", hover: "#f87171", bg: "#241318", surface1: "#2c151c", surface2: "#3b1c25", bodyBg: "#150a0d" },
+  },
+  {
+    id: "violet",
+    label: "Violet",
+    colors: { primary: "#8b5cf6", hover: "#a78bfa", bg: "#1b1733", surface1: "#211b3c", surface2: "#2e2551", bodyBg: "#100c20" },
+  },
+];
+
 export default function BrandingTab() {
   const { config, mutate } = useConfig();
   const b = config.branding;
@@ -28,6 +53,11 @@ export default function BrandingTab() {
     mutate((cfg) => ({
       ...cfg,
       branding: { ...cfg.branding, colors: { ...cfg.branding.colors, [key]: value } },
+    }));
+  const applyPreset = (colors) =>
+    mutate((cfg) => ({
+      ...cfg,
+      branding: { ...cfg.branding, colors: { ...cfg.branding.colors, ...colors } },
     }));
 
   return (
@@ -97,6 +127,33 @@ export default function BrandingTab() {
           title="Theme colors"
           subtitle="Applied live across the whole hub. Hex values."
         />
+        <div className="mb-5">
+          <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.5px] text-cad-muted">
+            Presets
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {PRESETS.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => applyPreset(p.colors)}
+                className="press flex items-center gap-2 rounded-xl border border-white/10 bg-[var(--color-surface-2)] px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-[color:var(--color-border-strong)] hover:text-white"
+              >
+                <span className="flex -space-x-1">
+                  <span
+                    className="h-4 w-4 rounded-full border border-white/20"
+                    style={{ background: p.colors.primary }}
+                  />
+                  <span
+                    className="h-4 w-4 rounded-full border border-white/20"
+                    style={{ background: p.colors.bodyBg }}
+                  />
+                </span>
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           {COLOR_FIELDS.map((c) => (
             <Field key={c.key} label={c.label}>

@@ -1,26 +1,75 @@
 @import "tailwindcss";
 
 /*
- * Theme variables. These defaults are overwritten at runtime by the active
- * department's branding (see src/lib/theme.js → applyTheme). Every component
- * styles against these vars so a department can fully reskin the hub from the
- * Builder Portal without touching code.
+ * ─── SSRP CAD design tokens (Tailwind v4 @theme) ────────────────────────────
+ * The fixed SSRP CAD palette + fonts, registered as Tailwind utilities so the
+ * style-kit recipes work directly in JSX (bg-app-card, text-cad-muted, bg-brand,
+ * border-brand/30, animate-pop-in, font-mono → Courier, etc.). These are the
+ * look-and-feel constants; per-department theming still rides on the
+ * runtime --color-* vars defined in :root below.
+ */
+@theme {
+  --font-ui: "Ubuntu", "Segoe UI", "Tahoma", "Arial", system-ui, sans-serif;
+  --font-mono: "Courier New", "Lucida Console", "Consolas", monospace;
+
+  /* Surfaces (dark navy / slate) */
+  --color-app-bg: #0b1424;
+  --color-app-panel: #101d31;
+  --color-app-card: #13233b;
+  --color-app-elevated: #192f4d;
+  --color-app-input: #0d1a2c;
+  --color-app-toolbar: #0e1c30;
+  --color-app-selected: #1c3a5e;
+
+  /* Text */
+  --color-cad-text: #dde6f1;
+  --color-cad-dim: #93a4bd;
+  --color-cad-muted: #5d6f88;
+  --color-cad-data: #5aa0e8;
+
+  /* Brand + accents */
+  --color-brand: #3d82f0;
+  --color-brand-bright: #5a97f5;
+  --color-brand-dim: #1d3a66;
+  --color-gold: #a07808;
+  --color-gold-bright: #c09010;
+  --color-gold-dim: #0e0a00;
+
+  /* Animations (keyframes defined further down) */
+  --animate-fade-in: fadeIn 0.15s ease-out;
+  --animate-pop-in: popIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-pulse-red: pulseRed 1.5s ease-in-out infinite;
+}
+
+/*
+ * Theme variables. These defaults are the SSRP CAD palette and are overwritten
+ * at runtime by the active department's branding (see src/lib/theme.js →
+ * applyTheme). Every component styles against these vars so a department can
+ * fully reskin the hub from the Builder Portal without touching code.
  */
 :root {
   color-scheme: dark;
-  --color-primary: #3b82f6;
-  --color-hover: #2563eb;
-  --color-bg: #0f1629;
-  --color-surface-1: #131b2e;
-  --color-surface-2: #131d35;
-  --color-body-bg: #111827;
-  --color-border: rgba(59, 130, 246, 0.2);
-  --color-border-strong: rgba(59, 130, 246, 0.36);
-  --color-text: #f1f5f9;
-  --color-text-muted: #9eabc3;
-  --font-body: Ubuntu, "Segoe UI", "Trebuchet MS", sans-serif;
-  --font-display: Syne, Ubuntu, "Segoe UI", sans-serif;
-  scrollbar-color: #3f587b var(--color-body-bg);
+  --color-primary: #3d82f0;
+  --color-hover: #5a97f5;
+  --color-bg: #101d31;
+  --color-surface-1: #13233b;
+  --color-surface-2: #192f4d;
+  --color-body-bg: #0b1424;
+  --color-border: rgba(61, 130, 240, 0.2);
+  --color-border-strong: rgba(61, 130, 240, 0.4);
+  --color-text: #dde6f1;
+  --color-text-muted: #93a4bd;
+  --font-body: "Ubuntu", "Segoe UI", "Tahoma", "Arial", system-ui, sans-serif;
+  --font-display: "Ubuntu", "Segoe UI", "Tahoma", "Arial", system-ui, sans-serif;
+
+  /* Motion / easing — the SSRP CAD "feel" */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); /* springy entrances */
+  --ease-soft: cubic-bezier(0.4, 0, 0.2, 1); /* presses / quick UI */
+  --t-fast: 0.14s;
+  --t-med: 0.22s;
+  --t-slow: 0.32s;
+
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
 }
 
 html,
@@ -36,6 +85,8 @@ body {
   min-height: 100vh;
   color: var(--color-text);
   font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.4;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -53,9 +104,8 @@ h5,
 h6 {
   color: var(--color-text);
   font-family: var(--font-display);
-  font-weight: 700;
-  line-height: 1.05;
-  letter-spacing: -0.03em;
+  font-weight: 600;
+  line-height: 1.2;
 }
 
 button,
@@ -85,29 +135,32 @@ body {
   scrollbar-width: thin;
 }
 
+/* Thin dark scrollbars (SSRP CAD) */
 *::-webkit-scrollbar,
 html::-webkit-scrollbar,
 body::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
+  width: 8px;
+  height: 8px;
 }
 
 *::-webkit-scrollbar-track,
 html::-webkit-scrollbar-track,
 body::-webkit-scrollbar-track {
-  background: var(--color-body-bg);
+  background: transparent;
 }
 
 *::-webkit-scrollbar-thumb,
 html::-webkit-scrollbar-thumb,
 body::-webkit-scrollbar-thumb {
-  border: 2px solid var(--color-body-bg);
-  border-radius: 999px;
-  background: linear-gradient(180deg, #4c678c 0%, #355071 100%);
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  background-clip: padding-box;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #5a789f 0%, #3c5c82 100%);
+  background: rgba(255, 255, 255, 0.22);
+  background-clip: padding-box;
 }
 
 @keyframes pageFade {
@@ -148,6 +201,68 @@ body::-webkit-scrollbar-thumb {
 .animate-modalPop {
   animation: modalPop 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+/* ─── SSRP CAD keyframes ────────────────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes dropdownFadeIn {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(14px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes overlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes sheetIn {
+  from { opacity: 0; transform: translateY(100%); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes staggerIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes pulseRed {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+/* ─── SSRP CAD animation utilities ──────────────────────────────────────────── */
+.anim-fade-in { animation: fadeIn 0.15s ease-out; }
+.anim-dropdown-in { animation: dropdownFadeIn 0.16s var(--ease-out) both; }
+.anim-overlay-in { animation: overlayIn 0.18s ease-out; }
+.anim-modal-in { animation: modalIn 0.26s var(--ease-out) both; }
+.anim-sheet-in { animation: sheetIn 0.3s var(--ease-out) both; } /* mobile bottom sheets */
+.stagger-item {
+  animation: staggerIn 0.34s var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 0.04s);
+}
+
+/* ─── SSRP CAD interaction utilities (the signature feel) ───────────────────── */
+.press { transition: transform 0.09s var(--ease-soft); } /* tap feedback */
+.press:active { transform: scale(0.94); }
+.press-sm { transition: transform 0.09s var(--ease-soft); }
+.press-sm:active { transform: scale(0.97); }
+.lift {
+  transition: transform 0.16s var(--ease-out), box-shadow 0.16s ease,
+    border-color 0.16s ease;
+}
+.lift:hover { transform: translateY(-2px); }
+.btn-glossy {
+  transition: transform 0.15s ease, background-color 0.15s ease,
+    border-color 0.15s ease, color 0.15s ease;
+}
+.btn-glossy:hover { transform: translateY(-2px); }
+.btn-glossy:active { transform: translateY(0) scale(0.97); }
 
 /* ─── Reusable surface helpers (themeable via vars) ─────────────────────────── */
 

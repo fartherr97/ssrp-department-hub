@@ -24,7 +24,7 @@ function DiscordButton({ className = "" }) {
   return (
     <a
       href="/auth/discord"
-      className={`${className} inline-flex items-center justify-center gap-2 rounded-full bg-[linear-gradient(90deg,var(--color-primary),var(--color-hover))] px-8 py-3.5 text-[17px] font-semibold leading-none text-white shadow-xl shadow-black/25 transition hover:scale-[1.02]`}
+      className={`${className} btn-glossy inline-flex items-center justify-center gap-2 rounded-full bg-[linear-gradient(90deg,var(--color-primary),var(--color-hover))] px-8 py-3.5 text-[17px] font-semibold leading-none text-white shadow-xl shadow-black/25 hover:brightness-110`}
     >
       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         <path d="M18.631 1.338A18.3 18.3 0 0 0 14.157 0c-.196.347-.425.815-.583 1.186a16.964 16.964 0 0 0-5.148 0A12.607 12.607 0 0 0 7.84 0a18.344 18.344 0 0 0-4.476 1.341C.482 5.392-.296 9.34.094 13.232c1.878 1.38 3.698 2.219 5.489 2.769a13.65 13.65 0 0 0 1.184-1.926 11.99 11.99 0 0 1-1.865-.896c.157-.114.31-.233.458-.355 3.593 1.658 7.5 1.658 11.053 0 .15.122.303.241.459.355-.594.352-1.225.653-1.867.898.337.679.72 1.325 1.184 1.925 1.793-.55 3.615-1.389 5.493-2.77.451-4.51-.777-8.42-3.051-11.894ZM7.348 10.83c-1.11 0-2.024-1.02-2.024-2.27 0-1.25.893-2.273 2.024-2.273 1.132 0 2.047 1.021 2.025 2.273.001 1.25-.893 2.27-2.025 2.27Zm7.303 0c-1.11 0-2.024-1.02-2.024-2.27 0-1.25.892-2.273 2.024-2.273 1.131 0 2.046 1.021 2.024 2.273 0 1.25-.893 2.27-2.024 2.27Z" />
@@ -51,7 +51,7 @@ function DevLogin({ groups, onDevLogin }) {
         <select
           value={group}
           onChange={(e) => setGroup(e.target.value)}
-          className="flex-1 rounded-xl border border-white/10 bg-[var(--color-surface-2)] px-3 py-2 text-sm text-white outline-none"
+          className="flex-1 rounded-xl border border-white/10 bg-app-input px-3 py-2 text-sm text-cad-text outline-none transition focus:border-[color:var(--color-border-strong)]"
         >
           {groups?.map((g) => (
             <option key={g.id} value={g.id}>
