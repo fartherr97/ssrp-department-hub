@@ -668,7 +668,7 @@ function ColumnsModal({ open, onClose }) {
               </div>
             )}
             {f.type === "tenure" && (
-              <div className="col-span-3">
+              <div className="col-span-3 grid gap-3">
                 <Field
                   label="Counts days since"
                   hint="Shows days since this date column — promotions reset it automatically."
@@ -689,6 +689,17 @@ function ColumnsModal({ open, onClose }) {
                       ))}
                   </Select>
                 </Field>
+                <label className="flex items-center gap-2 text-sm text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={f.resetOnCategory !== false}
+                    onChange={(e) =>
+                      mutate(R.updateMemberField(config, f.id, { resetOnCategory: e.target.checked }))
+                    }
+                    className="h-4 w-4 accent-[var(--color-primary)]"
+                  />
+                  Also reset when moved to a new category (rank changes always reset)
+                </label>
               </div>
             )}
           </div>
@@ -1157,9 +1168,10 @@ export default function Roster({ user }) {
       let fields = clean.fields || {};
       if (promoId) {
         const rankChanged = !isNew && clean.rank !== orig.rank;
+        const catResets = catChanged && R.tenureResetsOnCategoryChange(cfg);
         const editedByHand = (fields[promoId] || "") !== (orig.fields?.[promoId] || "");
         const blankOnNew = isNew && !fields[promoId];
-        if (((rankChanged || catChanged) && !editedByHand) || blankOnNew) {
+        if (((rankChanged || catResets) && !editedByHand) || blankOnNew) {
           fields = { ...fields, [promoId]: new Date().toISOString().slice(0, 10) };
         }
       }
@@ -1231,9 +1243,9 @@ export default function Roster({ user }) {
     try {
       const { fromCatId, memberId } = JSON.parse(e.dataTransfer.getData("text/plain"));
       if (fromCatId !== toCatId) {
-        // Category change resets time in grade (stamps the promotion date).
+        // Category change resets time in grade (if the tenure column opts in).
         mutate((cfg) =>
-          R.touchPromotionDate(
+          R.touchPromotionDateOnCategoryChange(
             R.moveMember(cfg, toSubId, fromCatId, memberId, toCatId),
             toSubId,
             toCatId,
@@ -1255,7 +1267,7 @@ export default function Roster({ user }) {
       mutate((cfg) => {
         let next = R.moveMemberBefore(cfg, toSubId, fromCatId, memberId, toCatId, beforeMemberId);
         if (fromCatId !== toCatId) {
-          next = R.touchPromotionDate(next, toSubId, toCatId, memberId);
+          next = R.touchPromotionDateOnCategoryChange(next, toSubId, toCatId, memberId);
         }
         return next;
       });

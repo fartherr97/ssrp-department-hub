@@ -120,10 +120,10 @@ function ColumnEditor({ field }) {
       />
 
       {field.type === "tenure" && (
-        <div className="sm:col-span-3">
+        <div className="grid gap-3 sm:col-span-3">
           <Field
             label="Counts days since"
-            hint="Shows days since this date column. Rank or category changes stamp that date to today, resetting the count automatically."
+            hint="Shows days since this date column. Rank changes stamp that date to today, resetting the count automatically."
           >
             <Select
               value={field.sourceFieldId || ""}
@@ -139,6 +139,15 @@ function ColumnEditor({ field }) {
                 ))}
             </Select>
           </Field>
+          <label className="flex items-center gap-2 text-sm text-slate-300">
+            <input
+              type="checkbox"
+              checked={field.resetOnCategory !== false}
+              onChange={(e) => update({ resetOnCategory: e.target.checked })}
+              className="h-4 w-4 accent-[var(--color-primary)]"
+            />
+            Also reset when moved to a new category (rank changes always reset)
+          </label>
         </div>
       )}
 

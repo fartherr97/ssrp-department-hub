@@ -240,6 +240,20 @@ export function tenureDays(member, field, fields) {
   return Math.max(0, Math.floor((Date.now() - d.getTime()) / 86400000));
 }
 
+// Whether moving someone to a new category resets time in grade (stamps the
+// promotion date). Controlled per tenure column; defaults to on.
+export function tenureResetsOnCategoryChange(config) {
+  const tenure = (config.roster.memberFields || []).find((f) => f.type === "tenure");
+  return tenure ? tenure.resetOnCategory !== false : true;
+}
+
+// Like touchPromotionDate, but for *category* moves — respects the tenure
+// column's "reset on category change" option.
+export function touchPromotionDateOnCategoryChange(config, subId, catId, memberId) {
+  if (!tenureResetsOnCategoryChange(config)) return config;
+  return touchPromotionDate(config, subId, catId, memberId);
+}
+
 // Stamp a member's promotion date to today (no-op if no such column exists).
 export function touchPromotionDate(config, subId, catId, memberId) {
   const fid = promotionDateFieldId(config);
