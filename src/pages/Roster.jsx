@@ -467,7 +467,7 @@ function RankTitlesModal({ open, onClose, subId }) {
                 onChange={(e) => mutate(R.updateRank(config, subId, rt.id, { name: e.target.value }))}
               />
             </Field>
-            <Field label="Insignia URL" hint="~64×64px">
+            <Field label="Insignia URL · ~64×64">
               <Input
                 value={rt.insigniaUrl || ""}
                 placeholder="https://…"
@@ -481,20 +481,20 @@ function RankTitlesModal({ open, onClose, subId }) {
               label="Move up"
               disabled={idx === 0}
               onClick={() => mutate(R.moveRank(config, subId, rt.id, -1))}
-              className="mb-0.5 disabled:opacity-30"
+              className="disabled:opacity-30"
             />
             <IconButton
               icon={ChevronDown}
               label="Move down"
               disabled={idx === ranks.length - 1}
               onClick={() => mutate(R.moveRank(config, subId, rt.id, 1))}
-              className="mb-0.5 disabled:opacity-30"
+              className="disabled:opacity-30"
             />
             <IconButton
               icon={Trash2}
               label="Delete rank"
               onClick={() => mutate(R.deleteRank(config, subId, rt.id))}
-              className="mb-0.5 hover:border-red-500/40 hover:text-red-300"
+              className="hover:border-red-500/40 hover:text-red-300"
             />
           </div>
         ))}
