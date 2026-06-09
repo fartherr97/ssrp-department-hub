@@ -32,7 +32,7 @@ const CAPS = [
 function CapabilityToggle({ checked, disabled, onChange, title, desc }) {
   return (
     <label
-      className={`flex items-start gap-3 rounded-xl border border-white/10 bg-app-input px-3 py-2.5 ${
+      className={`flex items-center gap-3 rounded-xl border border-white/10 bg-app-input px-3 py-2.5 ${
         disabled ? "opacity-60" : "cursor-pointer"
       }`}
     >
@@ -41,7 +41,7 @@ function CapabilityToggle({ checked, disabled, onChange, title, desc }) {
         checked={checked}
         disabled={disabled}
         onChange={(e) => onChange(e.target.checked)}
-        className="mt-0.5 h-4 w-4 accent-[var(--color-primary)]"
+        className="h-4 w-4 shrink-0 accent-[var(--color-primary)]"
       />
       <div className="min-w-0">
         <div className="text-sm font-semibold text-cad-text">{title}</div>
