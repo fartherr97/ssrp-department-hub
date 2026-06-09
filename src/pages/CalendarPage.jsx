@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, CalendarDays, Archive, Check, Clock } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, CalendarDays, Archive, Check, MapPin } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
 import { canManageCalendar } from "../lib/permissions.js";
 import { uid } from "../lib/roster.js";
@@ -72,14 +72,39 @@ function EventModal({ open, onClose, event, onSave }) {
           />
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Date">
+          <Field label="Start date">
             <Input type="date" value={draft.date || ""} onChange={(e) => setDraft({ ...draft, date: e.target.value })} />
           </Field>
-          <Field label="Time" hint="Optional, e.g. 8:00 PM EST">
-            <Input value={draft.time || ""} placeholder="8:00 PM EST" onChange={(e) => setDraft({ ...draft, time: e.target.value })} />
+          <Field label="Start time" hint="Optional, e.g. 8:00 PM EST">
+            <Input
+              value={draft.startTime ?? draft.time ?? ""}
+              placeholder="8:00 PM EST"
+              onChange={(e) => setDraft({ ...draft, startTime: e.target.value })}
+            />
+          </Field>
+          <Field label="End date" hint="Optional — only for multi-day events.">
+            <Input
+              type="date"
+              value={draft.endDate || ""}
+              onChange={(e) => setDraft({ ...draft, endDate: e.target.value })}
+            />
+          </Field>
+          <Field label="End time" hint="Optional, e.g. 10:00 PM EST">
+            <Input
+              value={draft.endTime || ""}
+              placeholder="10:00 PM EST"
+              onChange={(e) => setDraft({ ...draft, endTime: e.target.value })}
+            />
           </Field>
         </div>
-        <Field label="Details" hint="Optional — location, what to bring, etc.">
+        <Field label="Location" hint="Optional — e.g. Main Briefing Room, TS Channel 2.">
+          <Input
+            value={draft.location || ""}
+            placeholder="Where it happens"
+            onChange={(e) => setDraft({ ...draft, location: e.target.value })}
+          />
+        </Field>
+        <Field label="Details" hint="Optional — what to bring, agenda, etc.">
           <Textarea rows={3} value={draft.description || ""} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
         </Field>
       </div>
@@ -115,16 +140,26 @@ function EventDetails({ event, user, canManage, onClose, onEdit, onDelete, onTog
       }
     >
       <div className="grid gap-3">
-        <div className="flex items-center gap-2 text-sm text-slate-300">
+        <div className="flex flex-wrap items-center gap-2 text-sm text-slate-300">
           <CalendarDays size={15} className="text-[var(--color-primary)]" />
-          {formatEventDate(event.date)}
-          {event.time && (
-            <>
-              <Clock size={15} className="ml-2 text-[var(--color-primary)]" />
-              {event.time}
-            </>
-          )}
+          <span>
+            {formatEventDate(event.date)}
+            {(event.startTime || event.time) && ` · ${event.startTime || event.time}`}
+            {(event.endDate || event.endTime) && (
+              <>
+                {" — "}
+                {formatEventDate(event.endDate || event.date)}
+                {event.endTime && ` · ${event.endTime}`}
+              </>
+            )}
+          </span>
         </div>
+        {event.location && (
+          <div className="flex items-center gap-2 text-sm text-slate-300">
+            <MapPin size={15} className="text-[var(--color-primary)]" />
+            {event.location}
+          </div>
+        )}
         {event.description && (
           <p className="whitespace-pre-line text-sm leading-6 text-slate-300">{event.description}</p>
         )}
@@ -202,7 +237,8 @@ function ArchiveModal({ open, onClose, events }) {
                       <div className="truncate text-sm font-semibold text-white">{e.title}</div>
                       <div className="text-xs text-slate-500">
                         {formatEventDate(e.date)}
-                        {e.time ? ` · ${e.time}` : ""}
+                        {(e.startTime || e.time) ? ` · ${e.startTime || e.time}` : ""}
+                        {e.location ? ` · ${e.location}` : ""}
                       </div>
                     </div>
                     <Badge>{(e.attendees || []).length} attended</Badge>
@@ -245,10 +281,25 @@ export default function CalendarPage({ page, user }) {
     });
   }
 
+  // Events appear on every day they span (date → endDate, capped at 60 days);
+  // continuation days are flagged so the chip renders differently.
   const eventsByDay = useMemo(() => {
     const map = {};
-    for (const e of events) (map[e.date] = map[e.date] || []).push(e);
-    for (const k of Object.keys(map)) map[k].sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+    for (const e of events) {
+      if (!e.date) continue;
+      const end = e.endDate && e.endDate > e.date ? e.endDate : e.date;
+      const [y, m, d] = e.date.split("-").map(Number);
+      const cursor = new Date(y, m - 1, d);
+      for (let i = 0; i < 60; i++) {
+        const key = dateKey(cursor.getFullYear(), cursor.getMonth(), cursor.getDate());
+        if (key > end) break;
+        (map[key] = map[key] || []).push(i === 0 ? e : { ...e, _continued: true });
+        cursor.setDate(cursor.getDate() + 1);
+      }
+    }
+    for (const k of Object.keys(map)) {
+      map[k].sort((a, b) => ((a.startTime || a.time) || "").localeCompare((b.startTime || b.time) || ""));
+    }
     return map;
   }, [events]);
 
@@ -274,7 +325,10 @@ export default function CalendarPage({ page, user }) {
     setEventModal({
       id: uid("event"),
       date: date || tKey,
-      time: "",
+      startTime: "",
+      endDate: "",
+      endTime: "",
+      location: "",
       title: "",
       description: "",
       createdBy: user?.username || "",
@@ -384,12 +438,20 @@ export default function CalendarPage({ page, user }) {
                         ev.stopPropagation();
                         setDetailsId(e.id);
                       }}
-                      className="truncate rounded-md border border-[color:var(--color-border)] bg-[color:var(--color-primary)]/15 px-1.5 py-1 text-left text-[11px] font-semibold text-white hover:bg-[color:var(--color-primary)]/25"
-                      title={`${e.title}${e.time ? ` — ${e.time}` : ""}`}
+                      className={`truncate rounded-md border border-[color:var(--color-border)] px-1.5 py-1 text-left text-[11px] font-semibold text-white hover:bg-[color:var(--color-primary)]/25 ${
+                        e._continued ? "bg-[color:var(--color-primary)]/8 opacity-80" : "bg-[color:var(--color-primary)]/15"
+                      }`}
+                      title={`${e.title}${(e.startTime || e.time) ? ` — ${e.startTime || e.time}` : ""}${e.location ? ` @ ${e.location}` : ""}`}
                     >
-                      {e.time && <span className="mr-1 text-[var(--color-primary)]">{e.time}</span>}
+                      {e._continued ? (
+                        <span className="mr-1 text-[var(--color-primary)]">↳</span>
+                      ) : (
+                        (e.startTime || e.time) && (
+                          <span className="mr-1 text-[var(--color-primary)]">{e.startTime || e.time}</span>
+                        )
+                      )}
                       {e.title}
-                      {(e.attendees || []).length > 0 && (
+                      {!e._continued && (e.attendees || []).length > 0 && (
                         <span className="ml-1 text-slate-400">· {(e.attendees || []).length}</span>
                       )}
                     </button>
