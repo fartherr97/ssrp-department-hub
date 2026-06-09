@@ -256,7 +256,7 @@ function NavGroups() {
     <Panel className="p-5">
       <SectionHeader
         title="Navigation groups"
-        subtitle="Inline groups show each page as a top-bar link; dropdown groups collapse into a menu."
+        subtitle="The headings in the top bar. A group only appears once it contains at least one page. Inline groups show each page as a top-bar link; dropdown groups collapse into a menu."
       />
       <div className="grid gap-2">
         {config.navGroups.map((g) => {
@@ -268,6 +268,14 @@ function NavGroups() {
               className="flex items-center gap-3 rounded-xl border border-white/10 bg-[var(--color-surface-2)] px-3 py-2"
             >
               <span className="flex-1 truncate text-sm font-semibold text-white">{g}</span>
+              {!used && (
+                <span
+                  className="shrink-0 rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold text-amber-300"
+                  title="Empty groups are hidden from the top bar until a page is added to them"
+                >
+                  empty — not shown yet
+                </span>
+              )}
               <div className="flex overflow-hidden rounded-lg border border-white/10">
                 {[
                   ["Inline", false],
