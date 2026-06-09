@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ChevronDown, LogOut, Menu, X } from "lucide-react";
 import Logo from "../components/common/Logo.jsx";
+import { BrandName } from "../components/common/index.jsx";
 import { getIcon } from "../lib/icons.js";
 import { buildNav } from "../lib/navigation.js";
 import { userAvatar, userRoleLabel } from "../lib/user.js";
@@ -241,7 +242,10 @@ export default function DashboardLayout({
             <Logo branding={branding} size={40} />
             <div className="hidden min-w-0 text-left sm:block">
               <div className="truncate text-[1.05rem] font-semibold leading-tight text-white">
-                {branding.shortName || branding.name}
+                <BrandName
+                  text={branding.shortName || branding.name || ""}
+                  accent={branding.brandAccent}
+                />
               </div>
               <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">
                 {branding.organization}

@@ -1,6 +1,29 @@
 import { useEffect } from "react";
 import { X } from "lucide-react";
 
+// ─── Brand ───────────────────────────────────────────────────────────────────
+
+// The CAD brand accent — a fixed orange used to highlight a token of the brand
+// name (e.g. the "RP" in "Sunshine State RP"), matching the SSRP CAD look.
+export const BRAND_ACCENT_COLOR = "#ff8822";
+
+/*
+ * Renders brand text with a configured accent substring (branding.brandAccent)
+ * highlighted in the orange accent color. Falls back to plain text when the
+ * accent is empty or not found.
+ */
+export function BrandName({ text = "", accent, className = "" }) {
+  const i = accent ? text.indexOf(accent) : -1;
+  if (i === -1) return <span className={className}>{text}</span>;
+  return (
+    <span className={className}>
+      {text.slice(0, i)}
+      <span style={{ color: BRAND_ACCENT_COLOR }}>{accent}</span>
+      {text.slice(i + accent.length)}
+    </span>
+  );
+}
+
 // ─── Surfaces ────────────────────────────────────────────────────────────────
 
 export function Panel({ className = "", children, ...rest }) {

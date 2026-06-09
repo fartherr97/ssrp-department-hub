@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { LogIn } from "lucide-react";
 import Logo from "../common/Logo.jsx";
-import { Button } from "../common/index.jsx";
+import { Button, BrandName } from "../common/index.jsx";
 import { getIcon } from "../../lib/icons.js";
 
 // ─── Loading ─────────────────────────────────────────────────────────────────
@@ -116,7 +116,10 @@ export function LoginScreen({ config, onDevLogin }) {
           <Logo branding={branding} size={36} />
           <div className="leading-tight">
             <div className="text-[13px] font-extrabold tracking-[-0.2px] text-white sm:text-[15px]">
-              {branding.shortName || branding.name}
+              <BrandName
+                text={branding.shortName || branding.name || ""}
+                accent={branding.brandAccent}
+              />
             </div>
             {branding.organization && (
               <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[var(--color-primary)] sm:text-[10px]">
@@ -166,7 +169,9 @@ export function LoginScreen({ config, onDevLogin }) {
         <div className="flex items-center gap-4 px-4 py-2.5 sm:px-6">
           <div className="flex items-center gap-2.5">
             <Logo branding={branding} size={20} className="opacity-70" />
-            <span className="text-[11px] text-slate-500">{branding.footerText}</span>
+            <span className="text-[11px] text-slate-500">
+              <BrandName text={branding.footerText || ""} accent={branding.brandAccent} />
+            </span>
           </div>
           {branding.footerNote && (
             <div className="ml-auto hidden text-[10.5px] font-medium text-slate-600 md:block">

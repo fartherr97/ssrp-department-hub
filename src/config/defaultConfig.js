@@ -15,16 +15,18 @@ export const defaultConfig = {
   version: CONFIG_VERSION,
 
   branding: {
-    name: "Department Hub",
-    shortName: "Dept Hub",
-    organization: "Your Department",
+    name: "Sunshine State RP",
+    shortName: "Sunshine State RP",
+    // A token of the brand name highlighted in the CAD orange accent (e.g. "RP").
+    brandAccent: "RP",
+    organization: "Sunshine State Roleplay",
     tagline: "Internal Operations Platform",
     logoUrl: "", // empty → a generated monogram/shield is shown
     bannerUrl: "", // hero background banner on the Home page (empty → gradient only)
-    loginHeadline: "Department Hub",
+    loginHeadline: "Sunshine State Roleplay",
     loginSubtext:
       "Centralized access for personnel, resources, and internal operations.",
-    footerText: "© 2026 Your Department. All rights reserved.",
+    footerText: "© 2026 Sunshine State RP. All rights reserved.",
     footerNote: "Department Hub v1.0", // small right-aligned note in the login footer bar
     colors: {
       // SSRP CAD palette — dark navy / slate with brand blue accent.

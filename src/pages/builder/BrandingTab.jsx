@@ -89,6 +89,15 @@ export default function BrandingTab() {
           <Field label="Short name" hint="Shown in the top bar.">
             <Input value={b.shortName} onChange={(e) => setBrand({ shortName: e.target.value })} />
           </Field>
+          <Field
+            label="Brand accent"
+            hint='Part of the name shown in orange, e.g. "RP". Blank for none.'
+          >
+            <Input
+              value={b.brandAccent || ""}
+              onChange={(e) => setBrand({ brandAccent: e.target.value })}
+            />
+          </Field>
           <Field label="Organization / tagline line">
             <Input
               value={b.organization}
