@@ -98,6 +98,15 @@ export function canAccessPage(user, page, config) {
   if (!user || !page) return false;
   if (page.type === "builder") return canManageSite(user, config);
   if (page.type === "access") return canManageAccess(user, config) || isManagerOfAny(user, config);
+  if (page.type === "audit") {
+    // Oversight tool — visible to staff (anyone who can edit or manage).
+    return (
+      canManageSite(user, config) ||
+      canManageAccess(user, config) ||
+      canEditAnyRoster(user, config) ||
+      isManagerOfAny(user, config)
+    );
+  }
   return true; // every other page is viewable by any signed-in member
 }
 

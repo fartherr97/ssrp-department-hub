@@ -145,10 +145,11 @@ shaped like:
 }
 ```
 
-Every page is viewable by any signed-in member except the Builder Portal, which
-requires a management capability; roster editing is gated per-subdivision
-(main vs. subdivisions). See `src/lib/permissions.js`. The backend must re-check
-capabilities on every protected request — never trust the client.
+Content pages are viewable by any signed-in member. The Administration pages are
+gated: Access & Roles needs manage-access (or being a group manager), the Audit
+Log is staff-only, and the Builder Portal needs manage-site. Roster editing is
+gated per-subdivision (main vs. subdivisions). See `src/lib/permissions.js` — the
+backend must re-check capabilities on every protected request, never the client.
 
 ### Environment
 
