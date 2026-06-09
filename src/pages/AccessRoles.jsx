@@ -25,8 +25,9 @@ import {
 const CAPS = [
   { key: "manageSite", title: "Manage site", desc: "Open the Builder Portal — branding, pages, roster schema, advanced." },
   { key: "manageAccess", title: "Manage access & roles", desc: "Create groups and assign people, within their own level." },
-  { key: "editRoster", title: "Edit the main roster", desc: "Edit the main department roster." },
+  { key: "editRoster", title: "Edit the main roster", desc: "Edit the main department roster (also unlocks vehicle roster pages)." },
   { key: "editSubdivisions", title: "Edit subdivision rosters", desc: "Edit the non-main subdivision rosters." },
+  { key: "manageCalendar", title: "Manage calendar", desc: "Add, edit, and delete department calendar events." },
 ];
 
 function CapabilityToggle({ checked, disabled, onChange, title, desc }) {

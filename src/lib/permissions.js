@@ -77,6 +77,16 @@ export function canOpenBuilder(user, config) {
   return canManageSite(user, config) || canManageAccess(user, config) || isManagerOfAny(user, config);
 }
 
+// Calendar entries (add/edit/delete + archiving) — typically Command and up.
+export function canManageCalendar(user, config) {
+  return hasCapability(user, config, "manageCalendar") || canManageSite(user, config);
+}
+
+// Vehicle roster (fleet) pages — main-roster editors and site managers.
+export function canEditFleet(user, config) {
+  return hasCapability(user, config, "editRoster") || canManageSite(user, config);
+}
+
 // Roster editing is per-subdivision: the main roster needs editRoster; the
 // subdivisions need editSubdivisions (editRoster implies both).
 export function canEditSubdivision(user, config, sub) {

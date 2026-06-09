@@ -70,6 +70,20 @@ const GLOSSARY = [
       { term: "Stats box", def: "The metrics strip above the roster — total members, actives, certified counts, or any manual number. Configured under Roster Setup." },
       { term: "Insignia", def: "The small image next to a rank (chevrons, bars, stars). Added when editing ranks on the Roster page." },
       { term: "LOA", def: "Leave of Absence — a common status for members temporarily away." },
+      { term: "Time in grade", def: "A column type that automatically counts the days since a date column (usually Date of Promotion). It resets by itself whenever someone's rank or category changes — never typed by hand." },
+      { term: "Promotion tool", def: "On the Roster page, tick the checkboxes next to members, pick a new rank in the bar that appears, and apply. It sets the rank, stamps Date of Promotion to today, and hands out new callsigns automatically." },
+      { term: "Callsign format", def: "An optional pattern on a rank — like “91##” — where # digits auto-number. When the promotion tool assigns that rank, each member gets the next free callsign (9100, 9101…). Set it in the Ranks editor." },
+    ],
+  },
+  {
+    section: "Calendar & vehicle roster",
+    terms: [
+      { term: "Vehicle roster (fleet)", def: "A page type listing which vehicles each rank or unit may use — columns of ranks/units with vehicle cards (name + spawn code), a colored legend (Slicktop, Ghosted, Unmarked…), and a notes box. Added under Pages & Menu; edited on the page itself." },
+      { term: "Legend tag", def: "The colored labels on a vehicle roster (e.g. Ghosted = green). Each vehicle can carry one tag, which colors its card border." },
+      { term: "Department calendar", def: "A page type showing a month grid of events. It always opens on the current month, and past months move into the Archive automatically. Added under Pages & Menu." },
+      { term: "Calendar event", def: "An entry on the calendar — title, date, time, details. People with the “Manage calendar” capability (Command and up by default) add and edit them; anyone signed in can open one and tap “I'll attend”." },
+      { term: "Attendance", def: "The list of members who marked themselves attending an event. The count shows on the event in the calendar and in the archive." },
+      { term: "Archive", def: "Where events from past months live — the Archive button on the calendar lists them grouped by month, with attendance counts." },
     ],
   },
   {

@@ -15,6 +15,8 @@ const ContentPage = lazy(() => import("./pages/ContentPage.jsx"));
 const BuilderPortal = lazy(() => import("./pages/BuilderPortal.jsx"));
 const AuditLog = lazy(() => import("./pages/AuditLog.jsx"));
 const AccessRoles = lazy(() => import("./pages/AccessRoles.jsx"));
+const VehicleRoster = lazy(() => import("./pages/VehicleRoster.jsx"));
+const CalendarPage = lazy(() => import("./pages/CalendarPage.jsx"));
 
 // Map a page's `type` to the component that renders it.
 const PAGE_COMPONENTS = {
@@ -24,6 +26,8 @@ const PAGE_COMPONENTS = {
   builder: BuilderPortal,
   audit: AuditLog,
   access: AccessRoles,
+  fleet: VehicleRoster,
+  calendar: CalendarPage,
 };
 
 function ViewLoading() {

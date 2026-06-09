@@ -118,6 +118,8 @@ function migrateConfig(saved) {
           manageAccess: g.manageAccess ?? admin,
           editRoster: g.editRoster ?? editor,
           editSubdivisions: g.editSubdivisions ?? editor,
+          // Calendar management defaults to roster editors (Command and up).
+          manageCalendar: g.manageCalendar ?? (admin || editor),
           members: (g.members || []).map((m) => ({ role: m.role || "member", ...m })),
         };
       });

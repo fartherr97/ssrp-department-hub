@@ -109,6 +109,39 @@ function PageModal({ open, onClose, config, page, onSave }) {
           </Field>
         </div>
 
+        {page.isNew && (
+          <Field
+            label="Page type"
+            hint="Content = blocks you arrange here. Vehicle roster and Calendar are managed on the page itself."
+          >
+            <Select
+              value={draft.type}
+              onChange={(e) => {
+                const type = e.target.value;
+                const base =
+                  type === "fleet"
+                    ? { tiers: [], notes: "" }
+                    : type === "calendar"
+                    ? { events: [] }
+                    : { heroTitle: draft.label || "New Page", blocks: [] };
+                setDraft({ ...draft, type, config: base });
+              }}
+            >
+              <option value="content">Content page (blocks)</option>
+              <option value="fleet">Vehicle roster (fleet structure)</option>
+              <option value="calendar">Department calendar</option>
+            </Select>
+          </Field>
+        )}
+
+        {(draft.type === "fleet" || draft.type === "calendar") && (
+          <p className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm text-slate-400">
+            {draft.type === "fleet"
+              ? "Vehicle roster pages are built on the page itself: add a column per rank or unit, then the vehicles each may use. Editing requires the “Edit main roster” capability."
+              : "Calendar events are added on the page itself. Adding/editing events requires the “Manage calendar” capability (Command and up by default); anyone can mark attendance."}
+          </p>
+        )}
+
         <Field label="Icon" hint="Shown next to the page name in the navigation menu.">
           <Input
             value={iconQuery}
