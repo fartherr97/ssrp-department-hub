@@ -166,8 +166,10 @@ export default function VehicleRoster({ page, user }) {
   const { config, mutate } = useConfig();
   const canEdit = canEditFleet(user, config);
   const cfg = page?.config || {};
-  const tags = cfg.tags || DEFAULT_TAGS;
-  const tiers = cfg.tiers || [];
+  // Defensive: pages converted from other types (or hand-imported configs) may
+  // carry a config without fleet fields — never assume the arrays exist.
+  const tags = Array.isArray(cfg.tags) && cfg.tags.length ? cfg.tags : DEFAULT_TAGS;
+  const tiers = Array.isArray(cfg.tiers) ? cfg.tiers : [];
   const tagById = Object.fromEntries(tags.map((t) => [t.id, t]));
 
   const [vehicleModal, setVehicleModal] = useState(null); // { tierId, vehicle }

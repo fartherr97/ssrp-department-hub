@@ -155,7 +155,7 @@ function ArchiveModal({ open, onClose, events }) {
   const groups = useMemo(() => {
     const now = new Date();
     const cur = dateKey(now.getFullYear(), now.getMonth(), 1).slice(0, 7);
-    const past = events.filter((e) => (e.date || "").slice(0, 7) < cur);
+    const past = events.filter((e) => e.date && e.date.slice(0, 7) < cur);
     const byMonth = {};
     for (const e of past) {
       const k = e.date.slice(0, 7);
@@ -220,7 +220,7 @@ function ArchiveModal({ open, onClose, events }) {
 export default function CalendarPage({ page, user }) {
   const { config, mutate } = useConfig();
   const canManage = canManageCalendar(user, config);
-  const events = page?.config?.events || [];
+  const events = Array.isArray(page?.config?.events) ? page.config.events : [];
 
   // Always opens on the current month — the rollover is automatic.
   const now = new Date();

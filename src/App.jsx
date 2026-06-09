@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState, startTransition } from "react";
+import { Component, Suspense, lazy, useEffect, useState, startTransition } from "react";
 import useAuth from "./hooks/useAuth.js";
 import { useConfig } from "./lib/configContext.jsx";
 import * as audit from "./lib/audit.js";
@@ -34,6 +34,44 @@ function ViewLoading() {
   return (
     <Panel className="p-6 text-slate-400">Loading page…</Panel>
   );
+}
+
+/*
+ * Catches render errors in the active page so one broken page (or a failed
+ * lazy chunk load) shows a recoverable message instead of white-screening the
+ * whole hub. Keyed by page id, so navigating away resets it.
+ */
+class ViewErrorBoundary extends Component {
+  state = { error: null };
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+  componentDidCatch(error, info) {
+    console.error("Page render error:", error, info);
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <Panel className="p-8 text-center">
+          <div className="text-base font-semibold text-white">This page hit an error</div>
+          <p className="mx-auto mt-2 max-w-lg break-words font-mono text-xs text-red-300">
+            {String(this.state.error?.message || this.state.error)}
+          </p>
+          <p className="mt-2 text-sm text-slate-400">
+            Your data is safe — try again, or use Undo in the Builder/Roster if a recent
+            change caused this.
+          </p>
+          <button
+            onClick={() => this.setState({ error: null })}
+            className="btn-glossy mt-4 inline-flex items-center justify-center rounded-xl bg-[linear-gradient(90deg,var(--color-primary),var(--color-hover))] px-4 py-2 text-sm font-semibold text-white"
+          >
+            Try again
+          </button>
+        </Panel>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 function ActiveView({ page, user, config }) {
@@ -97,9 +135,11 @@ export default function App() {
       onNavigate={navigate}
       onLogout={logout}
     >
-      <Suspense fallback={<ViewLoading />}>
-        <ActiveView page={page} user={user} config={config} />
-      </Suspense>
+      <ViewErrorBoundary key={page?.id}>
+        <Suspense fallback={<ViewLoading />}>
+          <ActiveView page={page} user={user} config={config} />
+        </Suspense>
+      </ViewErrorBoundary>
     </DashboardLayout>
   );
 }
