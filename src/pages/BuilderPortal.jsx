@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Palette, LayoutList, Users, Database, Check, Compass } from "lucide-react";
+import { Palette, LayoutList, Users, Database, Check, Compass, Undo2 } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
 import { canManageSite } from "../lib/permissions.js";
-import { PageHeader } from "../components/common/index.jsx";
+import { PageHeader, Button } from "../components/common/index.jsx";
 import StartHereTab from "./builder/StartHereTab.jsx";
 import BrandingTab from "./builder/BrandingTab.jsx";
 import PagesTab from "./builder/PagesTab.jsx";
@@ -20,7 +20,7 @@ const TABS = [
 ];
 
 export default function BuilderPortal({ user }) {
-  const { config, saving } = useConfig();
+  const { config, saving, undo, canUndo } = useConfig();
   const allowed = canManageSite(user, config);
   const tabs = allowed ? TABS : [];
   const [tab, setTab] = useState(tabs[0]?.id);
@@ -34,6 +34,16 @@ export default function BuilderPortal({ user }) {
         title="Builder Portal"
         subtitle="Customize your department hub — new here? Open the Start Here tab. Every change saves automatically."
         actions={
+          <>
+          <Button
+            variant="secondary"
+            icon={Undo2}
+            onClick={undo}
+            disabled={!canUndo}
+            title={canUndo ? "Revert the most recent change" : "Nothing to undo yet"}
+          >
+            Undo
+          </Button>
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
               saving
@@ -44,6 +54,7 @@ export default function BuilderPortal({ user }) {
             <Check size={14} />
             {saving ? "Saving…" : "All changes saved"}
           </span>
+          </>
         }
       />
 

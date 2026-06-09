@@ -12,7 +12,9 @@ import {
   Textarea,
   Select,
   ColorInput,
+  MediaInput,
 } from "../../components/common/index.jsx";
+import { FONTS } from "../../lib/theme.js";
 import TabIntro from "./TabIntro.jsx";
 
 const COLOR_FIELDS = [
@@ -115,16 +117,16 @@ export default function BrandingTab() {
             />
           </Field>
           <Field
-            label="Logo URL"
-            hint="Square image, ~256×256px (PNG or SVG). Blank for an auto-generated monogram."
+            label="Logo"
+            hint="Square image, ~256×256px. Paste a link or upload a file. Blank for an auto-generated monogram."
           >
-            <Input value={b.logoUrl} onChange={(e) => setBrand({ logoUrl: e.target.value })} />
+            <MediaInput value={b.logoUrl} onChange={(logoUrl) => setBrand({ logoUrl })} maxDim={512} />
           </Field>
           <Field
-            label="Home banner image URL"
+            label="Home banner image"
             hint="Wide background for the Home hero, ~1600×400px. Blank for a plain gradient."
           >
-            <Input value={b.bannerUrl} onChange={(e) => setBrand({ bannerUrl: e.target.value })} />
+            <MediaInput value={b.bannerUrl} onChange={(bannerUrl) => setBrand({ bannerUrl })} maxDim={1600} />
           </Field>
         </div>
         <div className="mt-4 flex items-center gap-3 rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-3">
@@ -273,6 +275,22 @@ export default function BrandingTab() {
               <ColorInput value={b.colors[c.key]} onChange={(v) => setColor(c.key, v)} />
             </Field>
           ))}
+        </div>
+      </Panel>
+
+      <Panel className="p-5">
+        <SectionHeader
+          title="Font"
+          subtitle="The typeface used across the whole hub. Applies instantly."
+        />
+        <div className="max-w-sm">
+          <Select value={b.font || "default"} onChange={(e) => setBrand({ font: e.target.value })}>
+            {FONTS.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.label}
+              </option>
+            ))}
+          </Select>
         </div>
       </Panel>
     </div>

@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronDown, X } from "lucide-react";
+import { Check, ChevronDown, X, Upload } from "lucide-react";
 
 // ─── Brand ───────────────────────────────────────────────────────────────────
 
@@ -412,6 +412,121 @@ export function ColorInput({ value, onChange, className = "" }) {
         onChange={(e) => onChange(e.target.value)}
         className="font-mono"
       />
+    </div>
+  );
+}
+
+/*
+ * MediaInput — a URL field with an Upload button, for people who don't have
+ * image hosting. Uploaded images are downscaled and stored inline (data URL)
+ * in the config; pasting a normal https:// URL still works exactly as before.
+ * kind="video" accepts small video files; bigger ones should be linked
+ * (YouTube / Discord) since the front-end mock stores everything in the
+ * browser. When the real backend lands, the upload path can swap to a POST.
+ */
+const VIDEO_UPLOAD_LIMIT = 2.5 * 1024 * 1024;
+
+function downscaleImage(file, maxDim) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(img.width * scale));
+      canvas.height = Math.max(1, Math.round(img.height * scale));
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      // webp keeps inline images small; browsers without webp fall back to png.
+      resolve(canvas.toDataURL("image/webp", 0.85));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("That file couldn't be read as an image"));
+    };
+    img.src = url;
+  });
+}
+
+export function MediaInput({ value, onChange, kind = "image", maxDim = 1024, placeholder = "https://… or upload a file" }) {
+  const fileRef = useRef(null);
+  const [error, setError] = useState("");
+  const isUploaded = (value || "").startsWith("data:");
+
+  async function onFile(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setError("");
+    try {
+      if (kind === "video") {
+        if (file.size > VIDEO_UPLOAD_LIMIT) {
+          throw new Error(
+            "Video too large to store in the hub (max ~2.5 MB). Upload it to YouTube or Discord and paste the link instead."
+          );
+        }
+        const reader = new FileReader();
+        reader.onload = () => onChange(String(reader.result));
+        reader.onerror = () => setError("That file couldn't be read");
+        reader.readAsDataURL(file);
+      } else {
+        onChange(await downscaleImage(file, maxDim));
+      }
+    } catch (err) {
+      setError(err.message || "Upload failed");
+    }
+  }
+
+  return (
+    <div>
+      <div className="flex items-center gap-2">
+        {kind === "image" && value && (
+          <img
+            src={value}
+            alt=""
+            className="h-9 w-9 shrink-0 rounded-lg border border-white/10 object-cover"
+          />
+        )}
+        {isUploaded ? (
+          <div className="flex h-9 min-w-0 flex-1 items-center justify-between gap-2 rounded-xl border border-white/10 bg-app-input px-3 text-sm">
+            <span className="truncate text-green-300">
+              Uploaded {kind} ✓ <span className="text-slate-500">(stored in the hub)</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => onChange("")}
+              title="Remove"
+              className="shrink-0 text-slate-400 transition hover:text-red-300"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        ) : (
+          <Input
+            value={value || ""}
+            placeholder={placeholder}
+            onChange={(e) => onChange(e.target.value)}
+            className="min-w-0 flex-1"
+          />
+        )}
+        <input
+          ref={fileRef}
+          type="file"
+          accept={kind === "video" ? "video/*" : "image/*"}
+          onChange={onFile}
+          className="hidden"
+        />
+        <Button
+          variant="secondary"
+          icon={Upload}
+          onClick={() => fileRef.current?.click()}
+          className="shrink-0 !px-3"
+          title={kind === "video" ? "Upload a small video file" : "Upload an image from your computer"}
+        >
+          Upload
+        </Button>
+      </div>
+      {error && <p className="mt-1 text-xs text-red-300">{error}</p>}
     </div>
   );
 }

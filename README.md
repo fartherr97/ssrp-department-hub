@@ -71,13 +71,18 @@ Add a new page type by creating a component and registering it in
 
 ## The Builder Portal
 
-Admins configure the hub here (auto-saves):
+Admins configure the hub here (auto-saves, with a 10-step **Undo** history):
 
-- **Branding** — names, logo, login copy, live theme colors, login community
-  links, and the orange brand accent
-- **Pages & Nav** — add/reorder/delete pages, nav groups, icons, per-group
-  access, and edit content blocks (text / callout / link list)
-- **Roster Schema** — roster layout (tabbed or side-by-side grid), custom
+- **Start Here** — plain-English guide, auto-detected setup checklist, and
+  one-click starter templates (Police / Fire / EMS)
+- **Branding** — names, logo, login copy, live theme colors, font picker,
+  login community links, and the orange brand accent. Images accept a URL
+  *or* a direct upload (downscaled and stored inline until the backend lands)
+- **Pages & Menu** — add/reorder/delete pages, nav groups, icons, optional
+  per-group page visibility, a live side-by-side preview, and content blocks
+  (text / callout / link list / image / video / embed / two-column /
+  personnel spotlight)
+- **Roster Setup** — roster layout (tabbed or side-by-side grid), custom
   member columns (text / dropdown / date / checkbox / certification), colored
   status pills with per-option colors, a configurable department-stats box,
   and per-subdivision accent + banner
@@ -86,7 +91,8 @@ Admins configure the hub here (auto-saves):
   (managers add/remove their group's people), a level hierarchy (you can only
   manage groups at or below your own), and member lists by name + Discord ID;
   optional Discord role auto-assignment
-- **Advanced** — export/import config JSON, reset to blank template
+- **Backup & Reset** — download/restore the config as a file (or paste JSON),
+  reset to blank template
 
 The **Roster** page presents subdivisions (e.g. Patrol, K9, Traffic — each its
 own roster with its own accent color, banner image/logos, and stats box) as

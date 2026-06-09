@@ -9,6 +9,7 @@ import {
   Input,
   Select,
   ColorInput,
+  MediaInput,
 } from "../../components/common/index.jsx";
 import * as R from "../../lib/roster.js";
 import TabIntro from "./TabIntro.jsx";
@@ -50,13 +51,13 @@ function SubdivisionAppearance({ sub }) {
             />
           </Field>
           <Field
-            label="Banner image URL"
-            hint="Wide background, ~1600×400px. Blank for an accent gradient."
+            label="Banner image"
+            hint="Wide background, ~1600×400px. Paste a link or upload. Blank for an accent gradient."
           >
-            <Input
+            <MediaInput
               value={banner.imageUrl || ""}
-              placeholder="https://…"
-              onChange={(e) => setBanner({ imageUrl: e.target.value })}
+              onChange={(imageUrl) => setBanner({ imageUrl })}
+              maxDim={1600}
             />
           </Field>
           <Field label="Banner title">
@@ -72,18 +73,18 @@ function SubdivisionAppearance({ sub }) {
               onChange={(e) => setBanner({ subtitle: e.target.value })}
             />
           </Field>
-          <Field label="Left logo URL" hint="Square, ~128×128px (PNG/SVG).">
-            <Input
+          <Field label="Left logo" hint="Square, ~128×128px. Paste a link or upload.">
+            <MediaInput
               value={banner.logoUrl || ""}
-              placeholder="https://…"
-              onChange={(e) => setBanner({ logoUrl: e.target.value })}
+              onChange={(logoUrl) => setBanner({ logoUrl })}
+              maxDim={256}
             />
           </Field>
-          <Field label="Right logo URL" hint="Square, ~128×128px (PNG/SVG).">
-            <Input
+          <Field label="Right logo" hint="Square, ~128×128px. Paste a link or upload.">
+            <MediaInput
               value={banner.logoUrl2 || ""}
-              placeholder="https://…"
-              onChange={(e) => setBanner({ logoUrl2: e.target.value })}
+              onChange={(logoUrl2) => setBanner({ logoUrl2 })}
+              maxDim={256}
             />
           </Field>
         </div>

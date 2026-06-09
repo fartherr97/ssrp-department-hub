@@ -1,7 +1,9 @@
-import { Check, ArrowRight, Palette, LayoutList, Users, Database, Shield, Save, Paintbrush, UserSquare2 } from "lucide-react";
+import { useState } from "react";
+import { Check, ArrowRight, Palette, LayoutList, Users, Database, Shield, Save, Paintbrush, UserSquare2, Sparkles } from "lucide-react";
 import { useConfig } from "../../lib/configContext.jsx";
 import { defaultConfig } from "../../config/defaultConfig.js";
-import { Panel, SectionHeader, Button } from "../../components/common/index.jsx";
+import { TEMPLATES } from "../../config/templates.js";
+import { Panel, SectionHeader, Button, ConfirmDialog } from "../../components/common/index.jsx";
 
 /*
  * The Builder's landing tab — a plain-English guide for Department Heads with
@@ -91,7 +93,7 @@ const GOOD_TO_KNOW = [
   {
     icon: Save,
     title: "Everything saves by itself",
-    body: "There is no Save button. Every change is stored automatically — watch for the green “All changes saved” badge at the top.",
+    body: "There is no Save button. Every change is stored automatically — watch for the green “All changes saved” badge at the top. Made a mistake? The Undo button next to it reverts your last change.",
   },
   {
     icon: Paintbrush,
@@ -111,7 +113,8 @@ const GOOD_TO_KNOW = [
 ];
 
 export default function StartHereTab({ goTo }) {
-  const { config } = useConfig();
+  const { config, replaceConfig } = useConfig();
+  const [confirmTemplate, setConfirmTemplate] = useState(null);
   const items = buildChecklist(config);
   const doneCount = items.filter((i) => i.done).length;
 
@@ -128,6 +131,47 @@ export default function StartHereTab({ goTo }) {
           and you'll have a fully branded department hub in a few minutes. You can't break
           anything: every step can be changed again later, and you can download a backup at
           any time from <span className="font-semibold text-white">Backup &amp; Reset</span>.
+        </p>
+      </Panel>
+
+      <Panel className="p-5">
+        <SectionHeader
+          title="Starter templates"
+          subtitle="Optional head start: apply a themed setup — colors, ranks, subdivisions, and a starter SOPs page — then make it yours."
+        />
+        <div className="grid gap-3 sm:grid-cols-3">
+          {TEMPLATES.map((t) => (
+            <div
+              key={t.id}
+              className="flex flex-col rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-4"
+            >
+              <div className="mb-2 flex items-center gap-2">
+                <span className="flex -space-x-1">
+                  {t.swatch.map((c) => (
+                    <span
+                      key={c}
+                      className="h-4 w-4 rounded-full border border-white/20"
+                      style={{ background: c }}
+                    />
+                  ))}
+                </span>
+                <span className="text-sm font-bold text-white">{t.label}</span>
+              </div>
+              <p className="flex-1 text-xs leading-relaxed text-slate-400">{t.desc}</p>
+              <Button
+                variant="secondary"
+                icon={Sparkles}
+                className="mt-3 !py-1.5 text-xs"
+                onClick={() => setConfirmTemplate(t)}
+              >
+                Use this template
+              </Button>
+            </div>
+          ))}
+        </div>
+        <p className="mt-3 text-xs text-slate-500">
+          Applying a template replaces your current setup (you can undo it, and a backup can
+          be downloaded first under Backup &amp; Reset). Roster members are not carried over.
         </p>
       </Panel>
 
@@ -229,6 +273,18 @@ export default function StartHereTab({ goTo }) {
           })}
         </div>
       </Panel>
+
+      <ConfirmDialog
+        open={Boolean(confirmTemplate)}
+        title={`Apply the ${confirmTemplate?.label} template?`}
+        message="This replaces your current branding, pages, and roster structure with the template. You can undo this from the top of the Builder, but downloading a backup first (Backup & Reset) is the safest."
+        confirmLabel="Apply template"
+        onCancel={() => setConfirmTemplate(null)}
+        onConfirm={() => {
+          replaceConfig(confirmTemplate.build());
+          setConfirmTemplate(null);
+        }}
+      />
     </div>
   );
 }

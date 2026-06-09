@@ -17,8 +17,40 @@ import {
 } from "../../components/common/index.jsx";
 import BlockEditor from "./BlockEditor.jsx";
 import TabIntro from "./TabIntro.jsx";
+import BlockRenderer from "../../components/content/BlockRenderer.jsx";
 
 // ─── Page editor modal ───────────────────────────────────────────────────────
+
+// A live, non-interactive rendering of the page as it's being edited, so
+// people see the result without saving and navigating away.
+function PagePreview({ draft }) {
+  const cfg = draft.config || {};
+  return (
+    <div className="rounded-xl border border-white/10 bg-[var(--color-body-bg)] p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <span className="text-[11px] font-bold uppercase tracking-[0.5px] text-cad-muted">
+          Live preview
+        </span>
+        <span className="text-[11px] text-slate-600">updates as you type</span>
+      </div>
+      <div className="pointer-events-none select-none">
+        {cfg.heroKicker && <div className="hub-kicker">{cfg.heroKicker}</div>}
+        <h2 className="mt-1 text-xl font-bold text-white">{cfg.heroTitle || draft.label}</h2>
+        {cfg.heroSubtitle && (
+          <p className="mt-1.5 text-sm text-[var(--color-text-muted)]">{cfg.heroSubtitle}</p>
+        )}
+        <div className="mt-4">
+          <BlockRenderer blocks={cfg.blocks || []} />
+          {(cfg.blocks || []).length === 0 && (
+            <p className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs text-slate-600">
+              Blocks you add will appear here.
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function PageModal({ open, onClose, config, page, onSave }) {
   const [draft, setDraft] = useState(page);
@@ -33,12 +65,21 @@ function PageModal({ open, onClose, config, page, onSave }) {
   const cfg = draft.config || {};
   const setCfg = (patch) => setDraft((d) => ({ ...d, config: { ...(d.config || {}), ...patch } }));
 
+  // Per-group visibility (content pages only; system pages have their own rules).
+  const access = Array.isArray(draft.access) ? draft.access : [];
+  const toggleGroup = (groupId) =>
+    setDraft((d) => {
+      const set = new Set(Array.isArray(d.access) ? d.access : []);
+      set.has(groupId) ? set.delete(groupId) : set.add(groupId);
+      return { ...d, access: [...set] };
+    });
+
   return (
     <Modal
       open={open}
       onClose={onClose}
       title={page.isNew ? "Add page" : `Edit “${page.label}”`}
-      size="lg"
+      size="xl"
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
@@ -48,7 +89,8 @@ function PageModal({ open, onClose, config, page, onSave }) {
         </>
       }
     >
-      <div className="grid gap-5">
+      <div className={`grid gap-5 ${isContentLike ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)]" : ""}`}>
+      <div className="grid content-start gap-5">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Label">
             <Input value={draft.label} onChange={(e) => setDraft({ ...draft, label: e.target.value })} />
@@ -102,10 +144,44 @@ function PageModal({ open, onClose, config, page, onSave }) {
           </div>
         </Field>
 
-        <p className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-xs text-slate-400">
-          Every page is visible to all signed-in members. Only the Builder Portal is restricted —
-          control that with the “Manage site” capability under Access &amp; Roles.
-        </p>
+        {isContentLike && (
+          <Field label="Who can see this page">
+            <div className="grid gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-3">
+              <label className="flex items-center gap-2 text-sm text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={!draft.restricted}
+                  onChange={(e) => setDraft({ ...draft, restricted: !e.target.checked })}
+                  className="h-4 w-4 accent-[var(--color-primary)]"
+                />
+                Everyone who is signed in
+              </label>
+              {draft.restricted && (
+                <div className="ml-6 grid gap-1.5">
+                  <p className="text-xs text-slate-500">
+                    Only these groups can see the page (site managers always can):
+                  </p>
+                  {config.groups.map((g) => (
+                    <label key={g.id} className="flex items-center gap-2 text-sm text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={access.includes(g.id)}
+                        onChange={() => toggleGroup(g.id)}
+                        className="h-4 w-4 accent-[var(--color-primary)]"
+                      />
+                      {g.label}
+                    </label>
+                  ))}
+                  {draft.restricted && access.length === 0 && (
+                    <p className="text-xs text-amber-300">
+                      No groups selected — only site managers will see this page.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </Field>
+        )}
 
         {isContentLike && (
           <div>
@@ -131,9 +207,16 @@ function PageModal({ open, onClose, config, page, onSave }) {
         {draft.type === "roster" && (
           <p className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm text-slate-400">
             This is the Roster page. Add ranks, members, and columns from the
-            Roster page itself; manage roster columns under the “Roster Schema” tab.
+            Roster page itself; manage roster columns under the “Roster Setup” tab.
           </p>
         )}
+      </div>
+
+      {isContentLike && (
+        <div className="hidden min-w-0 lg:block">
+          <PagePreview draft={draft} />
+        </div>
+      )}
       </div>
     </Modal>
   );
@@ -266,6 +349,7 @@ export default function PagesTab() {
       navGroup: config.navGroups[0] || "Main",
       icon: "FileText",
       type: "content",
+      restricted: false,
       access: config.groups.map((g) => g.id),
       config: { heroTitle: "New Page", blocks: [] },
       isNew: true,
@@ -314,6 +398,9 @@ export default function PagesTab() {
                   </div>
                   <div className="text-xs text-slate-500">
                     {page.navGroup} · {page.type}
+                    {page.restricted && (
+                      <span className="text-amber-300/80"> · restricted</span>
+                    )}
                   </div>
                 </div>
                 <Badge>{page.locked ? "system" : page.type}</Badge>

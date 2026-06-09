@@ -107,6 +107,13 @@ export function canAccessPage(user, page, config) {
       isManagerOfAny(user, config)
     );
   }
+  // Content pages may opt in to group restrictions (page.restricted + access
+  // list of group ids). Site managers and backend admins always see every page
+  // so a Department Head can't lock themselves out of something they built.
+  if (page.restricted && Array.isArray(page.access) && page.access.length) {
+    if (user.isAdmin || canManageSite(user, config)) return true;
+    return page.access.includes(user.group);
+  }
   return true; // every other page is viewable by any signed-in member
 }
 
