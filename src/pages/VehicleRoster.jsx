@@ -129,10 +129,18 @@ function TagsModal({ open, onClose, tags, onChange }) {
 }
 
 function VehicleCard({ vehicle, tag, canEdit, onEdit, onDelete, onMove, isFirst, isLast }) {
-  const border = tag ? { borderColor: `color-mix(in srgb, ${tag.color} 65%, transparent)` } : undefined;
+  // Tagged cards get a strong colored outline + tint, like the colored boxes
+  // on department fleet sheets (yellow = slicktop, green = ghosted, …).
+  const style = tag
+    ? {
+        borderColor: tag.color,
+        boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${tag.color} 45%, transparent)`,
+        backgroundColor: `color-mix(in srgb, ${tag.color} 7%, var(--color-surface-2))`,
+      }
+    : undefined;
   return (
     <div
-      style={border}
+      style={style}
       className="group relative rounded-lg border border-white/15 bg-[var(--color-surface-2)] px-2 py-2 text-center"
       title={tag?.label}
     >
