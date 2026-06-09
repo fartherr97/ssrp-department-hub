@@ -155,21 +155,20 @@ export function Textarea({ className = "", rows = 4, ...rest }) {
  * keyboard-navigable with outside-click / Escape to dismiss.
  */
 
-// Mount/unmount transition so the menu can animate open AND closed.
-function useMountTransition(isOpen, duration = 140) {
+// Keep the menu mounted briefly after close so the out-animation can play. The
+// in/out keyframe is driven off `open` directly (no rAF toggle) to avoid a
+// one-frame flicker of the closing animation when the menu first opens.
+function useMounted(isOpen, duration = 140) {
   const [mounted, setMounted] = useState(isOpen);
-  const [show, setShow] = useState(false);
   useEffect(() => {
     if (isOpen) {
       setMounted(true);
-      const id = requestAnimationFrame(() => setShow(true));
-      return () => cancelAnimationFrame(id);
+      return undefined;
     }
-    setShow(false);
     const id = setTimeout(() => setMounted(false), duration);
     return () => clearTimeout(id);
   }, [isOpen, duration]);
-  return { mounted, show };
+  return mounted;
 }
 
 function optionText(c) {
@@ -223,7 +222,7 @@ export function Select({
   const [flip, setFlip] = useState(false);
   const triggerRef = useRef(null);
   const menuRef = useRef(null);
-  const { mounted, show } = useMountTransition(open, 140);
+  const mounted = useMounted(open, 140);
 
   const MAX_MENU_H = 280;
   const optCount = options.length;
@@ -355,7 +354,7 @@ export function Select({
             ref={menuRef}
             role="listbox"
             className={`fixed z-[4000] overflow-y-auto rounded-xl border border-white/[0.14] bg-app-card p-1 shadow-2xl shadow-black/60 ${
-              show ? "anim-dropdown-in" : "anim-dropdown-out"
+              open ? "anim-dropdown-in" : "anim-dropdown-out"
             }`}
             style={{
               left: rect.left,
