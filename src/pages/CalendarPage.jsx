@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, CalendarDays, Archive, Check, MapPin } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, CalendarDays, Archive, Check, X, MapPin } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
 import { canManageCalendar } from "../lib/permissions.js";
 import { uid } from "../lib/roster.js";
@@ -133,9 +133,24 @@ function EventDetails({ event, user, canManage, onClose, onEdit, onDelete, onTog
               </Button>
             </>
           )}
-          <Button variant={attending ? "secondary" : "primary"} icon={Check} onClick={onToggleAttend}>
-            {attending ? "Attending ✓ (tap to remove)" : "I'll attend"}
-          </Button>
+          {attending ? (
+            <button
+              onClick={onToggleAttend}
+              title="Click to remove your attendance"
+              className="btn-glossy group inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-2 text-sm font-semibold text-green-300 transition hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-300"
+            >
+              <span className="inline-flex items-center gap-2 group-hover:hidden">
+                <Check size={16} strokeWidth={2.4} /> Attending
+              </span>
+              <span className="hidden items-center gap-2 group-hover:inline-flex">
+                <X size={16} strokeWidth={2.4} /> Remove
+              </span>
+            </button>
+          ) : (
+            <Button icon={Check} onClick={onToggleAttend}>
+              I'll attend
+            </Button>
+          )}
         </>
       }
     >
