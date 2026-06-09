@@ -10,6 +10,7 @@ import {
   Select,
   ColorInput,
   MediaInput,
+  CommaListInput,
 } from "../../components/common/index.jsx";
 import * as R from "../../lib/roster.js";
 import TabIntro from "./TabIntro.jsx";
@@ -124,14 +125,11 @@ function ColumnEditor({ field }) {
 
       {field.type === "select" && (
         <div className="grid gap-3 sm:col-span-3">
-          <Field label="Options (comma separated)">
-            <Input
-              value={options.join(", ")}
-              onChange={(e) =>
-                update({
-                  options: e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
-                })
-              }
+          <Field label="Options" hint="Separate with commas, e.g. Active, LOA, Inactive">
+            <CommaListInput
+              value={options}
+              placeholder="Active, LOA, Inactive"
+              onChange={(next) => update({ options: next })}
             />
           </Field>
           <label className="flex items-center gap-2 text-sm text-slate-300">

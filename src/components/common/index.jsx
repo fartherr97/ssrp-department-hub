@@ -417,6 +417,41 @@ export function ColorInput({ value, onChange, className = "" }) {
 }
 
 /*
+ * CommaListInput — edits a list of strings as comma-separated text. Unlike a
+ * naive controlled input that re-joins the parsed list on every keystroke
+ * (which eats the comma you just typed), this keeps the raw text while you
+ * type and only tidies the formatting on blur. Resyncs if the list changes
+ * from outside (e.g. undo).
+ */
+export function CommaListInput({ value = [], onChange, placeholder, className = "" }) {
+  const [text, setText] = useState(value.join(", "));
+  const lastParsed = useRef(value);
+
+  useEffect(() => {
+    if (JSON.stringify(value) !== JSON.stringify(lastParsed.current)) {
+      setText(value.join(", "));
+      lastParsed.current = value;
+    }
+  }, [value]);
+
+  return (
+    <Input
+      value={text}
+      placeholder={placeholder}
+      className={className}
+      onChange={(e) => {
+        const t = e.target.value;
+        setText(t);
+        const parsed = t.split(",").map((s) => s.trim()).filter(Boolean);
+        lastParsed.current = parsed;
+        onChange(parsed);
+      }}
+      onBlur={() => setText(value.join(", "))}
+    />
+  );
+}
+
+/*
  * MediaInput — a URL field with an Upload button, for people who don't have
  * image hosting. Uploaded images are downscaled and stored inline (data URL)
  * in the config; pasting a normal https:// URL still works exactly as before.

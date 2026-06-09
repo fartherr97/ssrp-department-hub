@@ -30,6 +30,7 @@ import {
   Select,
   Badge,
   EmptyState,
+  CommaListInput,
 } from "../components/common/index.jsx";
 import * as R from "../lib/roster.js";
 
@@ -587,18 +588,12 @@ function ColumnsModal({ open, onClose }) {
             />
             {f.type === "select" && (
               <div className="col-span-3">
-                <Field label="Options (comma separated)">
-                  <Input
-                    value={(f.options || []).join(", ")}
-                    onChange={(e) =>
-                      mutate(
-                        R.updateMemberField(config, f.id, {
-                          options: e.target.value
-                            .split(",")
-                            .map((s) => s.trim())
-                            .filter(Boolean),
-                        })
-                      )
+                <Field label="Options" hint="Separate with commas, e.g. Active, LOA, Inactive">
+                  <CommaListInput
+                    value={f.options || []}
+                    placeholder="Active, LOA, Inactive"
+                    onChange={(options) =>
+                      mutate(R.updateMemberField(config, f.id, { options }))
                     }
                   />
                 </Field>
