@@ -97,15 +97,38 @@ function migrateConfig(saved) {
     });
   }
 
-  // Backfill group capability flags + members for configs predating them, so
-  // existing rosters keep working (command-and-up could edit; admin = full).
+  // Groups: if a config still has only the legacy default groups, swap in the
+  // new default set; otherwise normalize capability flags + member roles.
   if (Array.isArray(merged.groups)) {
-    const commandLevel = merged.groups.find((g) => g.id === "command")?.level ?? 3;
-    merged.groups = merged.groups.map((g) => ({
-      members: [],
-      isAdmin: g.id === "admin",
-      canEditRoster: g.id === "admin" || (g.level ?? 0) >= commandLevel,
-      ...g,
+    const legacy = new Set(["member", "supervisor", "command", "admin"]);
+    const onlyLegacy =
+      merged.groups.length > 0 &&
+      merged.groups.every((g) => legacy.has(g.id)) &&
+      !merged.groups.some((g) => (g.members || []).length);
+    if (onlyLegacy) {
+      merged.groups = cloneDefaultConfig().groups;
+    } else {
+      const commandLevel = merged.groups.find((g) => /command/i.test(g.id))?.level ?? 2;
+      merged.groups = merged.groups.map((g) => {
+        const admin = g.manageSite ?? (g.isAdmin || g.id === "admin");
+        const editor = g.editRoster ?? (g.canEditRoster || admin || (g.level ?? 0) >= commandLevel);
+        return {
+          ...g,
+          manageSite: g.manageSite ?? admin,
+          manageAccess: g.manageAccess ?? admin,
+          editRoster: g.editRoster ?? editor,
+          editSubdivisions: g.editSubdivisions ?? editor,
+          members: (g.members || []).map((m) => ({ role: m.role || "member", ...m })),
+        };
+      });
+    }
+  }
+
+  // Mark the first subdivision as the "main" roster if none is flagged.
+  if (Array.isArray(merged.roster?.subdivisions)) {
+    merged.roster.subdivisions = merged.roster.subdivisions.map((s, i) => ({
+      main: typeof s.main === "boolean" ? s.main : i === 0,
+      ...s,
     }));
   }
 

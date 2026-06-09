@@ -1,8 +1,16 @@
 import { useState } from "react";
-import { Plus, Trash2, UserPlus, Users } from "lucide-react";
+import { Plus, Trash2, UserPlus, Users, Lock } from "lucide-react";
 import { useConfig } from "../../lib/configContext.jsx";
 import { uid } from "../../lib/roster.js";
 import { initials } from "../../lib/user.js";
+import {
+  canManageSite,
+  canManageAccess,
+  canAdministerGroup,
+  canManageGroupMembers,
+  hasCapability,
+  userLevel,
+} from "../../lib/permissions.js";
 import {
   Panel,
   SectionHeader,
@@ -14,13 +22,18 @@ import {
   Badge,
 } from "../../components/common/index.jsx";
 
-// ─── A single capability toggle ──────────────────────────────────────────────
+const CAPS = [
+  { key: "manageSite", title: "Manage site", desc: "Open the Builder Portal — branding, pages, roster schema, advanced." },
+  { key: "manageAccess", title: "Manage access & roles", desc: "Create groups and assign people, within their own level." },
+  { key: "editRoster", title: "Edit the main roster", desc: "Edit the main department roster." },
+  { key: "editSubdivisions", title: "Edit subdivision rosters", desc: "Edit the non-main subdivision rosters." },
+];
 
 function CapabilityToggle({ checked, disabled, onChange, title, desc }) {
   return (
     <label
       className={`flex items-start gap-3 rounded-xl border border-white/10 bg-app-input px-3 py-2.5 ${
-        disabled ? "opacity-70" : "cursor-pointer"
+        disabled ? "opacity-60" : "cursor-pointer"
       }`}
     >
       <input
@@ -38,9 +51,7 @@ function CapabilityToggle({ checked, disabled, onChange, title, desc }) {
   );
 }
 
-// ─── Group member list (assign people by name + Discord ID) ──────────────────
-
-function GroupMembers({ group, update }) {
+function GroupMembers({ group, update, canEdit, canSetRole }) {
   const [name, setName] = useState("");
   const [discordId, setDiscordId] = useState("");
   const members = group.members || [];
@@ -48,11 +59,13 @@ function GroupMembers({ group, update }) {
   const add = () => {
     const n = name.trim();
     if (!n) return;
-    update({ members: [...members, { id: uid("gm"), name: n, discordId: discordId.trim() }] });
+    update({ members: [...members, { id: uid("gm"), name: n, discordId: discordId.trim(), role: "member" }] });
     setName("");
     setDiscordId("");
   };
   const remove = (mid) => update({ members: members.filter((m) => m.id !== mid) });
+  const setRole = (mid, role) =>
+    update({ members: members.map((m) => (m.id === mid ? { ...m, role } : m)) });
 
   return (
     <div>
@@ -74,44 +87,57 @@ function GroupMembers({ group, update }) {
                 <div className="truncate font-mono text-[11px] text-slate-500">{m.discordId}</div>
               )}
             </div>
-            <IconButton
-              icon={Trash2}
-              label="Remove from group"
-              onClick={() => remove(m.id)}
-              className="hover:border-red-500/40 hover:text-red-300"
-            />
+            {canSetRole ? (
+              <Select value={m.role || "member"} onChange={(e) => setRole(m.id, e.target.value)} className="w-28">
+                <option value="member">Member</option>
+                <option value="manager">Manager</option>
+              </Select>
+            ) : (
+              <Badge color={m.role === "manager" ? "#3d82f0" : undefined}>
+                {m.role === "manager" ? "Manager" : "Member"}
+              </Badge>
+            )}
+            {canEdit && (
+              <IconButton
+                icon={Trash2}
+                label="Remove from group"
+                onClick={() => remove(m.id)}
+                className="hover:border-red-500/40 hover:text-red-300"
+              />
+            )}
           </div>
         ))}
         {members.length === 0 && <p className="text-sm text-slate-500">No one assigned yet.</p>}
       </div>
-      <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-        <Input
-          value={name}
-          placeholder="Name"
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && add()}
-        />
-        <Input
-          value={discordId}
-          placeholder="Discord ID"
-          onChange={(e) => setDiscordId(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && add()}
-          className="font-mono"
-        />
-        <Button variant="secondary" icon={UserPlus} onClick={add}>
-          Add
-        </Button>
-      </div>
+      {canEdit && (
+        <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+          <Input
+            value={name}
+            placeholder="Name"
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && add()}
+          />
+          <Input
+            value={discordId}
+            placeholder="Discord ID"
+            onChange={(e) => setDiscordId(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && add()}
+            className="font-mono"
+          />
+          <Button variant="secondary" icon={UserPlus} onClick={add}>
+            Add
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
 
-// ─── A group card (capabilities + members) ───────────────────────────────────
-
-function GroupCard({ group }) {
+function GroupCard({ group, user }) {
   const { config, mutate } = useConfig();
-  const locked = group.id === "admin";
-  const isAdminGroup = Boolean(group.isAdmin) || locked;
+  const canAdmin = canAdministerGroup(user, config, group);
+  const canMembers = canManageGroupMembers(user, config, group);
+  const isOwnGroup = group.id === user?.group;
 
   const update = (patch) =>
     mutate((cfg) => ({
@@ -129,21 +155,6 @@ function GroupCard({ group }) {
       })),
     }));
 
-  const togglePage = (pageId) =>
-    mutate((cfg) => ({
-      ...cfg,
-      pages: cfg.pages.map((p) => {
-        if (p.id !== pageId) return p;
-        const access = p.access || [];
-        return {
-          ...p,
-          access: access.includes(group.id)
-            ? access.filter((a) => a !== group.id)
-            : [...access, group.id],
-        };
-      }),
-    }));
-
   return (
     <Panel className="p-5">
       <div className="mb-4 flex items-center gap-3">
@@ -153,82 +164,62 @@ function GroupCard({ group }) {
         <Input
           value={group.label}
           onChange={(e) => update({ label: e.target.value })}
-          className="flex-1 font-semibold"
+          disabled={!canAdmin}
+          className="flex-1 font-semibold disabled:opacity-70"
         />
+        <div
+          className="flex items-center gap-1.5"
+          title="Level — you can only manage groups at or below your own"
+        >
+          <span className="text-[10px] font-bold uppercase tracking-wide text-cad-muted">Lvl</span>
+          <Input
+            type="number"
+            value={group.level ?? 0}
+            disabled={!canAdmin}
+            onChange={(e) => update({ level: Number(e.target.value) || 0 })}
+            className="w-14 disabled:opacity-70"
+          />
+        </div>
         <Badge>{(group.members || []).length} member(s)</Badge>
-        <IconButton
-          icon={Trash2}
-          label={locked ? "Admin group can't be removed" : "Delete group"}
-          disabled={locked}
-          onClick={remove}
-          className="hover:border-red-500/40 hover:text-red-300 disabled:opacity-30"
-        />
+        {!canAdmin && !canMembers ? (
+          <Lock size={15} className="text-slate-600" title="You can't manage this group" />
+        ) : (
+          <IconButton
+            icon={Trash2}
+            label={isOwnGroup ? "You can't delete your own group" : canAdmin ? "Delete group" : "Need manage-access"}
+            disabled={!canAdmin || isOwnGroup}
+            onClick={remove}
+            className="hover:border-red-500/40 hover:text-red-300 disabled:opacity-30"
+          />
+        )}
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
-        {/* What this group can do */}
         <div>
           <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.5px] text-cad-muted">
             What this group can do
           </div>
           <div className="grid gap-2">
-            <CapabilityToggle
-              checked={isAdminGroup}
-              disabled={locked}
-              onChange={(v) => update({ isAdmin: v })}
-              title="Administrator"
-              desc="Full access, including the Builder Portal and every page."
-            />
-            <CapabilityToggle
-              checked={isAdminGroup ? true : !!group.canEditRoster}
-              disabled={isAdminGroup}
-              onChange={(v) => update({ canEditRoster: v })}
-              title="Edit the roster"
-              desc="Add, edit, and move members, ranks, and categories."
-            />
+            {CAPS.map((cap) => (
+              <CapabilityToggle
+                key={cap.key}
+                title={cap.title}
+                desc={cap.desc}
+                checked={!!group[cap.key]}
+                // Can't grant a capability you don't hold yourself, and only on
+                // groups at or below your level.
+                disabled={!canAdmin || !hasCapability(user, config, cap.key)}
+                onChange={(v) => update({ [cap.key]: v })}
+              />
+            ))}
           </div>
-
-          <div className="mb-2 mt-3 text-[11px] font-bold uppercase tracking-[0.5px] text-cad-muted">
-            Page access
-          </div>
-          {isAdminGroup ? (
-            <p className="text-sm text-slate-500">Administrators can access every page.</p>
-          ) : (
-            <>
-              <div className="flex flex-wrap gap-2">
-                {config.pages.map((p) => {
-                  const on = (p.access || []).includes(group.id);
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => togglePage(p.id)}
-                      className={`press rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                        on
-                          ? "border-[color:var(--color-border-strong)] bg-[color:var(--color-primary)]/15 text-white"
-                          : "border-white/10 text-slate-400 hover:text-white"
-                      }`}
-                    >
-                      {p.label}
-                    </button>
-                  );
-                })}
-              </div>
-              <p className="mt-1.5 text-xs text-slate-500">
-                A page with no groups selected is visible to everyone.
-              </p>
-            </>
-          )}
         </div>
 
-        {/* Members */}
-        <GroupMembers group={group} update={update} />
+        <GroupMembers group={group} update={update} canEdit={canMembers} canSetRole={canAdmin} />
       </div>
     </Panel>
   );
 }
-
-// ─── Optional: Discord sign-in + auto-assign by role ─────────────────────────
 
 function DiscordSettings() {
   const { config, mutate } = useConfig();
@@ -242,7 +233,7 @@ function DiscordSettings() {
     setAuth({
       roleMappings: [
         ...mappings,
-        { id: uid("map"), roleId: "", roleName: "", group: config.groups[0]?.id || "member" },
+        { id: uid("map"), roleId: "", roleName: "", group: config.groups[0]?.id || "" },
       ],
     });
   const removeRow = (id) => setAuth({ roleMappings: mappings.filter((m) => m.id !== id) });
@@ -251,7 +242,7 @@ function DiscordSettings() {
     <Panel className="p-5">
       <SectionHeader
         title="Discord sign-in (optional)"
-        subtitle="Server settings, plus optional auto-assignment that maps a member's Discord role to a group on login."
+        subtitle="Server settings, plus optional auto-assignment that maps a Discord role to a group on login."
         actions={
           <Button icon={Plus} onClick={addRow}>
             Add role rule
@@ -316,11 +307,11 @@ function DiscordSettings() {
   );
 }
 
-// ─── Access & Roles tab ──────────────────────────────────────────────────────
-
-export default function AccessTab() {
+export default function AccessTab({ user }) {
   const { config, mutate } = useConfig();
-  const groups = [...(config.groups || [])].sort((a, b) => a.level - b.level);
+  const groups = [...(config.groups || [])].sort((a, b) => b.level - a.level);
+  const mayAdd = canManageAccess(user, config);
+  const maySite = canManageSite(user, config);
 
   const addGroup = () =>
     mutate((cfg) => ({
@@ -330,9 +321,11 @@ export default function AccessTab() {
         {
           id: uid("group"),
           label: "New Group",
-          level: cfg.groups.length + 1,
-          isAdmin: false,
-          canEditRoster: false,
+          level: 1,
+          manageSite: false,
+          manageAccess: false,
+          editRoster: false,
+          editSubdivisions: false,
           members: [],
         },
       ],
@@ -344,19 +337,22 @@ export default function AccessTab() {
         <div className="min-w-0">
           <h2 className="text-lg font-semibold text-white">Groups</h2>
           <p className="mt-0.5 text-sm text-[var(--color-text-muted)]">
-            Create groups, toggle what each can do, then assign people by name + Discord ID.
+            Toggle what each group can do, then assign people by name + Discord ID. You can only
+            manage groups at or below your own level.
           </p>
         </div>
-        <Button icon={Plus} onClick={addGroup}>
-          Add group
-        </Button>
+        {mayAdd && (
+          <Button icon={Plus} onClick={addGroup}>
+            Add group
+          </Button>
+        )}
       </div>
 
       {groups.map((g) => (
-        <GroupCard key={g.id} group={g} />
+        <GroupCard key={g.id} group={g} user={user} />
       ))}
 
-      <DiscordSettings />
+      {maySite && <DiscordSettings />}
     </div>
   );
 }

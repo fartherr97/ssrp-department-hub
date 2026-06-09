@@ -16,7 +16,7 @@ import {
   Award,
 } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
-import { canEditRoster } from "../lib/permissions.js";
+import { canEditSubdivision, canEditRosterStructure } from "../lib/permissions.js";
 import { initials } from "../lib/user.js";
 import {
   Button,
@@ -959,7 +959,8 @@ function SubRoster({
 
 export default function Roster({ user }) {
   const { config, mutate } = useConfig();
-  const canEdit = canEditRoster(user, config);
+  // Structural edits (subdivisions, shared columns) vs. per-subdivision editing.
+  const canEditStructure = canEditRosterStructure(user, config);
   const fields = config.roster.memberFields || [];
   const subdivisions = config.roster.subdivisions || [];
   const statusField = findStatusField(fields);
@@ -970,6 +971,7 @@ export default function Roster({ user }) {
   const categories = activeSub?.categories || [];
   const totalMembers = categories.reduce((n, c) => n + c.members.length, 0);
   const accent = activeSub?.accent || "var(--color-primary)";
+  const canEditActive = canEditSubdivision(user, config, activeSub);
   const stats = config.roster.stats;
   const statsShown = Boolean(stats?.show && stats.items?.length);
 
@@ -1104,11 +1106,11 @@ export default function Roster({ user }) {
     }
   }
 
-  // Shared SubRoster wiring (same handlers for both layouts).
+  // Shared SubRoster wiring (same handlers for both layouts). `canEdit` is
+  // passed per-usage since it depends on the subdivision.
   const subRosterProps = {
     fields,
     statusField,
-    canEdit,
     matches,
     filtering,
     dragOverCat,
@@ -1143,12 +1145,14 @@ export default function Roster({ user }) {
             : "No subdivisions yet."
         }
         actions={
-          canEdit && (
+          (canEditStructure || (layout === "tabs" && canEditActive)) && (
             <>
-              <Button variant="secondary" icon={Columns3} onClick={() => setColumnsOpen(true)}>
-                Columns
-              </Button>
-              {layout === "tabs" && subId && (
+              {canEditStructure && (
+                <Button variant="secondary" icon={Columns3} onClick={() => setColumnsOpen(true)}>
+                  Columns
+                </Button>
+              )}
+              {layout === "tabs" && subId && canEditActive && (
                 <>
                   <Button variant="secondary" icon={Award} onClick={() => setRankTitlesSubId(subId)}>
                     Add rank
@@ -1168,7 +1172,7 @@ export default function Roster({ user }) {
           <SubdivisionTabs
             subdivisions={subdivisions}
             activeId={subId}
-            canEdit={canEdit}
+            canEdit={canEditStructure}
             onSelect={(id) => {
               setActiveSubId(id);
               setCategoryFilter("all");
@@ -1216,7 +1220,7 @@ export default function Roster({ user }) {
               title="No categories yet"
               subtitle={`Add your first category to start building the ${activeSub?.name || "roster"}.`}
               action={
-                canEdit && (
+                canEditActive && (
                   <Button icon={Plus} onClick={() => openAddCategory(subId)}>
                     Add category
                   </Button>
@@ -1229,6 +1233,7 @@ export default function Roster({ user }) {
                 sub={activeSub}
                 accent={accent}
                 categoryFilter={categoryFilter}
+                canEdit={canEditActive}
                 {...subRosterProps}
               />
             </Panel>
@@ -1239,7 +1244,7 @@ export default function Roster({ user }) {
           {/* Grid layout — every subdivision side-by-side */}
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              {canEdit && (
+              {canEditStructure && (
                 <Button
                   variant="secondary"
                   icon={Plus}
@@ -1272,6 +1277,7 @@ export default function Roster({ user }) {
               const sAccent = s.accent || "var(--color-primary)";
               const cats = s.categories || [];
               const count = cats.reduce((n, c) => n + c.members.length, 0);
+              const canEditCard = canEditSubdivision(user, config, s);
               return (
                 <Panel key={s.id} className="overflow-hidden">
                   <div
@@ -1297,57 +1303,65 @@ export default function Roster({ user }) {
                     >
                       {count}
                     </span>
-                    {canEdit && (
+                    {(canEditCard || canEditStructure) && (
                       <div className="ml-auto flex shrink-0 items-center gap-1">
-                        <IconButton
-                          icon={Award}
-                          label="Manage ranks"
-                          onClick={() => setRankTitlesSubId(s.id)}
-                          className="h-7 w-7"
-                        />
-                        <IconButton
-                          icon={Plus}
-                          label="Add category"
-                          onClick={() => openAddCategory(s.id)}
-                          className="h-7 w-7"
-                        />
-                        <IconButton
-                          icon={Pencil}
-                          label="Rename subdivision"
-                          onClick={() => setSubModal(s)}
-                          className="h-7 w-7"
-                        />
-                        <IconButton
-                          icon={ChevronLeft}
-                          label="Move left"
-                          disabled={subdivisions.indexOf(s) === 0}
-                          onClick={() => mutate(R.moveSubdivision(config, s.id, -1))}
-                          className="h-7 w-7 disabled:opacity-30"
-                        />
-                        <IconButton
-                          icon={ChevronRight}
-                          label="Move right"
-                          disabled={subdivisions.indexOf(s) === subdivisions.length - 1}
-                          onClick={() => mutate(R.moveSubdivision(config, s.id, 1))}
-                          className="h-7 w-7 disabled:opacity-30"
-                        />
-                        <IconButton
-                          icon={Trash2}
-                          label="Delete subdivision"
-                          disabled={subdivisions.length <= 1}
-                          onClick={() => setConfirm({ type: "subdivision", subdivision: s })}
-                          className="h-7 w-7 hover:border-red-500/40 hover:text-red-300 disabled:opacity-30"
-                        />
+                        {canEditCard && (
+                          <>
+                            <IconButton
+                              icon={Award}
+                              label="Manage ranks"
+                              onClick={() => setRankTitlesSubId(s.id)}
+                              className="h-7 w-7"
+                            />
+                            <IconButton
+                              icon={Plus}
+                              label="Add category"
+                              onClick={() => openAddCategory(s.id)}
+                              className="h-7 w-7"
+                            />
+                          </>
+                        )}
+                        {canEditStructure && (
+                          <>
+                            <IconButton
+                              icon={Pencil}
+                              label="Rename subdivision"
+                              onClick={() => setSubModal(s)}
+                              className="h-7 w-7"
+                            />
+                            <IconButton
+                              icon={ChevronLeft}
+                              label="Move left"
+                              disabled={subdivisions.indexOf(s) === 0}
+                              onClick={() => mutate(R.moveSubdivision(config, s.id, -1))}
+                              className="h-7 w-7 disabled:opacity-30"
+                            />
+                            <IconButton
+                              icon={ChevronRight}
+                              label="Move right"
+                              disabled={subdivisions.indexOf(s) === subdivisions.length - 1}
+                              onClick={() => mutate(R.moveSubdivision(config, s.id, 1))}
+                              className="h-7 w-7 disabled:opacity-30"
+                            />
+                            <IconButton
+                              icon={Trash2}
+                              label="Delete subdivision"
+                              disabled={subdivisions.length <= 1}
+                              onClick={() => setConfirm({ type: "subdivision", subdivision: s })}
+                              className="h-7 w-7 hover:border-red-500/40 hover:text-red-300 disabled:opacity-30"
+                            />
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
 
                   {cats.length === 0 ? (
                     <div className="px-4 py-6 text-sm text-slate-500">
-                      No categories yet{canEdit ? " — use + to add one." : "."}
+                      No categories yet{canEditCard ? " — use + to add one." : "."}
                     </div>
                   ) : (
-                    <SubRoster sub={s} accent={sAccent} compact {...subRosterProps} />
+                    <SubRoster sub={s} accent={sAccent} compact canEdit={canEditCard} {...subRosterProps} />
                   )}
                 </Panel>
               );

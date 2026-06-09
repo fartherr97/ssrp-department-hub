@@ -80,9 +80,11 @@ Admins configure the hub here (auto-saves):
   member columns (text / dropdown / date / checkbox / certification), colored
   status pills with per-option colors, a configurable department-stats box,
   and per-subdivision accent + banner
-- **Access & Roles** — groups with capability toggles (admin / edit roster /
-  per-page access) and explicit member lists (assign people by name + Discord
-  ID); optional Discord role → group auto-assignment
+- **Access & Roles** — groups with capability toggles (manage site / manage
+  access / edit main roster / edit subdivision rosters), member + manager roles
+  (managers add/remove their group's people), a level hierarchy (you can only
+  manage groups at or below your own), and member lists by name + Discord ID;
+  optional Discord role auto-assignment
 - **Advanced** — export/import config JSON, reset to blank template
 
 The **Roster** page presents subdivisions (e.g. Patrol, K9, Traffic — each its
@@ -142,9 +144,10 @@ shaped like:
 }
 ```
 
-The front-end enforces page visibility from `group` (see
-`src/lib/permissions.js`); the backend should re-check on every protected
-request — never trust the client.
+Every page is viewable by any signed-in member except the Builder Portal, which
+requires a management capability; roster editing is gated per-subdivision
+(main vs. subdivisions). See `src/lib/permissions.js`. The backend must re-check
+capabilities on every protected request — never trust the client.
 
 ### Environment
 

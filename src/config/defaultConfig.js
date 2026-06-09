@@ -61,12 +61,13 @@ export const defaultConfig = {
    * highest matching Discord role); `admin` always sees everything.
    */
   groups: [
-    // Each group carries capability flags + an explicit `members` list (people
-    // assigned to it by name + Discord ID), managed in Builder → Access & Roles.
-    { id: "member", label: "Member", level: 1, isAdmin: false, canEditRoster: false, members: [] },
-    { id: "supervisor", label: "Supervisor", level: 2, isAdmin: false, canEditRoster: false, members: [] },
-    { id: "command", label: "Command", level: 3, isAdmin: false, canEditRoster: true, members: [] },
-    { id: "admin", label: "Administrator", level: 4, isAdmin: true, canEditRoster: true, members: [] },
+    // Each group carries capability flags + an explicit member list. A member's
+    // role is "member" or "manager" (managers can add/remove that group's
+    // people). You can only administer groups at or below your own level.
+    { id: "dept-heads", label: "Department Heads", level: 4, manageSite: true, manageAccess: true, editRoster: true, editSubdivisions: true, members: [] },
+    { id: "management", label: "Management", level: 3, manageSite: true, manageAccess: true, editRoster: true, editSubdivisions: true, members: [] },
+    { id: "command", label: "Command Staff", level: 2, manageSite: false, manageAccess: false, editRoster: true, editSubdivisions: true, members: [] },
+    { id: "subdivisions", label: "Subdivisions", level: 1, manageSite: false, manageAccess: false, editRoster: false, editSubdivisions: true, members: [] },
   ],
 
   navGroups: ["Main", "Resources", "Administration"],
@@ -198,6 +199,7 @@ export const defaultConfig = {
       {
         id: "sub-main",
         name: "Department",
+        main: true, // the main department roster (editable by editRoster groups)
         accent: "#3d82f0",
         banner: {
           imageUrl: "",

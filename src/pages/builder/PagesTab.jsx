@@ -27,12 +27,6 @@ function PageModal({ open, onClose, config, page, onSave }) {
   const cfg = draft.config || {};
   const setCfg = (patch) => setDraft((d) => ({ ...d, config: { ...(d.config || {}), ...patch } }));
 
-  function toggleAccess(groupId) {
-    const access = new Set(draft.access || []);
-    access.has(groupId) ? access.delete(groupId) : access.add(groupId);
-    setDraft({ ...draft, access: [...access] });
-  }
-
   return (
     <Modal
       open={open}
@@ -91,30 +85,10 @@ function PageModal({ open, onClose, config, page, onSave }) {
           </div>
         </Field>
 
-        <Field label="Who can view this page?">
-          <div className="flex flex-wrap gap-2">
-            {config.groups.map((g) => {
-              const on = (draft.access || []).includes(g.id);
-              return (
-                <button
-                  key={g.id}
-                  type="button"
-                  onClick={() => toggleAccess(g.id)}
-                  className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                    on
-                      ? "border-[color:var(--color-border-strong)] bg-[color:var(--color-primary)]/15 text-white"
-                      : "border-white/10 text-slate-400 hover:text-white"
-                  }`}
-                >
-                  {g.label}
-                </button>
-              );
-            })}
-          </div>
-          <span className="mt-1 block text-xs text-slate-500">
-            Administrators always have access.
-          </span>
-        </Field>
+        <p className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-xs text-slate-400">
+          Every page is visible to all signed-in members. Only the Builder Portal is restricted —
+          control that with the “Manage site” capability under Access &amp; Roles.
+        </p>
 
         {isContentLike && (
           <div>
@@ -318,7 +292,7 @@ export default function PagesTab() {
                     {page.navGroup} · {page.type}
                   </div>
                 </div>
-                <Badge>{page.locked ? "system" : `${(page.access || []).length} group(s)`}</Badge>
+                <Badge>{page.locked ? "system" : page.type}</Badge>
                 <div className="flex items-center gap-1">
                   <IconButton icon={ChevronUp} label="Move up" disabled={idx === 0} onClick={() => movePage(page.id, -1)} className="disabled:opacity-30" />
                   <IconButton icon={ChevronDown} label="Move down" disabled={idx === config.pages.length - 1} onClick={() => movePage(page.id, 1)} className="disabled:opacity-30" />
