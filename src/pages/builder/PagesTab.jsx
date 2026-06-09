@@ -251,15 +251,25 @@ function NavGroups() {
       return { ...cfg, dropdownGroups: [...set] };
     });
   }
+  function move(group, dir) {
+    mutate((cfg) => {
+      const arr = [...cfg.navGroups];
+      const i = arr.indexOf(group);
+      const j = i + dir;
+      if (i === -1 || j < 0 || j >= arr.length) return cfg;
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+      return { ...cfg, navGroups: arr };
+    });
+  }
 
   return (
     <Panel className="p-5">
       <SectionHeader
         title="Navigation groups"
-        subtitle="The headings in the top bar. A group only appears once it contains at least one page. Inline groups show each page as a top-bar link; dropdown groups collapse into a menu."
+        subtitle="The headings in the top bar, in this exact order — use the arrows to rearrange them. A group only appears once it contains at least one page. Inline groups show each page as a top-bar link; dropdown groups collapse into a menu."
       />
       <div className="grid gap-2">
-        {config.navGroups.map((g) => {
+        {config.navGroups.map((g, idx) => {
           const used = config.pages.some((p) => p.navGroup === g);
           const isDropdown = dropdownGroups.includes(g);
           return (
@@ -293,6 +303,22 @@ function NavGroups() {
                     {label}
                   </button>
                 ))}
+              </div>
+              <div className="flex items-center gap-1">
+                <IconButton
+                  icon={ChevronUp}
+                  label="Move left in the top bar"
+                  disabled={idx === 0}
+                  onClick={() => move(g, -1)}
+                  className="disabled:opacity-30"
+                />
+                <IconButton
+                  icon={ChevronDown}
+                  label="Move right in the top bar"
+                  disabled={idx === config.navGroups.length - 1}
+                  onClick={() => move(g, 1)}
+                  className="disabled:opacity-30"
+                />
               </div>
               <button
                 onClick={() => remove(g)}

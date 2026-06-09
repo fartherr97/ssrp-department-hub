@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Palette, LayoutList, Users, Database, Check, Compass, Undo2 } from "lucide-react";
+import { Palette, LayoutList, Users, Database, Check, Compass, Undo2, BookOpen } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
 import { canManageSite } from "../lib/permissions.js";
 import { PageHeader, Button } from "../components/common/index.jsx";
@@ -8,6 +8,7 @@ import BrandingTab from "./builder/BrandingTab.jsx";
 import PagesTab from "./builder/PagesTab.jsx";
 import RosterTab from "./builder/RosterTab.jsx";
 import AdvancedTab from "./builder/AdvancedTab.jsx";
+import KeyGuideTab from "./builder/KeyGuideTab.jsx";
 
 // All Builder tabs are site configuration — they require the manageSite
 // capability. Access & Roles lives on its own page under Administration.
@@ -17,6 +18,7 @@ const TABS = [
   { id: "pages", label: "Pages & Menu", desc: "Pages & navigation bar", icon: LayoutList, Component: PagesTab },
   { id: "roster", label: "Roster Setup", desc: "Subdivisions & columns", icon: Users, Component: RosterTab },
   { id: "advanced", label: "Backup & Reset", desc: "Save or restore everything", icon: Database, Component: AdvancedTab },
+  { id: "guide", label: "Key Guide", desc: "Every term, in plain words", icon: BookOpen, Component: KeyGuideTab },
 ];
 
 export default function BuilderPortal({ user }) {

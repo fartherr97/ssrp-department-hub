@@ -131,6 +131,15 @@ export default function StartHereTab({ goTo }) {
           and you'll have a fully branded department hub in a few minutes. You can't break
           anything: every step can be changed again later, and you can download a backup at
           any time from <span className="font-semibold text-white">Backup &amp; Reset</span>.
+          Run into a word you don't know — like “hero kicker”? Look it up in the{" "}
+          <button
+            type="button"
+            onClick={() => goTo?.("guide")}
+            className="font-semibold text-[var(--color-primary)] underline-offset-2 hover:underline"
+          >
+            Key Guide
+          </button>
+          .
         </p>
       </Panel>
 
