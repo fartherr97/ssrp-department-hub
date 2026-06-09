@@ -122,7 +122,7 @@ function EventDetails({ event, user, canManage, onClose, onEdit, onDelete, onTog
       title={event.title}
       size="sm"
       footer={
-        <>
+        <div className="flex w-full items-center justify-center gap-2">
           {canManage && (
             <>
               <Button variant="secondary" icon={Pencil} onClick={onEdit}>
@@ -134,24 +134,15 @@ function EventDetails({ event, user, canManage, onClose, onEdit, onDelete, onTog
             </>
           )}
           {attending ? (
-            <button
-              onClick={onToggleAttend}
-              title="Click to remove your attendance"
-              className="btn-glossy group inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-2 text-sm font-semibold text-green-300 transition hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-300"
-            >
-              <span className="inline-flex items-center gap-2 group-hover:hidden">
-                <Check size={16} strokeWidth={2.4} /> Attending
-              </span>
-              <span className="hidden items-center gap-2 group-hover:inline-flex">
-                <X size={16} strokeWidth={2.4} /> Remove
-              </span>
-            </button>
+            <Button variant="secondary" icon={X} onClick={onToggleAttend}>
+              Remove
+            </Button>
           ) : (
             <Button icon={Check} onClick={onToggleAttend}>
-              I'll attend
+              Attending
             </Button>
           )}
-        </>
+        </div>
       }
     >
       <div className="grid gap-3">
