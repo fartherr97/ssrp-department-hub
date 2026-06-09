@@ -14,6 +14,8 @@ import {
   Search,
   Check,
   Award,
+  BarChart3,
+  SlidersHorizontal,
 } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
 import { canEditSubdivision, canEditRosterStructure } from "../lib/permissions.js";
@@ -36,6 +38,7 @@ import {
 } from "../components/common/index.jsx";
 import useToast from "../hooks/useToast.js";
 import * as R from "../lib/roster.js";
+import StatsEditor from "./builder/StatsEditor.jsx";
 
 // Pick the field used for the status summary pills + status badges: a select
 // field literally about "status", else the first select field.
@@ -215,15 +218,35 @@ function computeStat(item, groups, statusField) {
   return count;
 }
 
-function StatsPanel({ stats, groups, statusField, accent }) {
+function StatsPanel({ stats, groups, statusField, accent, canEdit, onEdit }) {
   if (!stats?.show || !stats.items?.length) return null;
   return (
-    <Panel className="mb-4 p-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+    <Panel className="mb-4 overflow-hidden">
+      <div
+        className="flex items-center justify-between border-b border-white/10 px-4 py-2.5"
+        style={{ borderLeft: `3px solid ${accent}` }}
+      >
+        <div className="flex items-center gap-2">
+          <BarChart3 size={15} style={{ color: accent }} />
+          <span className="text-xs font-black uppercase tracking-[0.18em] text-slate-200">
+            {stats.title || "Department Statistics"}
+          </span>
+        </div>
+        {canEdit && (
+          <IconButton
+            icon={SlidersHorizontal}
+            label="Choose what displays here"
+            onClick={onEdit}
+            className="h-7 w-7"
+          />
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 lg:grid-cols-5">
         {stats.items.map((item) => (
           <div
             key={item.id}
             className="rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2.5"
+            style={{ borderLeft: `3px solid ${item.color || accent}` }}
           >
             <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-cad-muted">
               {item.label}
@@ -1076,6 +1099,7 @@ export default function Roster({ user }) {
   const [categoryModal, setCategoryModal] = useState(null);
   const [subModal, setSubModal] = useState(null);
   const [columnsOpen, setColumnsOpen] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
   const [rankTitlesSubId, setRankTitlesSubId] = useState(null);
   const [confirm, setConfirm] = useState(null);
   const [dragOverCat, setDragOverCat] = useState(null);
@@ -1310,9 +1334,14 @@ export default function Roster({ user }) {
           (canEditStructure || (layout === "tabs" && canEditActive)) && (
             <>
               {canEditStructure && (
-                <Button variant="secondary" icon={Columns3} onClick={() => setColumnsOpen(true)}>
-                  Columns
-                </Button>
+                <>
+                  <Button variant="secondary" icon={Columns3} onClick={() => setColumnsOpen(true)}>
+                    Columns
+                  </Button>
+                  <Button variant="secondary" icon={BarChart3} onClick={() => setStatsOpen(true)}>
+                    Stats
+                  </Button>
+                </>
               )}
               {layout === "tabs" && subId && canEditActive && (
                 <>
@@ -1346,7 +1375,14 @@ export default function Roster({ user }) {
           />
 
           <RosterBanner sub={activeSub} accent={accent} />
-          <StatsPanel stats={stats} groups={categories} statusField={statusField} accent={accent} />
+          <StatsPanel
+            stats={stats}
+            groups={categories}
+            statusField={statusField}
+            accent={accent}
+            canEdit={canEditStructure}
+            onEdit={() => setStatsOpen(true)}
+          />
 
           {/* Summary + controls */}
           <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -1432,6 +1468,8 @@ export default function Roster({ user }) {
             groups={allCategories}
             statusField={statusField}
             accent="var(--color-primary)"
+            canEdit={canEditStructure}
+            onEdit={() => setStatsOpen(true)}
           />
 
           <div className="grid gap-4 lg:grid-cols-2">
@@ -1605,6 +1643,23 @@ export default function Roster({ user }) {
         />
       )}
       <ColumnsModal open={columnsOpen} onClose={() => setColumnsOpen(false)} />
+      <Modal
+        open={statsOpen}
+        onClose={() => setStatsOpen(false)}
+        title="Department statistics"
+        size="lg"
+        footer={
+          <Button variant="secondary" onClick={() => setStatsOpen(false)}>
+            Done
+          </Button>
+        }
+      >
+        <p className="mb-4 text-sm text-slate-400">
+          Choose what the statistics panel displays. Metrics are computed over the
+          subdivision being viewed; changes apply instantly.
+        </p>
+        <StatsEditor />
+      </Modal>
       {rankTitlesSubId && (
         <RankTitlesModal open onClose={() => setRankTitlesSubId(null)} subId={rankTitlesSubId} />
       )}

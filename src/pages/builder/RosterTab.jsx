@@ -24,12 +24,7 @@ const FIELD_TYPES = [
   { value: "tenure", label: "Time in grade (auto)" },
 ];
 
-const STAT_MODES = [
-  { value: "total", label: "Total members" },
-  { value: "status", label: "Count by status" },
-  { value: "cert", label: "Count certified" },
-  { value: "manual", label: "Manual value" },
-];
+import StatsEditor from "./StatsEditor.jsx";
 
 // ─── Per-subdivision appearance (accent + banner) ────────────────────────────
 
@@ -187,127 +182,6 @@ function ColumnEditor({ field }) {
   );
 }
 
-// ─── Department stats editor ─────────────────────────────────────────────────
-
-function StatsEditor() {
-  const { config, mutate } = useConfig();
-  const fields = config.roster.memberFields || [];
-  const stats = config.roster.stats || { show: false, items: [] };
-  const items = stats.items || [];
-
-  const statusField =
-    fields.find((f) => f.type === "select" && /status/i.test(`${f.label} ${f.id}`)) ||
-    fields.find((f) => f.type === "select");
-  const certFields = fields.filter((f) => f.type === "cert" || f.type === "checkbox");
-
-  const setStats = (patch) =>
-    mutate((cfg) => ({
-      ...cfg,
-      roster: { ...cfg.roster, stats: { ...(cfg.roster.stats || {}), ...patch } },
-    }));
-  const setItems = (next) => setStats({ items: next });
-  const addItem = () =>
-    setItems([...items, { id: R.uid("stat"), label: "Metric", mode: "total" }]);
-  const updateItem = (id, patch) =>
-    setItems(items.map((it) => (it.id === id ? { ...it, ...patch } : it)));
-  const removeItem = (id) => setItems(items.filter((it) => it.id !== id));
-
-  return (
-    <Panel className="p-5">
-      <SectionHeader
-        title="Department stats"
-        subtitle="A metrics box above the roster, computed over the active subdivision."
-        actions={
-          <Button icon={Plus} onClick={addItem}>
-            Add metric
-          </Button>
-        }
-      />
-      <label className="mb-4 flex items-center gap-2 text-sm text-slate-300">
-        <input
-          type="checkbox"
-          checked={!!stats.show}
-          onChange={(e) => setStats({ show: e.target.checked })}
-          className="h-4 w-4 accent-[var(--color-primary)]"
-        />
-        Show the stats box on the roster
-      </label>
-      <div className="grid gap-2">
-        {items.length === 0 && <p className="text-sm text-slate-500">No metrics yet.</p>}
-        {items.map((it) => (
-          <div
-            key={it.id}
-            className="grid grid-cols-1 items-end gap-2 rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-3 sm:grid-cols-[1fr_150px_1fr_auto_auto]"
-          >
-            <Field label="Label">
-              <Input value={it.label} onChange={(e) => updateItem(it.id, { label: e.target.value })} />
-            </Field>
-            <Field label="Source">
-              <Select value={it.mode} onChange={(e) => updateItem(it.id, { mode: e.target.value })}>
-                {STAT_MODES.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            {it.mode === "status" ? (
-              <Field label="Status value">
-                <Select
-                  value={it.statusValue || ""}
-                  onChange={(e) => updateItem(it.id, { statusValue: e.target.value })}
-                >
-                  <option value="">—</option>
-                  {(statusField?.options || []).map((o) => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-            ) : it.mode === "cert" ? (
-              <Field label="Certification column">
-                <Select
-                  value={it.fieldId || ""}
-                  onChange={(e) => updateItem(it.id, { fieldId: e.target.value })}
-                >
-                  <option value="">—</option>
-                  {certFields.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.label}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-            ) : it.mode === "manual" ? (
-              <Field label="Value">
-                <Input
-                  value={it.value || ""}
-                  onChange={(e) => updateItem(it.id, { value: e.target.value })}
-                />
-              </Field>
-            ) : (
-              <div />
-            )}
-            <Field label="Color">
-              <ColorInput
-                value={it.color || ""}
-                onChange={(v) => updateItem(it.id, { color: v })}
-              />
-            </Field>
-            <IconButton
-              icon={Trash2}
-              label="Delete metric"
-              onClick={() => removeItem(it.id)}
-              className="mb-0.5 hover:border-red-500/40 hover:text-red-300"
-            />
-          </div>
-        ))}
-      </div>
-    </Panel>
-  );
-}
-
 // ─── Roster schema tab ───────────────────────────────────────────────────────
 
 const LAYOUTS = [
@@ -444,7 +318,13 @@ export default function RosterTab() {
         </div>
       </Panel>
 
-      <StatsEditor />
+      <Panel className="p-5">
+        <SectionHeader
+          title="Department statistics"
+          subtitle="The metrics panel above the roster, computed over the active subdivision. Roster editors can also adjust this from the roster itself (the Stats button)."
+        />
+        <StatsEditor />
+      </Panel>
     </div>
   );
 }
