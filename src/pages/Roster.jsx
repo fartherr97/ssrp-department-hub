@@ -31,7 +31,10 @@ import {
   Badge,
   EmptyState,
   CommaListInput,
+  MediaInput,
+  Toast,
 } from "../components/common/index.jsx";
+import useToast from "../hooks/useToast.js";
 import * as R from "../lib/roster.js";
 
 // Pick the field used for the status summary pills + status badges: a select
@@ -86,9 +89,29 @@ function selectPillProps(field, value) {
   return { style: undefined, className: statusTone(value).badge };
 }
 
+// Dates are stored ISO (YYYY-MM-DD) but display as MM/DD/YYYY on one line.
+function formatDate(value) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value || "");
+  return m ? `${m[2]}/${m[3]}/${m[1]}` : value;
+}
+
 // Renders one member field cell by type: checkbox (✓), cert (CERTIFIED/N/A),
-// colored status pill, or plain text.
+// colored status pill, auto time-in-grade, formatted date, or plain text.
 function FieldValue({ field, value, statusFieldId, accent }) {
+  if (field.type === "tenure") {
+    if (value === null || value === undefined) return <span className="text-slate-600">—</span>;
+    return (
+      <span
+        className="whitespace-nowrap font-semibold tabular-nums text-slate-200"
+        title="Days since last promotion — updates automatically"
+      >
+        {value}
+      </span>
+    );
+  }
+  if (field.type === "date" && value) {
+    return <span className="whitespace-nowrap text-slate-300">{formatDate(value)}</span>;
+  }
   if (field.type === "checkbox") {
     return value ? (
       <Check size={16} strokeWidth={3} className="mx-auto" style={{ color: accent }} />
@@ -297,16 +320,29 @@ function MemberModal({ open, onClose, fields, categories, rankTitles, categoryId
               placeholder="000000000000000000"
             />
           </Field>
-          <Field label="Avatar URL" hint="Square, ~128×128px.">
-            <Input
+          <Field label="Avatar" hint="Square, ~128×128px. Paste a link or upload.">
+            <MediaInput
               value={draft.avatarUrl || ""}
-              onChange={(e) => setDraft({ ...draft, avatarUrl: e.target.value })}
-              placeholder="https://…"
+              maxDim={256}
+              onChange={(avatarUrl) => setDraft({ ...draft, avatarUrl })}
             />
           </Field>
         </div>
 
         {fields.map((f) => {
+          if (f.type === "tenure") {
+            return (
+              <div
+                key={f.id}
+                className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2.5"
+              >
+                <span className="text-sm font-medium text-cad-text">{f.label}</span>
+                <span className="text-[11px] font-bold uppercase tracking-wide text-cad-muted">
+                  Calculated automatically
+                </span>
+              </div>
+            );
+          }
           if (f.type === "checkbox" || f.type === "cert") {
             return (
               <label
@@ -449,12 +485,13 @@ function RankTitlesModal({ open, onClose, subId }) {
       <div className="grid gap-3">
         <p className="text-sm text-slate-400">
           Rank titles a member can hold (e.g. Colonel, Captain). The insignia shows
-          in the Rank column next to the title.
+          in the Rank column next to the title. A callsign format like “91##” lets
+          the promotion tool hand out the next free callsign (9100, 9101…) automatically.
         </p>
         {ranks.map((rt, idx) => (
           <div
             key={rt.id}
-            className="grid grid-cols-[1fr_1fr_auto_auto_auto] items-end gap-2 rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-3"
+            className="grid grid-cols-[1.2fr_1fr_0.8fr_auto_auto_auto] items-end gap-2 rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-3"
           >
             <Field label="Rank name">
               <Input
@@ -462,12 +499,19 @@ function RankTitlesModal({ open, onClose, subId }) {
                 onChange={(e) => mutate(R.updateRank(config, subId, rt.id, { name: e.target.value }))}
               />
             </Field>
-            <Field label="Insignia URL · ~64×64">
-              <Input
+            <Field label="Insignia · ~64×64">
+              <MediaInput
                 value={rt.insigniaUrl || ""}
-                placeholder="https://…"
+                maxDim={128}
+                onChange={(insigniaUrl) => mutate(R.updateRank(config, subId, rt.id, { insigniaUrl }))}
+              />
+            </Field>
+            <Field label="Callsign format" hint="# auto-numbers, e.g. 91##">
+              <Input
+                value={rt.callsignFormat || ""}
+                placeholder="91##"
                 onChange={(e) =>
-                  mutate(R.updateRank(config, subId, rt.id, { insigniaUrl: e.target.value }))
+                  mutate(R.updateRank(config, subId, rt.id, { callsignFormat: e.target.value }))
                 }
               />
             </Field>
@@ -578,6 +622,7 @@ function ColumnsModal({ open, onClose }) {
                 <option value="date">Date</option>
                 <option value="checkbox">Checkbox</option>
                 <option value="cert">Certification</option>
+                <option value="tenure">Time in grade (auto)</option>
               </Select>
             </Field>
             <IconButton
@@ -596,6 +641,30 @@ function ColumnsModal({ open, onClose }) {
                       mutate(R.updateMemberField(config, f.id, { options }))
                     }
                   />
+                </Field>
+              </div>
+            )}
+            {f.type === "tenure" && (
+              <div className="col-span-3">
+                <Field
+                  label="Counts days since"
+                  hint="Shows days since this date column — promotions reset it automatically."
+                >
+                  <Select
+                    value={f.sourceFieldId || ""}
+                    onChange={(e) =>
+                      mutate(R.updateMemberField(config, f.id, { sourceFieldId: e.target.value }))
+                    }
+                  >
+                    <option value="">Auto-detect (date column named “…promotion…”)</option>
+                    {fields
+                      .filter((d) => d.type === "date")
+                      .map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.label}
+                        </option>
+                      ))}
+                  </Select>
                 </Field>
               </div>
             )}
@@ -721,16 +790,34 @@ function StatPills({ total, statusField, counts }) {
 
 // ─── Member table row ────────────────────────────────────────────────────────
 
-function MemberRow({ member, category, fields, statusFieldId, accent, rankById, canEdit, onEdit, onDelete, onDragStart }) {
+function MemberRow({ member, category, fields, statusFieldId, accent, rankById, canEdit, onEdit, onDelete, onDragStart, onRowDrop, selected, onToggleSelect }) {
   const rt = rankById[member.rank];
   return (
     <tr
       draggable={canEdit}
       onDragStart={(e) => canEdit && onDragStart(e, category.id, member.id)}
-      className="group border-t border-white/5 transition hover:bg-white/[0.03]"
+      onDragOver={(e) => canEdit && e.preventDefault()}
+      onDrop={(e) => {
+        if (!canEdit) return;
+        e.preventDefault();
+        e.stopPropagation(); // don't also fire the category-level drop
+        onRowDrop(e, category.id, member.id);
+      }}
+      className={`group border-t border-white/5 transition hover:bg-white/[0.03] ${
+        selected ? "bg-[color:var(--color-primary)]/8" : ""
+      }`}
     >
       <td className="px-3 py-2.5">
         <div className="flex items-center gap-3">
+          {canEdit && (
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={() => onToggleSelect(category.id, member.id)}
+              title="Select for promotion / demotion"
+              className="h-4 w-4 shrink-0 cursor-pointer accent-[var(--color-primary)]"
+            />
+          )}
           {canEdit && (
             <GripVertical
               size={14}
@@ -767,7 +854,7 @@ function MemberRow({ member, category, fields, statusFieldId, accent, rankById, 
         >
           <FieldValue
             field={f}
-            value={member.fields?.[f.id]}
+            value={f.type === "tenure" ? R.tenureDays(member, f, fields) : member.fields?.[f.id]}
             statusFieldId={statusFieldId}
             accent={accent}
           />
@@ -805,6 +892,9 @@ function SubRoster({
   setDragOverCat,
   onDragStart,
   onDrop,
+  onRowDrop,
+  selectedIds,
+  onToggleSelect,
   onAddMember,
   onEditMember,
   onDeleteMember,
@@ -939,6 +1029,9 @@ function SubRoster({
                     onEdit={(catId, m) => onEditMember(sub.id, catId, m)}
                     onDelete={(catId, m) => onDeleteMember(sub.id, catId, m)}
                     onDragStart={onDragStart}
+                    onRowDrop={(e, catId, beforeId) => onRowDrop(e, sub.id, catId, beforeId)}
+                    selected={Boolean(selectedIds?.has(member.id))}
+                    onToggleSelect={(catId, id) => onToggleSelect(sub.id, catId, id)}
                   />
                 ))
               )}
@@ -986,6 +1079,11 @@ export default function Roster({ user }) {
   const [rankTitlesSubId, setRankTitlesSubId] = useState(null);
   const [confirm, setConfirm] = useState(null);
   const [dragOverCat, setDragOverCat] = useState(null);
+  // Mass promotion/demotion: selected member ids (within one subdivision).
+  const [selected, setSelected] = useState(() => new Set());
+  const [selSubId, setSelSubId] = useState(null);
+  const [promoRank, setPromoRank] = useState("");
+  const { toast, show } = useToast();
 
   // Status counts for the summary pills (across the whole active subdivision).
   const statusCounts = useMemo(() => {
@@ -1024,13 +1122,28 @@ export default function Roster({ user }) {
     setMemberModal({ subId: forSubId, categoryId, member });
   }
   function saveMember(draft, targetCategory) {
-    const { subId: mSub, categoryId } = memberModal;
+    const { subId: mSub, categoryId, member: orig } = memberModal;
     const { isNew, ...clean } = draft;
+    const catChanged = Boolean(targetCategory && targetCategory !== categoryId);
     mutate((cfg) => {
-      if (isNew) return R.addMember(cfg, mSub, categoryId, clean);
-      let next = R.updateMember(cfg, mSub, categoryId, clean.id, clean);
-      if (targetCategory && targetCategory !== categoryId) {
-        next = R.moveMember(next, mSub, categoryId, clean.id, targetCategory);
+      // Promotion automation: a rank or category change stamps the promotion
+      // date to today (resetting time in grade) — unless the date was edited by
+      // hand in this same save. New members default it to today when blank.
+      const promoId = R.promotionDateFieldId(cfg);
+      let fields = clean.fields || {};
+      if (promoId) {
+        const rankChanged = !isNew && clean.rank !== orig.rank;
+        const editedByHand = (fields[promoId] || "") !== (orig.fields?.[promoId] || "");
+        const blankOnNew = isNew && !fields[promoId];
+        if (((rankChanged || catChanged) && !editedByHand) || blankOnNew) {
+          fields = { ...fields, [promoId]: new Date().toISOString().slice(0, 10) };
+        }
+      }
+      const next0 = { ...clean, fields };
+      if (isNew) return R.addMember(cfg, mSub, categoryId, next0);
+      let next = R.updateMember(cfg, mSub, categoryId, next0.id, next0);
+      if (catChanged) {
+        next = R.moveMember(next, mSub, categoryId, next0.id, targetCategory);
       }
       return next;
     });
@@ -1094,11 +1207,62 @@ export default function Roster({ user }) {
     try {
       const { fromCatId, memberId } = JSON.parse(e.dataTransfer.getData("text/plain"));
       if (fromCatId !== toCatId) {
-        mutate((cfg) => R.moveMember(cfg, toSubId, fromCatId, memberId, toCatId));
+        // Category change resets time in grade (stamps the promotion date).
+        mutate((cfg) =>
+          R.touchPromotionDate(
+            R.moveMember(cfg, toSubId, fromCatId, memberId, toCatId),
+            toSubId,
+            toCatId,
+            memberId
+          )
+        );
       }
     } catch {
       /* ignore malformed drop */
     }
+  }
+
+  // Drop directly on a row: place the member right before that row.
+  function onRowDrop(e, toSubId, toCatId, beforeMemberId) {
+    setDragOverCat(null);
+    try {
+      const { fromCatId, memberId } = JSON.parse(e.dataTransfer.getData("text/plain"));
+      if (memberId === beforeMemberId) return;
+      mutate((cfg) => {
+        let next = R.moveMemberBefore(cfg, toSubId, fromCatId, memberId, toCatId, beforeMemberId);
+        if (fromCatId !== toCatId) {
+          next = R.touchPromotionDate(next, toSubId, toCatId, memberId);
+        }
+        return next;
+      });
+    } catch {
+      /* ignore malformed drop */
+    }
+  }
+
+  // ── Mass promotion / demotion ──
+  function toggleSelect(forSubId, _catId, memberId) {
+    setSelected((prev) => {
+      if (selSubId !== forSubId) {
+        setSelSubId(forSubId);
+        return new Set([memberId]);
+      }
+      const next = new Set(prev);
+      next.has(memberId) ? next.delete(memberId) : next.add(memberId);
+      return next;
+    });
+  }
+  const selSub = subdivisions.find((s) => s.id === selSubId);
+  function runPromotion() {
+    const rank = (selSub?.ranks || []).find((r) => r.id === promoRank);
+    mutate((cfg) => R.applyPromotion(cfg, selSubId, [...selected], { rankId: promoRank }));
+    show(
+      `${selected.size} member${selected.size === 1 ? "" : "s"} set to ${rank?.name || "new rank"}${
+        rank?.callsignFormat ? " — callsigns & promotion dates updated" : " — promotion dates updated"
+      }`
+    );
+    setSelected(new Set());
+    setPromoRank("");
   }
 
   // Shared SubRoster wiring (same handlers for both layouts). `canEdit` is
@@ -1112,6 +1276,9 @@ export default function Roster({ user }) {
     setDragOverCat,
     onDragStart,
     onDrop,
+    onRowDrop,
+    selectedIds: selected,
+    onToggleSelect: toggleSelect,
     onAddMember: openNewMember,
     onEditMember: openEditMember,
     onDeleteMember: confirmDeleteMember,
@@ -1363,6 +1530,48 @@ export default function Roster({ user }) {
             })}
           </div>
         </>
+      )}
+
+      <Toast message={toast} />
+
+      {/* Promotion / demotion bar — appears when members are selected */}
+      {selected.size > 0 && selSub && canEditSubdivision(user, config, selSub) && (
+        <div className="fixed bottom-6 left-1/2 z-[90] w-[min(94vw,640px)] -translate-x-1/2">
+          <Panel className="flex flex-wrap items-center gap-2 p-3 shadow-2xl shadow-black/60">
+            <span className="rounded-full bg-[color:var(--color-primary)]/15 px-3 py-1 text-sm font-bold text-white">
+              {selected.size} selected
+            </span>
+            <Select
+              value={promoRank}
+              onChange={(e) => setPromoRank(e.target.value)}
+              className="w-48"
+              placeholder="Choose new rank…"
+            >
+              <option value="">Choose new rank…</option>
+              {(selSub.ranks || []).map((rt) => (
+                <option key={rt.id} value={rt.id}>
+                  {rt.name}
+                </option>
+              ))}
+            </Select>
+            <Button disabled={!promoRank} onClick={runPromotion}>
+              Promote / Demote
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setSelected(new Set());
+                setPromoRank("");
+              }}
+            >
+              Clear
+            </Button>
+            <p className="w-full text-[11px] text-slate-500">
+              Sets the new rank, stamps Date of Promotion to today (resetting time in grade),
+              and auto-assigns callsigns when the rank has a callsign format (set in Ranks).
+            </p>
+          </Panel>
+        </div>
       )}
 
       {/* Modals (shared by both layouts) */}

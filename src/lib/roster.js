@@ -204,6 +204,139 @@ export function moveMember(config, subId, fromCatId, memberId, toCatId, toIndex 
   });
 }
 
+// ─── Promotion automation ────────────────────────────────────────────────────
+// "Time in grade" (a `tenure` column) is computed from a date column — usually
+// Date of Promotion. Changing someone's rank or category stamps that date to
+// today, which resets their time in grade automatically.
+
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// The date column that tenure counts from: an explicit tenure source if set,
+// else a date column whose label mentions "promot".
+export function promotionDateFieldId(config) {
+  const fields = config.roster.memberFields || [];
+  const tenure = fields.find((f) => f.type === "tenure");
+  if (tenure?.sourceFieldId) return tenure.sourceFieldId;
+  return fields.find((f) => f.type === "date" && /promot/i.test(`${f.label} ${f.id}`))?.id || null;
+}
+
+// The text column holding callsigns (for auto-numbering on promotion).
+export function callsignFieldId(config) {
+  const fields = config.roster.memberFields || [];
+  return fields.find((f) => f.type === "text" && /call\s?sign/i.test(`${f.label} ${f.id}`))?.id || null;
+}
+
+// Days since the member's tenure source date; null when not set/invalid.
+export function tenureDays(member, field, fields) {
+  const srcId =
+    field.sourceFieldId ||
+    fields.find((f) => f.type === "date" && /promot/i.test(`${f.label} ${f.id}`))?.id;
+  const raw = srcId ? member.fields?.[srcId] : null;
+  if (!raw) return null;
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return null;
+  return Math.max(0, Math.floor((Date.now() - d.getTime()) / 86400000));
+}
+
+// Stamp a member's promotion date to today (no-op if no such column exists).
+export function touchPromotionDate(config, subId, catId, memberId) {
+  const fid = promotionDateFieldId(config);
+  if (!fid) return config;
+  return mapCategories(config, subId, (cats) =>
+    cats.map((c) =>
+      c.id !== catId
+        ? c
+        : {
+            ...c,
+            members: c.members.map((m) =>
+              m.id === memberId
+                ? { ...m, fields: { ...(m.fields || {}), [fid]: todayISO() } }
+                : m
+            ),
+          }
+    )
+  );
+}
+
+// Move a member so they land directly before another member (row-level drop).
+export function moveMemberBefore(config, subId, fromCatId, memberId, toCatId, beforeMemberId) {
+  const sub = findSubdivision(config, subId);
+  const toCat = (sub?.categories || []).find((c) => c.id === toCatId);
+  if (!toCat) return config;
+  let idx = toCat.members.findIndex((m) => m.id === beforeMemberId);
+  if (idx === -1) return moveMember(config, subId, fromCatId, memberId, toCatId);
+  if (fromCatId === toCatId) {
+    const fromIdx = toCat.members.findIndex((m) => m.id === memberId);
+    if (fromIdx !== -1 && fromIdx < idx) idx -= 1; // account for the strip-then-insert
+  }
+  return moveMember(config, subId, fromCatId, memberId, toCatId, idx);
+}
+
+// Yields callsigns from a format like "91##" (# runs become the lowest unused
+// number, zero-padded). Returns null when exhausted or the format has no #.
+function makeCallsignGenerator(format, used) {
+  const m = /#+/.exec(format || "");
+  if (!m) return null;
+  const width = m[0].length;
+  const max = 10 ** width;
+  let n = 0;
+  return () => {
+    while (n < max) {
+      const candidate = format.replace(/#+/, String(n).padStart(width, "0"));
+      n++;
+      if (!used.has(candidate)) {
+        used.add(candidate);
+        return candidate;
+      }
+    }
+    return null;
+  };
+}
+
+/*
+ * The mass promotion/demotion tool: assign `rankId` to every member in
+ * `memberIds` (wherever they sit in the subdivision), stamp their promotion
+ * date to today, and — if the target rank has a callsignFormat — hand each one
+ * the next free callsign.
+ */
+export function applyPromotion(config, subId, memberIds, { rankId }) {
+  const ids = new Set(memberIds);
+  const sub = findSubdivision(config, subId);
+  if (!sub || !rankId) return config;
+  const rank = (sub.ranks || []).find((r) => r.id === rankId);
+  const promoId = promotionDateFieldId(config);
+  const csId = callsignFieldId(config);
+
+  // Callsigns already taken in this subdivision (selected members give theirs up).
+  const used = new Set();
+  if (csId) {
+    for (const c of sub.categories || []) {
+      for (const m of c.members) {
+        if (!ids.has(m.id) && m.fields?.[csId]) used.add(String(m.fields[csId]));
+      }
+    }
+  }
+  const nextCallsign = csId && rank?.callsignFormat ? makeCallsignGenerator(rank.callsignFormat, used) : null;
+
+  return mapCategories(config, subId, (cats) =>
+    cats.map((c) => ({
+      ...c,
+      members: c.members.map((m) => {
+        if (!ids.has(m.id)) return m;
+        const fields = { ...(m.fields || {}) };
+        if (promoId) fields[promoId] = todayISO();
+        if (nextCallsign) {
+          const cs = nextCallsign();
+          if (cs) fields[csId] = cs;
+        }
+        return { ...m, rank: rankId, fields };
+      }),
+    }))
+  );
+}
+
 // ─── Member fields (shared custom columns) ───────────────────────────────────
 
 export function addMemberField(config, field = {}) {

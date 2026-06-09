@@ -21,6 +21,7 @@ const FIELD_TYPES = [
   { value: "date", label: "Date" },
   { value: "checkbox", label: "Checkbox" },
   { value: "cert", label: "Certification" },
+  { value: "tenure", label: "Time in grade (auto)" },
 ];
 
 const STAT_MODES = [
@@ -122,6 +123,29 @@ function ColumnEditor({ field }) {
         onClick={() => mutate(R.deleteMemberField(config, field.id))}
         className="mb-0.5 hover:border-red-500/40 hover:text-red-300"
       />
+
+      {field.type === "tenure" && (
+        <div className="sm:col-span-3">
+          <Field
+            label="Counts days since"
+            hint="Shows days since this date column. Rank or category changes stamp that date to today, resetting the count automatically."
+          >
+            <Select
+              value={field.sourceFieldId || ""}
+              onChange={(e) => update({ sourceFieldId: e.target.value })}
+            >
+              <option value="">Auto-detect (date column named “…promotion…”)</option>
+              {(config.roster.memberFields || [])
+                .filter((d) => d.type === "date")
+                .map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.label}
+                  </option>
+                ))}
+            </Select>
+          </Field>
+        </div>
+      )}
 
       {field.type === "select" && (
         <div className="grid gap-3 sm:col-span-3">
