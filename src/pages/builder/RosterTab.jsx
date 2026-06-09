@@ -356,8 +356,9 @@ export default function RosterTab() {
                   className="flex-1"
                 />
                 <span className="shrink-0 text-xs text-slate-500">
-                  {s.ranks.length} rank(s) ·{" "}
-                  {s.ranks.reduce((n, r) => n + r.members.length, 0)} member(s)
+                  {(s.categories || []).length} categor{(s.categories || []).length === 1 ? "y" : "ies"} ·{" "}
+                  {(s.ranks || []).length} rank(s) ·{" "}
+                  {(s.categories || []).reduce((n, c) => n + c.members.length, 0)} member(s)
                 </span>
                 <IconButton
                   icon={ChevronUp}
