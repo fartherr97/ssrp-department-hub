@@ -32,6 +32,21 @@ const PRESETS = [
     colors: { primary: "#3d82f0", hover: "#5a97f5", bg: "#101d31", surface1: "#13233b", surface2: "#192f4d", bodyBg: "#0b1424" },
   },
   {
+    id: "fhp",
+    label: "FHP",
+    colors: { primary: "#d2b48c", hover: "#e3cda9", bg: "#101d31", surface1: "#13233b", surface2: "#192f4d", bodyBg: "#0b1424" },
+  },
+  {
+    id: "tpd",
+    label: "TPD",
+    colors: { primary: "#2e69f1", hover: "#5586f4", bg: "#101d31", surface1: "#13233b", surface2: "#192f4d", bodyBg: "#0b1424" },
+  },
+  {
+    id: "hcso",
+    label: "HCSO",
+    colors: { primary: "#1f8b4c", hover: "#27a85d", bg: "#101d31", surface1: "#13233b", surface2: "#192f4d", bodyBg: "#0b1424" },
+  },
+  {
     id: "emerald",
     label: "Emerald",
     colors: { primary: "#10b981", hover: "#34d399", bg: "#102420", surface1: "#13291f", surface2: "#1b3a2c", bodyBg: "#08140f" },
@@ -104,12 +119,15 @@ export default function BrandingTab() {
               onChange={(e) => setBrand({ organization: e.target.value })}
             />
           </Field>
-          <Field label="Logo URL" hint="Leave blank for an auto-generated monogram.">
+          <Field
+            label="Logo URL"
+            hint="Square image, ~256×256px (PNG or SVG). Blank for an auto-generated monogram."
+          >
             <Input value={b.logoUrl} onChange={(e) => setBrand({ logoUrl: e.target.value })} />
           </Field>
           <Field
             label="Home banner image URL"
-            hint="Background image for the Home page hero. Leave blank for a plain gradient."
+            hint="Wide background for the Home hero, ~1600×400px. Blank for a plain gradient."
           >
             <Input value={b.bannerUrl} onChange={(e) => setBrand({ bannerUrl: e.target.value })} />
           </Field>

@@ -1,5 +1,14 @@
-import { useEffect } from "react";
-import { X } from "lucide-react";
+import {
+  Children,
+  isValidElement,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
+import { Check, ChevronDown, X } from "lucide-react";
 
 // ─── Brand ───────────────────────────────────────────────────────────────────
 
@@ -139,11 +148,254 @@ export function Textarea({ className = "", rows = 4, ...rest }) {
   return <textarea rows={rows} className={`${inputClass} resize-y ${className}`} {...rest} />;
 }
 
-export function Select({ className = "", children, ...rest }) {
+/*
+ * Select — a custom, animated, portaled dropdown that's a drop-in replacement
+ * for a native <select> (CAD style). Reads <option> children, calls
+ * onChange({ target: { value } }) so existing handlers need no edits, and is
+ * keyboard-navigable with outside-click / Escape to dismiss.
+ */
+
+// Mount/unmount transition so the menu can animate open AND closed.
+function useMountTransition(isOpen, duration = 140) {
+  const [mounted, setMounted] = useState(isOpen);
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    if (isOpen) {
+      setMounted(true);
+      const id = requestAnimationFrame(() => setShow(true));
+      return () => cancelAnimationFrame(id);
+    }
+    setShow(false);
+    const id = setTimeout(() => setMounted(false), duration);
+    return () => clearTimeout(id);
+  }, [isOpen, duration]);
+  return { mounted, show };
+}
+
+function optionText(c) {
+  if (c == null || c === false) return "";
+  if (typeof c === "string" || typeof c === "number") return String(c);
+  if (Array.isArray(c)) return c.map(optionText).join("");
+  if (isValidElement(c)) return optionText(c.props.children);
+  return "";
+}
+
+// Flatten <option> children (including .map()/fragments) to { value, label }.
+function collectOptions(children) {
+  const out = [];
+  Children.toArray(children).forEach((child) => {
+    if (!isValidElement(child)) return;
+    if (child.type === "option") {
+      const raw =
+        child.props.value !== undefined ? child.props.value : optionText(child.props.children);
+      out.push({
+        value: raw,
+        key: String(raw),
+        label: child.props.children,
+        disabled: !!child.props.disabled,
+      });
+    } else if (child.props && child.props.children) {
+      out.push(...collectOptions(child.props.children));
+    }
+  });
+  return out;
+}
+
+export function Select({
+  value,
+  onChange,
+  children,
+  className = "",
+  disabled = false,
+  placeholder = "Select…",
+  name,
+  ...rest
+}) {
+  const options = useMemo(() => collectOptions(children), [children]);
+  const selected = useMemo(
+    () => options.find((o) => String(o.value) === String(value ?? "")),
+    [options, value]
+  );
+
+  const [open, setOpen] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(-1);
+  const [rect, setRect] = useState(null);
+  const [flip, setFlip] = useState(false);
+  const triggerRef = useRef(null);
+  const menuRef = useRef(null);
+  const { mounted, show } = useMountTransition(open, 140);
+
+  const MAX_MENU_H = 280;
+  const optCount = options.length;
+
+  useLayoutEffect(() => {
+    if (!open) return undefined;
+    const place = () => {
+      const el = triggerRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const below = window.innerHeight - r.bottom;
+      const above = r.top;
+      const needed = Math.min(MAX_MENU_H, optCount * 36 + 12);
+      const up = below < needed && above > below;
+      setFlip(up);
+      setRect({
+        left: r.left,
+        width: r.width,
+        top: up ? undefined : r.bottom + 4,
+        bottom: up ? window.innerHeight - r.top + 4 : undefined,
+        maxH: Math.max(120, (up ? above : below) - 12),
+      });
+    };
+    place();
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+    };
+  }, [open, optCount]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e) => {
+      if (triggerRef.current?.contains(e.target) || menuRef.current?.contains(e.target)) return;
+      setOpen(false);
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const openMenu = () => {
+    if (disabled) return;
+    setActiveIdx(options.findIndex((o) => String(o.value) === String(value ?? "")));
+    setOpen(true);
+  };
+
+  const choose = (opt) => {
+    if (opt.disabled) return;
+    setOpen(false);
+    triggerRef.current?.focus();
+    onChange?.({ target: { value: String(opt.value), name } });
+  };
+
+  const moveActive = (dir) => {
+    setActiveIdx((prev) => {
+      let i = prev;
+      for (let step = 0; step < options.length; step++) {
+        i = (i + dir + options.length) % options.length;
+        if (!options[i].disabled) return i;
+      }
+      return prev;
+    });
+  };
+
+  const onTriggerKey = (e) => {
+    if (disabled) return;
+    if (!open) {
+      if (["ArrowDown", "ArrowUp", "Enter", " "].includes(e.key)) {
+        e.preventDefault();
+        openMenu();
+      }
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      moveActive(1);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      moveActive(-1);
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      if (options[activeIdx]) choose(options[activeIdx]);
+    } else if (e.key === "Tab") {
+      setOpen(false);
+    }
+  };
+
   return (
-    <select className={`${inputClass} ${className}`} {...rest}>
-      {children}
-    </select>
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        name={name}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        disabled={disabled}
+        onClick={() => (open ? setOpen(false) : openMenu())}
+        onKeyDown={onTriggerKey}
+        className={`${inputClass} ${className} inline-flex items-center justify-between gap-2 text-left disabled:cursor-not-allowed disabled:opacity-50`}
+        {...rest}
+      >
+        <span className={`truncate ${selected ? "text-cad-text" : "text-slate-500"}`}>
+          {selected ? selected.label : placeholder}
+        </span>
+        <ChevronDown
+          size={16}
+          className={`-mr-0.5 shrink-0 text-slate-400 transition-transform duration-200 ${
+            open ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+
+      {mounted &&
+        rect &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="listbox"
+            className={`fixed z-[4000] overflow-y-auto rounded-xl border border-white/[0.14] bg-app-card p-1 shadow-2xl shadow-black/60 ${
+              show ? "anim-dropdown-in" : "anim-dropdown-out"
+            }`}
+            style={{
+              left: rect.left,
+              minWidth: rect.width,
+              width: "max-content",
+              maxWidth: `calc(100vw - ${Math.round(rect.left)}px - 8px)`,
+              top: rect.top,
+              bottom: rect.bottom,
+              maxHeight: Math.min(MAX_MENU_H, rect.maxH),
+              transformOrigin: flip ? "bottom center" : "top center",
+            }}
+          >
+            {options.length === 0 && (
+              <div className="px-3 py-2.5 text-[12px] italic text-slate-600">No options</div>
+            )}
+            {options.map((opt, i) => {
+              const isSel = String(opt.value) === String(value ?? "");
+              const isActive = i === activeIdx;
+              return (
+                <button
+                  key={opt.key + i}
+                  type="button"
+                  role="option"
+                  aria-selected={isSel}
+                  disabled={opt.disabled}
+                  onMouseEnter={() => setActiveIdx(i)}
+                  onClick={() => choose(opt)}
+                  className={`flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left text-[12.5px] font-medium transition-colors duration-100 disabled:cursor-not-allowed disabled:opacity-40 ${
+                    isSel ? "text-brand-bright" : "text-slate-200"
+                  } ${isActive && !opt.disabled ? "bg-white/[0.07]" : ""}`}
+                >
+                  <span className="min-w-0 flex-1 truncate">{opt.label}</span>
+                  {isSel && <Check size={15} className="shrink-0 text-brand-bright" />}
+                </button>
+              );
+            })}
+          </div>,
+          document.body
+        )}
+    </>
   );
 }
 

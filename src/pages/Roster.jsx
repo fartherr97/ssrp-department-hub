@@ -281,7 +281,7 @@ function MemberModal({ open, onClose, fields, ranks, rankId, member, onSave }) {
               placeholder="000000000000000000"
             />
           </Field>
-          <Field label="Avatar URL">
+          <Field label="Avatar URL" hint="Square, ~128×128px.">
             <Input
               value={draft.avatarUrl || ""}
               onChange={(e) => setDraft({ ...draft, avatarUrl: e.target.value })}
@@ -392,7 +392,10 @@ function RankModal({ open, onClose, rank, onSave }) {
             />
           </div>
         </Field>
-        <Field label="Insignia image URL" hint="Optional icon shown on the rank header.">
+        <Field
+          label="Insignia image URL"
+          hint="Optional square icon on the rank header, ~64×64px (PNG/SVG)."
+        >
           <div className="flex items-center gap-2">
             {draft.insigniaUrl && (
               <img src={draft.insigniaUrl} alt="" className="h-9 w-9 shrink-0 object-contain" />

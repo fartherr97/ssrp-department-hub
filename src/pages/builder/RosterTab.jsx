@@ -48,7 +48,10 @@ function SubdivisionAppearance({ sub }) {
               onChange={(v) => mutate(R.updateSubdivision(config, sub.id, { accent: v }))}
             />
           </Field>
-          <Field label="Banner image URL" hint="Background for the tab's banner.">
+          <Field
+            label="Banner image URL"
+            hint="Wide background, ~1600×400px. Blank for an accent gradient."
+          >
             <Input
               value={banner.imageUrl || ""}
               placeholder="https://…"
@@ -68,14 +71,14 @@ function SubdivisionAppearance({ sub }) {
               onChange={(e) => setBanner({ subtitle: e.target.value })}
             />
           </Field>
-          <Field label="Left logo URL">
+          <Field label="Left logo URL" hint="Square, ~128×128px (PNG/SVG).">
             <Input
               value={banner.logoUrl || ""}
               placeholder="https://…"
               onChange={(e) => setBanner({ logoUrl: e.target.value })}
             />
           </Field>
-          <Field label="Right logo URL">
+          <Field label="Right logo URL" hint="Square, ~128×128px (PNG/SVG).">
             <Input
               value={banner.logoUrl2 || ""}
               placeholder="https://…"

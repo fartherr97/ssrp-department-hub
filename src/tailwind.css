@@ -211,6 +211,10 @@ body::-webkit-scrollbar-thumb {
   from { opacity: 0; transform: translateY(-4px) scale(0.98); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
+@keyframes dropdownFadeOut {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(-4px) scale(0.98); }
+}
 @keyframes modalIn {
   from { opacity: 0; transform: translateY(14px) scale(0.96); }
   to { opacity: 1; transform: translateY(0) scale(1); }
@@ -239,6 +243,7 @@ body::-webkit-scrollbar-thumb {
 /* ─── SSRP CAD animation utilities ──────────────────────────────────────────── */
 .anim-fade-in { animation: fadeIn 0.15s ease-out; }
 .anim-dropdown-in { animation: dropdownFadeIn 0.16s var(--ease-out) both; }
+.anim-dropdown-out { animation: dropdownFadeOut 0.12s var(--ease-soft) both; }
 .anim-overlay-in { animation: overlayIn 0.18s ease-out; }
 .anim-modal-in { animation: modalIn 0.26s var(--ease-out) both; }
 .anim-sheet-in { animation: sheetIn 0.3s var(--ease-out) both; } /* mobile bottom sheets */
