@@ -250,6 +250,12 @@ export default function VehicleRoster({ page, user }) {
       {/* Legend */}
       {tags.length > 0 && tiers.length > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-2">
+          {canEdit && (
+            <span className="w-full text-xs text-slate-500">
+              Tags outline a vehicle's card in the legend color — edit a vehicle (pencil) to
+              assign one, and use the Legend button to rename or recolor the tags.
+            </span>
+          )}
           {tags.map((t) => (
             <span
               key={t.id}
