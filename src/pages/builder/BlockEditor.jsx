@@ -10,9 +10,9 @@ import {
 import { uid } from "../../lib/roster.js";
 
 const BLOCK_TYPES = [
-  { value: "text", label: "Text", icon: Type },
-  { value: "callout", label: "Callout", icon: Info },
-  { value: "links", label: "Link list", icon: Link2 },
+  { value: "text", label: "Text", icon: Type, desc: "A heading with paragraph text" },
+  { value: "callout", label: "Callout", icon: Info, desc: "A highlighted notice box" },
+  { value: "links", label: "Link list", icon: Link2, desc: "A titled list of clickable links" },
 ];
 
 /*
@@ -43,6 +43,15 @@ export default function BlockEditor({ value = [], onChange }) {
 
   return (
     <div className="grid gap-3">
+      {blocks.length === 0 && (
+        <p className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-3 text-sm text-slate-400">
+          This page is empty. Blocks are the building pieces of a page — add one below:{" "}
+          <span className="font-semibold text-slate-300">Text</span> for paragraphs,{" "}
+          <span className="font-semibold text-slate-300">Callout</span> for an important
+          notice, or <span className="font-semibold text-slate-300">Link list</span> for a
+          set of useful links.
+        </p>
+      )}
       {blocks.map((block, idx) => (
         <div key={block.id} className="rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-4">
           <div className="mb-3 flex items-center gap-2">
@@ -113,7 +122,13 @@ export default function BlockEditor({ value = [], onChange }) {
 
       <div className="flex flex-wrap gap-2">
         {BLOCK_TYPES.map((t) => (
-          <Button key={t.value} variant="secondary" icon={t.icon} onClick={() => add(t.value)}>
+          <Button
+            key={t.value}
+            variant="secondary"
+            icon={t.icon}
+            title={t.desc}
+            onClick={() => add(t.value)}
+          >
             Add {t.label}
           </Button>
         ))}

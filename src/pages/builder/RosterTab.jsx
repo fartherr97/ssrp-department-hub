@@ -11,6 +11,7 @@ import {
   ColorInput,
 } from "../../components/common/index.jsx";
 import * as R from "../../lib/roster.js";
+import TabIntro from "./TabIntro.jsx";
 
 const FIELD_TYPES = [
   { value: "text", label: "Text" },
@@ -301,6 +302,14 @@ export default function RosterTab() {
 
   return (
     <div className="grid gap-6">
+      <TabIntro>
+        This tab shapes the <strong className="text-white">structure</strong> of your roster:
+        the subdivisions (e.g. Patrol, K9), the columns every member has, and the stats box.
+        The people themselves are added on the{" "}
+        <strong className="text-white">Roster page</strong> — go there to add ranks, members,
+        and move people around.
+      </TabIntro>
+
       <Panel className="p-5">
         <SectionHeader
           title="Roster layout"

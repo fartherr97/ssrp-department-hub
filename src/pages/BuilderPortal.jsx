@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Palette, LayoutList, Users, Database, Check } from "lucide-react";
+import { Palette, LayoutList, Users, Database, Check, Compass } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
 import { canManageSite } from "../lib/permissions.js";
 import { PageHeader } from "../components/common/index.jsx";
+import StartHereTab from "./builder/StartHereTab.jsx";
 import BrandingTab from "./builder/BrandingTab.jsx";
 import PagesTab from "./builder/PagesTab.jsx";
 import RosterTab from "./builder/RosterTab.jsx";
@@ -11,10 +12,11 @@ import AdvancedTab from "./builder/AdvancedTab.jsx";
 // All Builder tabs are site configuration — they require the manageSite
 // capability. Access & Roles lives on its own page under Administration.
 const TABS = [
-  { id: "branding", label: "Branding", icon: Palette, Component: BrandingTab },
-  { id: "pages", label: "Pages & Nav", icon: LayoutList, Component: PagesTab },
-  { id: "roster", label: "Roster Schema", icon: Users, Component: RosterTab },
-  { id: "advanced", label: "Advanced", icon: Database, Component: AdvancedTab },
+  { id: "start", label: "Start Here", desc: "Guide & setup checklist", icon: Compass, Component: StartHereTab },
+  { id: "branding", label: "Branding", desc: "Name, logo & colors", icon: Palette, Component: BrandingTab },
+  { id: "pages", label: "Pages & Menu", desc: "Pages & navigation bar", icon: LayoutList, Component: PagesTab },
+  { id: "roster", label: "Roster Setup", desc: "Subdivisions & columns", icon: Users, Component: RosterTab },
+  { id: "advanced", label: "Backup & Reset", desc: "Save or restore everything", icon: Database, Component: AdvancedTab },
 ];
 
 export default function BuilderPortal({ user }) {
@@ -30,7 +32,7 @@ export default function BuilderPortal({ user }) {
       <PageHeader
         kicker="Administration"
         title="Builder Portal"
-        subtitle="Configure your department hub. Every change saves automatically."
+        subtitle="Customize your department hub — new here? Open the Start Here tab. Every change saves automatically."
         actions={
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
@@ -46,7 +48,7 @@ export default function BuilderPortal({ user }) {
       />
 
       <div className="flex flex-col gap-6 lg:flex-row">
-        <nav className="flex gap-2 overflow-x-auto lg:w-56 lg:flex-col lg:overflow-visible">
+        <nav className="flex gap-2 overflow-x-auto lg:w-60 lg:flex-col lg:overflow-visible">
           {tabs.map((t) => {
             const Icon = t.icon;
             const isActive = active?.id === t.id;
@@ -60,14 +62,19 @@ export default function BuilderPortal({ user }) {
                     : "border border-transparent text-slate-300 hover:bg-white/5 hover:text-white"
                 }`}
               >
-                <Icon size={16} className={isActive ? "text-[var(--color-primary)]" : "text-slate-500"} />
-                {t.label}
+                <Icon size={16} className={`shrink-0 ${isActive ? "text-[var(--color-primary)]" : "text-slate-500"}`} />
+                <span className="min-w-0">
+                  <span className="block truncate">{t.label}</span>
+                  <span className="hidden truncate text-[11px] font-medium text-slate-500 lg:block">
+                    {t.desc}
+                  </span>
+                </span>
               </button>
             );
           })}
         </nav>
 
-        <div className="min-w-0 flex-1">{Active && <Active user={user} />}</div>
+        <div className="min-w-0 flex-1">{Active && <Active user={user} goTo={setTab} />}</div>
       </div>
     </div>
   );

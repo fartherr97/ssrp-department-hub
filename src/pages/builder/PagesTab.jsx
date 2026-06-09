@@ -16,12 +16,18 @@ import {
   Badge,
 } from "../../components/common/index.jsx";
 import BlockEditor from "./BlockEditor.jsx";
+import TabIntro from "./TabIntro.jsx";
 
 // ─── Page editor modal ───────────────────────────────────────────────────────
 
 function PageModal({ open, onClose, config, page, onSave }) {
   const [draft, setDraft] = useState(page);
+  const [iconQuery, setIconQuery] = useState("");
   if (open && draft.id !== page.id) setDraft(page);
+
+  const visibleIcons = ICON_NAMES.filter((n) =>
+    n.toLowerCase().includes(iconQuery.trim().toLowerCase())
+  );
 
   const isContentLike = draft.type === "content" || draft.type === "home";
   const cfg = draft.config || {};
@@ -61,9 +67,20 @@ function PageModal({ open, onClose, config, page, onSave }) {
           </Field>
         </div>
 
-        <Field label="Icon">
+        <Field label="Icon" hint="Shown next to the page name in the navigation menu.">
+          <Input
+            value={iconQuery}
+            placeholder="Search icons…"
+            onChange={(e) => setIconQuery(e.target.value)}
+            className="mb-2"
+          />
           <div className="grid max-h-40 grid-cols-8 gap-1.5 overflow-y-auto rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-2">
-            {ICON_NAMES.map((name) => {
+            {visibleIcons.length === 0 && (
+              <p className="col-span-8 py-2 text-center text-xs text-slate-500">
+                No icons match “{iconQuery}”.
+              </p>
+            )}
+            {visibleIcons.map((name) => {
               const Icon = getIcon(name);
               const active = draft.icon === name;
               return (
@@ -189,7 +206,7 @@ function NavGroups() {
               <button
                 onClick={() => remove(g)}
                 disabled={used}
-                title={used ? "Group has pages" : "Remove group"}
+                title={used ? "This group still contains pages — move or delete them first" : "Remove group"}
                 className="text-slate-500 transition hover:text-red-300 disabled:opacity-30"
               >
                 <Trash2 size={15} />
@@ -257,6 +274,13 @@ export default function PagesTab() {
 
   return (
     <div className="grid gap-6">
+      <TabIntro>
+        This tab controls the <strong className="text-white">pages</strong> in your hub and
+        the <strong className="text-white">top navigation bar</strong>. First arrange your
+        navigation groups (the headings in the top bar), then add pages into them. Click the
+        pencil on any page to edit its title, icon, and content.
+      </TabIntro>
+
       <NavGroups />
 
       <Panel className="p-5">

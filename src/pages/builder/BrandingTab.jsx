@@ -13,6 +13,7 @@ import {
   Select,
   ColorInput,
 } from "../../components/common/index.jsx";
+import TabIntro from "./TabIntro.jsx";
 
 const COLOR_FIELDS = [
   { key: "primary", label: "Primary / accent" },
@@ -83,6 +84,12 @@ export default function BrandingTab() {
 
   return (
     <div className="grid gap-6">
+      <TabIntro>
+        This tab controls how your hub <strong className="text-white">looks</strong> — your
+        department's name, logo, colors, and the login screen people see before signing in.
+        Changes apply instantly across the whole site, so feel free to experiment.
+      </TabIntro>
+
       <Panel className="p-5">
         <SectionHeader title="Identity" subtitle="Names shown throughout the hub." />
         <div className="grid gap-4 sm:grid-cols-2">
@@ -231,11 +238,11 @@ export default function BrandingTab() {
       <Panel className="p-5">
         <SectionHeader
           title="Theme colors"
-          subtitle="Applied live across the whole hub. Hex values."
+          subtitle="The easiest way: click a preset below for an instant full look. Or fine-tune any color with the swatch pickers — the site updates live as you go."
         />
         <div className="mb-5">
           <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.5px] text-cad-muted">
-            Presets
+            One-click presets
           </div>
           <div className="flex flex-wrap gap-2">
             {PRESETS.map((p) => (
