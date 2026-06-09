@@ -16,7 +16,7 @@ import {
   Award,
 } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
-import { isAdmin, groupLevel } from "../lib/permissions.js";
+import { canEditRoster } from "../lib/permissions.js";
 import { initials } from "../lib/user.js";
 import {
   Button,
@@ -32,12 +32,6 @@ import {
   EmptyState,
 } from "../components/common/index.jsx";
 import * as R from "../lib/roster.js";
-
-function canEditRoster(user, config) {
-  if (isAdmin(user)) return true;
-  // Command-level and above may edit the roster by default.
-  return groupLevel(config, user?.group) >= groupLevel(config, "command");
-}
 
 // Pick the field used for the status summary pills + status badges: a select
 // field literally about "status", else the first select field.

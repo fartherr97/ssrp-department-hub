@@ -22,7 +22,7 @@ export function buildNav(config, user) {
     .map((name) => ({
       name,
       pages: pages.filter(
-        (p) => p.navGroup === name && canAccessPage(user, p)
+        (p) => p.navGroup === name && canAccessPage(user, p, config)
       ),
     }))
     .filter((group) => group.pages.length > 0);

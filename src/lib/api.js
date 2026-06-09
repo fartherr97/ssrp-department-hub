@@ -95,6 +95,18 @@ function migrateConfig(saved) {
     });
   }
 
+  // Backfill group capability flags + members for configs predating them, so
+  // existing rosters keep working (command-and-up could edit; admin = full).
+  if (Array.isArray(merged.groups)) {
+    const commandLevel = merged.groups.find((g) => g.id === "command")?.level ?? 3;
+    merged.groups = merged.groups.map((g) => ({
+      members: [],
+      isAdmin: g.id === "admin",
+      canEditRoster: g.id === "admin" || (g.level ?? 0) >= commandLevel,
+      ...g,
+    }));
+  }
+
   merged.version = CONFIG_VERSION;
   return merged;
 }

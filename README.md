@@ -79,7 +79,9 @@ Admins configure the hub here (auto-saves):
   member columns (text / dropdown / date / checkbox / certification), colored
   status pills with per-option colors, a configurable department-stats box,
   and per-subdivision accent + banner
-- **Access & Roles** — permission groups + Discord role → group mappings
+- **Access & Roles** — groups with capability toggles (admin / edit roster /
+  per-page access) and explicit member lists (assign people by name + Discord
+  ID); optional Discord role → group auto-assignment
 - **Advanced** — export/import config JSON, reset to blank template
 
 The **Roster** page presents subdivisions (e.g. Patrol, K9, Traffic — each its
@@ -122,8 +124,12 @@ per department/guild.
 | `GET`  | `/auth/me`               | Current user or `401`/null                |
 | `POST` | `/auth/logout`           | Destroy session                           |
 
-On login, read the member's roles in `config.auth.discordGuildId`, resolve them
-against `config.auth.roleMappings`, and return a user shaped like:
+On login, resolve the member's group: first check whether their Discord id is
+listed in any group's `members` (`config.groups[].members[].discordId` — the
+primary, Google-Groups-style assignment managed in Builder → Access & Roles),
+then optionally fall back to mapping their Discord roles via
+`config.auth.roleMappings`. Pick the highest matching group and return a user
+shaped like:
 
 ```jsonc
 {

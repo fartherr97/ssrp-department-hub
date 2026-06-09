@@ -61,10 +61,12 @@ export const defaultConfig = {
    * highest matching Discord role); `admin` always sees everything.
    */
   groups: [
-    { id: "member", label: "Member", level: 1 },
-    { id: "supervisor", label: "Supervisor", level: 2 },
-    { id: "command", label: "Command", level: 3 },
-    { id: "admin", label: "Administrator", level: 4 },
+    // Each group carries capability flags + an explicit `members` list (people
+    // assigned to it by name + Discord ID), managed in Builder → Access & Roles.
+    { id: "member", label: "Member", level: 1, isAdmin: false, canEditRoster: false, members: [] },
+    { id: "supervisor", label: "Supervisor", level: 2, isAdmin: false, canEditRoster: false, members: [] },
+    { id: "command", label: "Command", level: 3, isAdmin: false, canEditRoster: true, members: [] },
+    { id: "admin", label: "Administrator", level: 4, isAdmin: true, canEditRoster: true, members: [] },
   ],
 
   navGroups: ["Main", "Resources", "Administration"],

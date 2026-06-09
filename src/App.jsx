@@ -27,9 +27,9 @@ function ViewLoading() {
   );
 }
 
-function ActiveView({ page, user }) {
+function ActiveView({ page, user, config }) {
   if (!page) return <Home page={null} />;
-  if (!canAccessPage(user, page)) return <AccessDenied page={page} />;
+  if (!canAccessPage(user, page, config)) return <AccessDenied page={page} />;
 
   const Component = PAGE_COMPONENTS[page.type] || ContentPage;
   return <Component page={page} user={user} />;
@@ -84,7 +84,7 @@ export default function App() {
       onLogout={logout}
     >
       <Suspense fallback={<ViewLoading />}>
-        <ActiveView page={page} user={user} />
+        <ActiveView page={page} user={user} config={config} />
       </Suspense>
     </DashboardLayout>
   );
