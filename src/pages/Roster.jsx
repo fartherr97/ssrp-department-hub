@@ -681,6 +681,155 @@ function MemberRow({ member, rank, fields, statusFieldId, accent, colCount, canE
   );
 }
 
+// ─── One subdivision's table (shared by tabbed + grid layouts) ───────────────
+
+function SubRoster({
+  sub,
+  fields,
+  statusField,
+  accent,
+  canEdit,
+  rankFilter = "all",
+  matches,
+  filtering,
+  dragOverRank,
+  setDragOverRank,
+  onDragStart,
+  onDrop,
+  onAddMember,
+  onEditMember,
+  onDeleteMember,
+  onMoveRank,
+  onEditRank,
+  onDeleteRank,
+  compact = false,
+}) {
+  const ranks = sub.ranks || [];
+  const colCount = 1 + fields.length + (canEdit ? 1 : 0);
+  const visibleRanks = ranks.filter((r) => rankFilter === "all" || r.id === rankFilter);
+
+  return (
+    <div className="overflow-x-auto">
+      <table
+        className={`w-full border-collapse text-left ${compact ? "min-w-[460px]" : "min-w-[720px]"}`}
+      >
+        <thead>
+          <tr className="text-[11px] uppercase tracking-wider text-slate-500">
+            <th className="px-3 py-2.5 font-semibold">Name</th>
+            {fields.map((f) => (
+              <th key={f.id} className="px-3 py-2.5 font-semibold">
+                {f.label}
+              </th>
+            ))}
+            {canEdit && <th className="px-3 py-2.5" />}
+          </tr>
+        </thead>
+        {visibleRanks.map((rank) => {
+          const members = rank.members.filter(matches);
+          if (filtering && members.length === 0) return null;
+          return (
+            <tbody
+              key={rank.id}
+              onDragOver={(e) => {
+                if (!canEdit) return;
+                e.preventDefault();
+                setDragOverRank(rank.id);
+              }}
+              onDragLeave={() => setDragOverRank((c) => (c === rank.id ? null : c))}
+              onDrop={(e) => canEdit && onDrop(e, sub.id, rank.id)}
+              className={dragOverRank === rank.id ? "bg-[color:var(--color-primary)]/5" : ""}
+            >
+              {/* Colored rank/team header row */}
+              <tr>
+                <td
+                  colSpan={colCount}
+                  className="border-t border-white/10 px-3 py-2"
+                  style={{
+                    background: `linear-gradient(90deg, ${rank.color}1f 0%, transparent 60%)`,
+                    borderLeft: `3px solid ${rank.color || "#3b82f6"}`,
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    {rank.insigniaUrl && (
+                      <img src={rank.insigniaUrl} alt="" className="h-5 w-5 shrink-0 object-contain" />
+                    )}
+                    <span
+                      className="text-xs font-black uppercase tracking-[0.15em]"
+                      style={{ color: rank.color || "#3b82f6" }}
+                    >
+                      {rank.name}
+                    </span>
+                    <Badge color={rank.color}>{rank.members.length}</Badge>
+                    {canEdit && (
+                      <div className="ml-auto flex items-center gap-1">
+                        <IconButton
+                          icon={ChevronUp}
+                          label="Move rank up"
+                          disabled={ranks.indexOf(rank) === 0}
+                          onClick={() => onMoveRank(sub.id, rank.id, -1)}
+                          className="h-7 w-7 disabled:opacity-30"
+                        />
+                        <IconButton
+                          icon={ChevronDown}
+                          label="Move rank down"
+                          disabled={ranks.indexOf(rank) === ranks.length - 1}
+                          onClick={() => onMoveRank(sub.id, rank.id, 1)}
+                          className="h-7 w-7 disabled:opacity-30"
+                        />
+                        <IconButton
+                          icon={UserPlus}
+                          label="Add member"
+                          onClick={() => onAddMember(sub.id, rank.id)}
+                          className="h-7 w-7"
+                        />
+                        <IconButton
+                          icon={Pencil}
+                          label="Edit rank"
+                          onClick={() => onEditRank(sub.id, rank)}
+                          className="h-7 w-7"
+                        />
+                        <IconButton
+                          icon={Trash2}
+                          label="Delete rank"
+                          onClick={() => onDeleteRank(sub.id, rank)}
+                          className="h-7 w-7 hover:border-red-500/40 hover:text-red-300"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </td>
+              </tr>
+
+              {members.length === 0 ? (
+                <tr>
+                  <td colSpan={colCount} className="px-3 py-3 text-sm text-slate-500">
+                    No members{canEdit ? " — add one or drag a member here." : "."}
+                  </td>
+                </tr>
+              ) : (
+                members.map((member) => (
+                  <MemberRow
+                    key={member.id}
+                    member={member}
+                    rank={rank}
+                    fields={fields}
+                    statusFieldId={statusField?.id}
+                    accent={accent}
+                    canEdit={canEdit}
+                    onEdit={(rankId, m) => onEditMember(sub.id, rankId, m)}
+                    onDelete={(rankId, m) => onDeleteMember(sub.id, rankId, m)}
+                    onDragStart={onDragStart}
+                  />
+                ))
+              )}
+            </tbody>
+          );
+        })}
+      </table>
+    </div>
+  );
+}
+
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function Roster({ user }) {
@@ -695,7 +844,6 @@ export default function Roster({ user }) {
   const subId = activeSub?.id;
   const ranks = activeSub?.ranks || [];
   const totalMembers = ranks.reduce((n, r) => n + r.members.length, 0);
-  const colCount = 1 + fields.length + (canEdit ? 1 : 0);
   const accent = activeSub?.accent || "var(--color-primary)";
   const stats = config.roster.stats;
   const statsShown = Boolean(stats?.show && stats.items?.length);
@@ -734,21 +882,33 @@ export default function Roster({ user }) {
   }
   const filtering = q !== "" || rankFilter !== "all";
 
-  // ── Member handlers ──
-  function openNewMember(rankId) {
-    setMemberModal({ rankId, member: { id: R.uid("member"), name: "", fields: {}, isNew: true } });
+  // Layout: "tabs" (one subdivision at a time) or "grid" (all side-by-side).
+  const layout = config.roster.layout === "grid" ? "grid" : "tabs";
+  const allRanks = useMemo(
+    () => subdivisions.flatMap((s) => s.ranks || []),
+    [subdivisions]
+  );
+  const statsRanks = layout === "grid" ? allRanks : ranks;
+
+  // ── Member handlers (subdivision-agnostic; the active/card sub is passed in) ──
+  function openNewMember(forSubId, rankId) {
+    setMemberModal({
+      subId: forSubId,
+      rankId,
+      member: { id: R.uid("member"), name: "", fields: {}, isNew: true },
+    });
   }
-  function openEditMember(rankId, member) {
-    setMemberModal({ rankId, member });
+  function openEditMember(forSubId, rankId, member) {
+    setMemberModal({ subId: forSubId, rankId, member });
   }
   function saveMember(draft, targetRank) {
-    const { rankId } = memberModal;
+    const { subId: mSubId, rankId } = memberModal;
     const { isNew, ...clean } = draft;
     mutate((cfg) => {
-      if (isNew) return R.addMember(cfg, subId, rankId, clean);
-      let next = R.updateMember(cfg, subId, rankId, clean.id, clean);
+      if (isNew) return R.addMember(cfg, mSubId, rankId, clean);
+      let next = R.updateMember(cfg, mSubId, rankId, clean.id, clean);
       if (targetRank && targetRank !== rankId) {
-        next = R.moveMember(next, subId, rankId, clean.id, targetRank);
+        next = R.moveMember(next, mSubId, rankId, clean.id, targetRank);
       }
       return next;
     });
@@ -756,13 +916,29 @@ export default function Roster({ user }) {
   }
 
   // ── Rank handlers ──
+  function openAddRank(forSubId) {
+    setRankModal({ id: R.uid("rank"), name: "", color: "#3b82f6", isNew: true, subId: forSubId });
+  }
+  function openEditRank(forSubId, rank) {
+    setRankModal({ ...rank, subId: forSubId });
+  }
   function saveRank(draft) {
+    const targetSub = rankModal.subId;
     const { isNew, ...clean } = draft;
     const patch = { name: clean.name, color: clean.color, insigniaUrl: clean.insigniaUrl || "" };
     mutate((cfg) =>
-      isNew ? R.addRank(cfg, subId, patch) : R.updateRank(cfg, subId, clean.id, patch)
+      isNew ? R.addRank(cfg, targetSub, patch) : R.updateRank(cfg, targetSub, clean.id, patch)
     );
     setRankModal(null);
+  }
+  function moveRank(forSubId, rankId, dir) {
+    mutate(R.moveRank(config, forSubId, rankId, dir));
+  }
+  function confirmDeleteRank(forSubId, rank) {
+    setConfirm({ type: "rank", subId: forSubId, rank });
+  }
+  function confirmDeleteMember(forSubId, rankId, member) {
+    setConfirm({ type: "member", subId: forSubId, rankId, member });
   }
 
   // ── Subdivision handlers ──
@@ -778,25 +954,46 @@ export default function Roster({ user }) {
     setSubModal(null);
   }
 
-  // ── Drag and drop (within the active subdivision) ──
+  // ── Drag and drop (within a subdivision) ──
   function onDragStart(e, fromRankId, memberId) {
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", JSON.stringify({ fromRankId, memberId }));
   }
-  function onDrop(e, toRankId) {
+  function onDrop(e, toSubId, toRankId) {
     e.preventDefault();
     setDragOverRank(null);
     try {
       const { fromRankId, memberId } = JSON.parse(e.dataTransfer.getData("text/plain"));
       if (fromRankId !== toRankId) {
-        mutate((cfg) => R.moveMember(cfg, subId, fromRankId, memberId, toRankId));
+        mutate((cfg) => R.moveMember(cfg, toSubId, fromRankId, memberId, toRankId));
       }
     } catch {
       /* ignore malformed drop */
     }
   }
 
-  const visibleRanks = ranks.filter((r) => rankFilter === "all" || r.id === rankFilter);
+  // Shared SubRoster wiring (same handlers for both layouts).
+  const subRosterProps = {
+    fields,
+    statusField,
+    canEdit,
+    matches,
+    filtering,
+    dragOverRank,
+    setDragOverRank,
+    onDragStart,
+    onDrop,
+    onAddMember: openNewMember,
+    onEditMember: openEditMember,
+    onDeleteMember: confirmDeleteMember,
+    onMoveRank: moveRank,
+    onEditRank: openEditRank,
+    onDeleteRank: confirmDeleteRank,
+  };
+
+  const modalSub = memberModal
+    ? subdivisions.find((s) => s.id === memberModal.subId)
+    : null;
 
   return (
     <div>
@@ -804,7 +1001,12 @@ export default function Roster({ user }) {
         kicker="Personnel"
         title="Roster"
         subtitle={
-          activeSub
+          layout === "grid"
+            ? `${subdivisions.length} subdivision${subdivisions.length === 1 ? "" : "s"} · ${allRanks.reduce(
+                (n, r) => n + r.members.length,
+                0
+              )} members`
+            : activeSub
             ? `${activeSub.name} · ${totalMembers} member${totalMembers === 1 ? "" : "s"}`
             : "No subdivisions yet."
         }
@@ -814,211 +1016,210 @@ export default function Roster({ user }) {
               <Button variant="secondary" icon={Columns3} onClick={() => setColumnsOpen(true)}>
                 Columns
               </Button>
-              <Button
-                icon={Plus}
-                onClick={() => setRankModal({ id: R.uid("rank"), name: "", color: "#3b82f6", isNew: true })}
-              >
-                Add rank
-              </Button>
+              {layout === "tabs" && subId && (
+                <Button icon={Plus} onClick={() => openAddRank(subId)}>
+                  Add rank
+                </Button>
+              )}
             </>
           )
         }
       />
 
-      <SubdivisionTabs
-        subdivisions={subdivisions}
-        activeId={subId}
-        canEdit={canEdit}
-        onSelect={(id) => {
-          setActiveSubId(id);
-          setRankFilter("all");
-        }}
-        onAdd={() => setSubModal({ id: R.uid("sub"), name: "", isNew: true })}
-        onRename={(sub) => setSubModal(sub)}
-        onMove={(id, dir) => mutate(R.moveSubdivision(config, id, dir))}
-        onDelete={(sub) => setConfirm({ type: "subdivision", subdivision: sub })}
-      />
+      {layout === "tabs" ? (
+        <>
+          <SubdivisionTabs
+            subdivisions={subdivisions}
+            activeId={subId}
+            canEdit={canEdit}
+            onSelect={(id) => {
+              setActiveSubId(id);
+              setRankFilter("all");
+            }}
+            onAdd={() => setSubModal({ id: R.uid("sub"), name: "", isNew: true })}
+            onRename={(sub) => setSubModal(sub)}
+            onMove={(id, dir) => mutate(R.moveSubdivision(config, id, dir))}
+            onDelete={(sub) => setConfirm({ type: "subdivision", subdivision: sub })}
+          />
 
-      <RosterBanner sub={activeSub} accent={accent} />
-      <StatsPanel stats={stats} ranks={ranks} statusField={statusField} accent={accent} />
+          <RosterBanner sub={activeSub} accent={accent} />
+          <StatsPanel stats={stats} ranks={ranks} statusField={statusField} accent={accent} />
 
-      {/* Summary + controls */}
-      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        {statsShown ? (
-          <div />
-        ) : (
-          <StatPills total={totalMembers} statusField={statusField} counts={statusCounts} />
-        )}
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search name, ID, field…"
-              className="w-56 pl-9"
+          {/* Summary + controls */}
+          <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            {statsShown ? (
+              <div />
+            ) : (
+              <StatPills total={totalMembers} statusField={statusField} counts={statusCounts} />
+            )}
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                <Input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search name, ID, field…"
+                  className="w-56 pl-9"
+                />
+              </div>
+              <Select value={rankFilter} onChange={(e) => setRankFilter(e.target.value)} className="w-40">
+                <option value="all">All ranks</option>
+                {ranks.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </div>
+
+          {ranks.length === 0 ? (
+            <EmptyState
+              icon={Users}
+              title="No ranks yet"
+              subtitle={`Add your first rank to start building the ${activeSub?.name || "roster"}.`}
+              action={
+                canEdit && (
+                  <Button icon={Plus} onClick={() => openAddRank(subId)}>
+                    Add rank
+                  </Button>
+                )
+              }
             />
-          </div>
-          <Select value={rankFilter} onChange={(e) => setRankFilter(e.target.value)} className="w-40">
-            <option value="all">All ranks</option>
-            {ranks.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-              </option>
-            ))}
-          </Select>
-        </div>
-      </div>
-
-      {ranks.length === 0 ? (
-        <EmptyState
-          icon={Users}
-          title="No ranks yet"
-          subtitle={`Add your first rank to start building the ${activeSub?.name || "roster"}.`}
-          action={
-            canEdit && (
-              <Button
-                icon={Plus}
-                onClick={() => setRankModal({ id: R.uid("rank"), name: "", color: "#3b82f6", isNew: true })}
-              >
-                Add rank
-              </Button>
-            )
-          }
-        />
+          ) : (
+            <Panel className="overflow-hidden">
+              <SubRoster
+                sub={activeSub}
+                accent={accent}
+                rankFilter={rankFilter}
+                {...subRosterProps}
+              />
+            </Panel>
+          )}
+        </>
       ) : (
-        <Panel className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] border-collapse text-left">
-              <thead>
-                <tr className="text-[11px] uppercase tracking-wider text-slate-500">
-                  <th className="px-3 py-2.5 font-semibold">Name</th>
-                  {fields.map((f) => (
-                    <th key={f.id} className="px-3 py-2.5 font-semibold">
-                      {f.label}
-                    </th>
-                  ))}
-                  {canEdit && <th className="px-3 py-2.5" />}
-                </tr>
-              </thead>
-              {visibleRanks.map((rank) => {
-                const members = rank.members.filter(matches);
-                if (filtering && members.length === 0) return null;
-                return (
-                  <tbody
-                    key={rank.id}
-                    onDragOver={(e) => {
-                      if (!canEdit) return;
-                      e.preventDefault();
-                      setDragOverRank(rank.id);
-                    }}
-                    onDragLeave={() => setDragOverRank((c) => (c === rank.id ? null : c))}
-                    onDrop={(e) => canEdit && onDrop(e, rank.id)}
-                    className={dragOverRank === rank.id ? "bg-[color:var(--color-primary)]/5" : ""}
-                  >
-                    {/* Colored rank/team header row */}
-                    <tr>
-                      <td
-                        colSpan={colCount}
-                        className="border-t border-white/10 px-3 py-2"
-                        style={{
-                          background: `linear-gradient(90deg, ${rank.color}1f 0%, transparent 60%)`,
-                          borderLeft: `3px solid ${rank.color || "#3b82f6"}`,
-                        }}
-                      >
-                        <div className="flex items-center gap-2">
-                          {rank.insigniaUrl && (
-                            <img
-                              src={rank.insigniaUrl}
-                              alt=""
-                              className="h-5 w-5 shrink-0 object-contain"
-                            />
-                          )}
-                          <span
-                            className="text-xs font-black uppercase tracking-[0.15em]"
-                            style={{ color: rank.color || "#3b82f6" }}
-                          >
-                            {rank.name}
-                          </span>
-                          <Badge color={rank.color}>{rank.members.length}</Badge>
-                          {canEdit && (
-                            <div className="ml-auto flex items-center gap-1">
-                              <IconButton
-                                icon={ChevronUp}
-                                label="Move rank up"
-                                disabled={ranks.indexOf(rank) === 0}
-                                onClick={() => mutate(R.moveRank(config, subId, rank.id, -1))}
-                                className="h-7 w-7 disabled:opacity-30"
-                              />
-                              <IconButton
-                                icon={ChevronDown}
-                                label="Move rank down"
-                                disabled={ranks.indexOf(rank) === ranks.length - 1}
-                                onClick={() => mutate(R.moveRank(config, subId, rank.id, 1))}
-                                className="h-7 w-7 disabled:opacity-30"
-                              />
-                              <IconButton
-                                icon={UserPlus}
-                                label="Add member"
-                                onClick={() => openNewMember(rank.id)}
-                                className="h-7 w-7"
-                              />
-                              <IconButton
-                                icon={Pencil}
-                                label="Edit rank"
-                                onClick={() => setRankModal(rank)}
-                                className="h-7 w-7"
-                              />
-                              <IconButton
-                                icon={Trash2}
-                                label="Delete rank"
-                                onClick={() => setConfirm({ type: "rank", rank })}
-                                className="h-7 w-7 hover:border-red-500/40 hover:text-red-300"
-                              />
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-
-                    {members.length === 0 ? (
-                      <tr>
-                        <td colSpan={colCount} className="px-3 py-3 text-sm text-slate-500">
-                          No members{canEdit ? " — add one or drag a member here." : "."}
-                        </td>
-                      </tr>
-                    ) : (
-                      members.map((member) => (
-                        <MemberRow
-                          key={member.id}
-                          member={member}
-                          rank={rank}
-                          fields={fields}
-                          statusFieldId={statusField?.id}
-                          accent={accent}
-                          colCount={colCount}
-                          canEdit={canEdit}
-                          onEdit={openEditMember}
-                          onDelete={(rankId, m) => setConfirm({ type: "member", rankId, member: m })}
-                          onDragStart={onDragStart}
-                        />
-                      ))
-                    )}
-                  </tbody>
-                );
-              })}
-            </table>
+        <>
+          {/* Grid layout — every subdivision side-by-side */}
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              {canEdit && (
+                <Button
+                  variant="secondary"
+                  icon={Plus}
+                  onClick={() => setSubModal({ id: R.uid("sub"), name: "", isNew: true })}
+                >
+                  Add subdivision
+                </Button>
+              )}
+            </div>
+            <div className="relative">
+              <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search name, ID, field…"
+                className="w-full pl-9 sm:w-64"
+              />
+            </div>
           </div>
-        </Panel>
+
+          <StatsPanel
+            stats={stats}
+            ranks={allRanks}
+            statusField={statusField}
+            accent="var(--color-primary)"
+          />
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            {subdivisions.map((s) => {
+              const sAccent = s.accent || "var(--color-primary)";
+              const sRanks = s.ranks || [];
+              const count = sRanks.reduce((n, r) => n + r.members.length, 0);
+              return (
+                <Panel key={s.id} className="overflow-hidden">
+                  <div
+                    className="flex items-center gap-3 border-b border-white/10 px-4 py-3"
+                    style={{ borderLeft: `3px solid ${sAccent}` }}
+                  >
+                    {s.banner?.logoUrl && (
+                      <img src={s.banner.logoUrl} alt="" className="h-8 w-8 shrink-0 object-contain" />
+                    )}
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-bold text-white">
+                        {s.banner?.title || s.name}
+                      </div>
+                      {s.banner?.subtitle && (
+                        <div className="truncate text-[11px] uppercase tracking-wide text-slate-500">
+                          {s.banner.subtitle}
+                        </div>
+                      )}
+                    </div>
+                    <span
+                      className="ml-1 shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold text-white"
+                      style={{ backgroundColor: `color-mix(in srgb, ${sAccent} 30%, transparent)` }}
+                    >
+                      {count}
+                    </span>
+                    {canEdit && (
+                      <div className="ml-auto flex shrink-0 items-center gap-1">
+                        <IconButton
+                          icon={Plus}
+                          label="Add rank"
+                          onClick={() => openAddRank(s.id)}
+                          className="h-7 w-7"
+                        />
+                        <IconButton
+                          icon={Pencil}
+                          label="Rename subdivision"
+                          onClick={() => setSubModal(s)}
+                          className="h-7 w-7"
+                        />
+                        <IconButton
+                          icon={ChevronLeft}
+                          label="Move left"
+                          disabled={subdivisions.indexOf(s) === 0}
+                          onClick={() => mutate(R.moveSubdivision(config, s.id, -1))}
+                          className="h-7 w-7 disabled:opacity-30"
+                        />
+                        <IconButton
+                          icon={ChevronRight}
+                          label="Move right"
+                          disabled={subdivisions.indexOf(s) === subdivisions.length - 1}
+                          onClick={() => mutate(R.moveSubdivision(config, s.id, 1))}
+                          className="h-7 w-7 disabled:opacity-30"
+                        />
+                        <IconButton
+                          icon={Trash2}
+                          label="Delete subdivision"
+                          disabled={subdivisions.length <= 1}
+                          onClick={() => setConfirm({ type: "subdivision", subdivision: s })}
+                          className="h-7 w-7 hover:border-red-500/40 hover:text-red-300 disabled:opacity-30"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {sRanks.length === 0 ? (
+                    <div className="px-4 py-6 text-sm text-slate-500">
+                      No ranks yet{canEdit ? " — use + to add one." : "."}
+                    </div>
+                  ) : (
+                    <SubRoster sub={s} accent={sAccent} compact {...subRosterProps} />
+                  )}
+                </Panel>
+              );
+            })}
+          </div>
+        </>
       )}
 
-      {/* Modals */}
+      {/* Modals (shared by both layouts) */}
       {memberModal && (
         <MemberModal
           open
           onClose={() => setMemberModal(null)}
           fields={fields}
-          ranks={ranks}
+          ranks={modalSub?.ranks || ranks}
           rankId={memberModal.rankId}
           member={memberModal.member}
           onSave={saveMember}
@@ -1063,14 +1264,14 @@ export default function Roster({ user }) {
         }
         onCancel={() => setConfirm(null)}
         onConfirm={() => {
-          if (confirm.type === "rank") mutate(R.deleteRank(config, subId, confirm.rank.id));
+          if (confirm.type === "rank") mutate(R.deleteRank(config, confirm.subId, confirm.rank.id));
           else if (confirm.type === "subdivision") {
             mutate(R.deleteSubdivision(config, confirm.subdivision.id));
             if (confirm.subdivision.id === activeSubId) {
               const fallback = subdivisions.find((s) => s.id !== confirm.subdivision.id);
               setActiveSubId(fallback?.id);
             }
-          } else mutate(R.deleteMember(config, subId, confirm.rankId, confirm.member.id));
+          } else mutate(R.deleteMember(config, confirm.subId, confirm.rankId, confirm.member.id));
           setConfirm(null);
         }}
       />

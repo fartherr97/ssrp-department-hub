@@ -283,13 +283,48 @@ function StatsEditor() {
 
 // ─── Roster schema tab ───────────────────────────────────────────────────────
 
+const LAYOUTS = [
+  { value: "tabs", label: "Tabs", hint: "One subdivision at a time" },
+  { value: "grid", label: "Side-by-side", hint: "All subdivisions in a grid" },
+];
+
 export default function RosterTab() {
   const { config, mutate } = useConfig();
   const fields = config.roster.memberFields || [];
   const subdivisions = config.roster.subdivisions || [];
+  const layout = config.roster.layout === "grid" ? "grid" : "tabs";
+  const setLayout = (value) =>
+    mutate((cfg) => ({ ...cfg, roster: { ...cfg.roster, layout: value } }));
 
   return (
     <div className="grid gap-6">
+      <Panel className="p-5">
+        <SectionHeader
+          title="Roster layout"
+          subtitle="How members see the subdivisions on the Roster page."
+        />
+        <div className="flex flex-wrap gap-2">
+          {LAYOUTS.map((l) => {
+            const active = layout === l.value;
+            return (
+              <button
+                key={l.value}
+                type="button"
+                onClick={() => setLayout(l.value)}
+                className={`press flex-1 rounded-xl border px-4 py-3 text-left transition ${
+                  active
+                    ? "border-[color:var(--color-border-strong)] bg-[color:var(--color-primary)]/12 text-white"
+                    : "border-white/10 bg-[var(--color-surface-2)] text-slate-300 hover:text-white"
+                }`}
+              >
+                <div className="text-sm font-bold">{l.label}</div>
+                <div className="text-xs text-slate-500">{l.hint}</div>
+              </button>
+            );
+          })}
+        </div>
+      </Panel>
+
       <Panel className="p-5">
         <SectionHeader
           title="Subdivisions"

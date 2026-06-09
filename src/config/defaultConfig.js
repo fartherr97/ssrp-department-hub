@@ -146,6 +146,10 @@ export const defaultConfig = {
   ],
 
   roster: {
+    // How the roster page presents subdivisions: "tabs" (one at a time) or
+    // "grid" (all side-by-side). Department Heads choose this in the Builder.
+    layout: "tabs",
+
     // Custom columns shown for every member, across all subdivisions.
     // Types: text | select | date | checkbox | cert
     //  - select  may set `pill: true` + `optionColors` to render colored status pills

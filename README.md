@@ -75,16 +75,18 @@ Admins configure the hub here (auto-saves):
   links, and the orange brand accent
 - **Pages & Nav** — add/reorder/delete pages, nav groups, icons, per-group
   access, and edit content blocks (text / callout / link list)
-- **Roster Schema** — custom member columns (text / dropdown / date /
-  checkbox / certification), colored status pills with per-option colors,
-  a configurable department-stats box, and per-subdivision accent + banner
+- **Roster Schema** — roster layout (tabbed or side-by-side grid), custom
+  member columns (text / dropdown / date / checkbox / certification), colored
+  status pills with per-option colors, a configurable department-stats box,
+  and per-subdivision accent + banner
 - **Access & Roles** — permission groups + Discord role → group mappings
 - **Advanced** — export/import config JSON, reset to blank template
 
-The **Roster** page itself supports **subdivision tabs** (e.g. Patrol, K9,
-Traffic — each its own roster, with its own accent color, banner image/logos,
-and stats box), plus add/edit/delete/reorder of ranks (with insignia images),
-members, custom columns, and drag-to-move members between ranks.
+The **Roster** page presents subdivisions (e.g. Patrol, K9, Traffic — each its
+own roster with its own accent color, banner image/logos, and stats box) as
+either **tabs** or a **side-by-side grid**, chosen in the Builder. Both layouts
+support add/edit/delete/reorder of ranks (with insignia images), members,
+custom columns, and drag-to-move members between ranks.
 
 ---
 
