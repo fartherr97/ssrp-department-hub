@@ -77,6 +77,24 @@ function migrateConfig(saved) {
     merged.roster.subdivisions = cloneDefaultConfig().roster.subdivisions;
   }
 
+  // v1 → v2: a subdivision's `ranks` array used to hold the colored grouping
+  // bands. Those bands are now `categories`; `ranks` becomes a list of rank
+  // titles (empty to start) and each member gains a `rank`. Data is preserved.
+  if ((saved.version ?? 0) < 2 && Array.isArray(merged.roster?.subdivisions)) {
+    merged.roster.subdivisions = merged.roster.subdivisions.map((sub) => {
+      if (Array.isArray(sub.categories)) return sub; // already migrated
+      const bands = Array.isArray(sub.ranks) ? sub.ranks : [];
+      return {
+        ...sub,
+        ranks: [],
+        categories: bands.map((band) => ({
+          ...band,
+          members: (band.members || []).map((m) => ({ rank: "", ...m })),
+        })),
+      };
+    });
+  }
+
   merged.version = CONFIG_VERSION;
   return merged;
 }

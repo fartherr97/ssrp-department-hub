@@ -331,7 +331,7 @@ export default function RosterTab() {
       <Panel className="p-5">
         <SectionHeader
           title="Subdivisions"
-          subtitle="Each subdivision is a separate roster tab with its own accent color and banner. Ranks and members are managed on the Roster page."
+          subtitle="Each subdivision is a separate roster with its own accent and banner. Categories (the colored bands), ranks, and members are managed on the Roster page."
           actions={
             <Button
               icon={Plus}

@@ -9,7 +9,7 @@
  * Schema version lets the loader migrate older saved configs safely.
  */
 
-export const CONFIG_VERSION = 1;
+export const CONFIG_VERSION = 2;
 
 export const defaultConfig = {
   version: CONFIG_VERSION,
@@ -180,9 +180,10 @@ export const defaultConfig = {
       ],
     },
 
-    // Each subdivision is its own roster (ranks + members), shown as a tab at the
-    // top of the Roster page. Each can carry its own accent color and a banner
-    // (background image, flanking logos, title) for a distinct department look.
+    // Each subdivision is its own roster, shown as a tab (or grid card). It owns
+    // a list of `ranks` (titles like Colonel/Captain, shown in the Rank column)
+    // and `categories` (the colored grouping bands that hold members). Each can
+    // carry its own accent color and a banner for a distinct department look.
     subdivisions: [
       {
         id: "sub-main",
@@ -196,8 +197,15 @@ export const defaultConfig = {
           subtitle: "Personnel & Assignments",
         },
         ranks: [
+          { id: "rank-chief", name: "Chief", insigniaUrl: "" },
+          { id: "rank-captain", name: "Captain", insigniaUrl: "" },
+          { id: "rank-lieutenant", name: "Lieutenant", insigniaUrl: "" },
+          { id: "rank-sergeant", name: "Sergeant", insigniaUrl: "" },
+          { id: "rank-officer", name: "Officer", insigniaUrl: "" },
+        ],
+        categories: [
           {
-            id: "rank-command",
+            id: "cat-command",
             name: "Command",
             color: "#f59e0b",
             insigniaUrl: "",
@@ -205,6 +213,7 @@ export const defaultConfig = {
               {
                 id: "member-1",
                 name: "Jane Doe",
+                rank: "rank-chief",
                 discordId: "",
                 avatarUrl: "",
                 fields: { callsign: "C-1", status: "Active", fto: true, academy: true },
@@ -212,14 +221,14 @@ export const defaultConfig = {
             ],
           },
           {
-            id: "rank-supervisor",
+            id: "cat-supervisor",
             name: "Supervisors",
             color: "#3b82f6",
             insigniaUrl: "",
             members: [],
           },
           {
-            id: "rank-member",
+            id: "cat-member",
             name: "Members",
             color: "#22c55e",
             insigniaUrl: "",
@@ -227,6 +236,7 @@ export const defaultConfig = {
               {
                 id: "member-2",
                 name: "John Smith",
+                rank: "rank-officer",
                 discordId: "",
                 avatarUrl: "",
                 fields: { callsign: "M-14", status: "Active" },

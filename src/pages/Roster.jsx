@@ -13,6 +13,7 @@ import {
   UserPlus,
   Search,
   Check,
+  Award,
 } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
 import { isAdmin, groupLevel } from "../lib/permissions.js";
@@ -68,6 +69,11 @@ function statusTone(value) {
 // the detected status field. A per-option color (optionColors) wins over the tone.
 function isPillField(field, statusFieldId) {
   return field.type === "select" && (field.pill || field.id === statusFieldId);
+}
+
+// Checkbox / cert / pill columns are centered to line up under their headers.
+function isCenteredField(field, statusFieldId) {
+  return field.type === "checkbox" || field.type === "cert" || isPillField(field, statusFieldId);
 }
 
 function selectPillProps(field, value) {
@@ -175,11 +181,11 @@ function RosterBanner({ sub, accent }) {
 
 // ─── Department stats box ─────────────────────────────────────────────────────
 
-function computeStat(item, ranks, statusField) {
+function computeStat(item, groups, statusField) {
   if (item.mode === "manual") return item.value || "—";
   let count = 0;
-  for (const r of ranks) {
-    for (const m of r.members) {
+  for (const g of groups) {
+    for (const m of g.members) {
       if (item.mode === "total") count++;
       else if (item.mode === "status") {
         if (statusField && m.fields?.[statusField.id] === item.statusValue) count++;
@@ -191,7 +197,7 @@ function computeStat(item, ranks, statusField) {
   return count;
 }
 
-function StatsPanel({ stats, ranks, statusField, accent }) {
+function StatsPanel({ stats, groups, statusField, accent }) {
   if (!stats?.show || !stats.items?.length) return null;
   return (
     <Panel className="mb-4 p-4">
@@ -208,7 +214,7 @@ function StatsPanel({ stats, ranks, statusField, accent }) {
               className="mt-0.5 text-2xl font-black tabular-nums"
               style={{ color: item.color || accent }}
             >
-              {computeStat(item, ranks, statusField)}
+              {computeStat(item, groups, statusField)}
             </div>
           </div>
         ))}
@@ -238,13 +244,13 @@ function MemberAvatar({ member }) {
 
 // ─── Member edit modal ───────────────────────────────────────────────────────
 
-function MemberModal({ open, onClose, fields, ranks, rankId, member, onSave }) {
+function MemberModal({ open, onClose, fields, categories, rankTitles, categoryId, member, onSave }) {
   const [draft, setDraft] = useState(member);
-  const [targetRank, setTargetRank] = useState(rankId);
+  const [targetCat, setTargetCat] = useState(categoryId);
 
   if (open && draft.id !== member.id) {
     setDraft(member);
-    setTargetRank(rankId);
+    setTargetCat(categoryId);
   }
 
   function setField(fieldId, value) {
@@ -261,18 +267,33 @@ function MemberModal({ open, onClose, fields, ranks, rankId, member, onSave }) {
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={() => onSave(draft, targetRank)}>Save</Button>
+          <Button onClick={() => onSave(draft, targetCat)}>Save</Button>
         </>
       }
     >
       <div className="grid gap-4">
-        <Field label="Name">
-          <Input
-            value={draft.name || ""}
-            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-            placeholder="Member name"
-          />
-        </Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Name">
+            <Input
+              value={draft.name || ""}
+              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+              placeholder="Member name"
+            />
+          </Field>
+          <Field label="Rank">
+            <Select
+              value={draft.rank || ""}
+              onChange={(e) => setDraft({ ...draft, rank: e.target.value })}
+            >
+              <option value="">—</option>
+              {rankTitles.map((rt) => (
+                <option key={rt.id} value={rt.id}>
+                  {rt.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Discord ID" hint="Used by the backend to match Discord roles.">
             <Input
@@ -335,11 +356,11 @@ function MemberModal({ open, onClose, fields, ranks, rankId, member, onSave }) {
           );
         })}
 
-        <Field label="Rank" hint="Move this member to a different rank.">
-          <Select value={targetRank} onChange={(e) => setTargetRank(e.target.value)}>
-            {ranks.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
+        <Field label="Category" hint="Move this member to a different category.">
+          <Select value={targetCat} onChange={(e) => setTargetCat(e.target.value)}>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
               </option>
             ))}
           </Select>
@@ -349,17 +370,17 @@ function MemberModal({ open, onClose, fields, ranks, rankId, member, onSave }) {
   );
 }
 
-// ─── Rank edit modal ─────────────────────────────────────────────────────────
+// ─── Category edit modal (the colored grouping band) ─────────────────────────
 
-function RankModal({ open, onClose, rank, onSave }) {
-  const [draft, setDraft] = useState(rank);
-  if (open && draft.id !== rank.id) setDraft(rank);
+function CategoryModal({ open, onClose, category, onSave }) {
+  const [draft, setDraft] = useState(category);
+  if (open && draft.id !== category.id) setDraft(category);
 
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title={rank.isNew ? "Add rank" : "Edit rank"}
+      title={category.isNew ? "Add category" : "Edit category"}
       size="sm"
       footer={
         <>
@@ -371,7 +392,7 @@ function RankModal({ open, onClose, rank, onSave }) {
       }
     >
       <div className="grid gap-4">
-        <Field label="Rank name">
+        <Field label="Category name" hint="The colored grouping band, e.g. Command Staff.">
           <Input
             value={draft.name || ""}
             onChange={(e) => setDraft({ ...draft, name: e.target.value })}
@@ -394,7 +415,7 @@ function RankModal({ open, onClose, rank, onSave }) {
         </Field>
         <Field
           label="Insignia image URL"
-          hint="Optional square icon on the rank header, ~64×64px (PNG/SVG)."
+          hint="Optional icon on the category header, ~64×64px (PNG/SVG)."
         >
           <div className="flex items-center gap-2">
             {draft.insigniaUrl && (
@@ -407,6 +428,84 @@ function RankModal({ open, onClose, rank, onSave }) {
             />
           </div>
         </Field>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Rank titles manager (Colonel, Captain… shown in the Rank column) ────────
+
+function RankTitlesModal({ open, onClose, subId }) {
+  const { config, mutate } = useConfig();
+  const sub = R.findSubdivision(config, subId);
+  const ranks = sub?.ranks || [];
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={`Ranks — ${sub?.name || ""}`}
+      footer={
+        <Button variant="secondary" onClick={onClose}>
+          Done
+        </Button>
+      }
+    >
+      <div className="grid gap-3">
+        <p className="text-sm text-slate-400">
+          Rank titles a member can hold (e.g. Colonel, Captain). The insignia shows
+          in the Rank column next to the title.
+        </p>
+        {ranks.map((rt, idx) => (
+          <div
+            key={rt.id}
+            className="grid grid-cols-[1fr_1fr_auto_auto_auto] items-end gap-2 rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-3"
+          >
+            <Field label="Rank name">
+              <Input
+                value={rt.name}
+                onChange={(e) => mutate(R.updateRank(config, subId, rt.id, { name: e.target.value }))}
+              />
+            </Field>
+            <Field label="Insignia URL" hint="~64×64px">
+              <Input
+                value={rt.insigniaUrl || ""}
+                placeholder="https://…"
+                onChange={(e) =>
+                  mutate(R.updateRank(config, subId, rt.id, { insigniaUrl: e.target.value }))
+                }
+              />
+            </Field>
+            <IconButton
+              icon={ChevronUp}
+              label="Move up"
+              disabled={idx === 0}
+              onClick={() => mutate(R.moveRank(config, subId, rt.id, -1))}
+              className="mb-0.5 disabled:opacity-30"
+            />
+            <IconButton
+              icon={ChevronDown}
+              label="Move down"
+              disabled={idx === ranks.length - 1}
+              onClick={() => mutate(R.moveRank(config, subId, rt.id, 1))}
+              className="mb-0.5 disabled:opacity-30"
+            />
+            <IconButton
+              icon={Trash2}
+              label="Delete rank"
+              onClick={() => mutate(R.deleteRank(config, subId, rt.id))}
+              className="mb-0.5 hover:border-red-500/40 hover:text-red-300"
+            />
+          </div>
+        ))}
+        {ranks.length === 0 && <p className="text-sm text-slate-500">No ranks yet.</p>}
+        <Button
+          variant="secondary"
+          icon={Plus}
+          onClick={() => mutate(R.addRank(config, subId, { name: "New Rank" }))}
+        >
+          Add rank
+        </Button>
       </div>
     </Modal>
   );
@@ -536,7 +635,7 @@ function SubdivisionTabs({ subdivisions, activeId, canEdit, onSelect, onAdd, onR
       <div className="flex flex-wrap items-center gap-1.5">
         {subdivisions.map((s) => {
           const isActive = s.id === activeId;
-          const count = s.ranks.reduce((n, r) => n + r.members.length, 0);
+          const count = (s.categories || []).reduce((n, c) => n + c.members.length, 0);
           const tabAccent = s.accent || "var(--color-primary)";
           return (
             <button
@@ -633,11 +732,12 @@ function StatPills({ total, statusField, counts }) {
 
 // ─── Member table row ────────────────────────────────────────────────────────
 
-function MemberRow({ member, rank, fields, statusFieldId, accent, colCount, canEdit, onEdit, onDelete, onDragStart }) {
+function MemberRow({ member, category, fields, statusFieldId, accent, rankById, canEdit, onEdit, onDelete, onDragStart }) {
+  const rt = rankById[member.rank];
   return (
     <tr
       draggable={canEdit}
-      onDragStart={(e) => canEdit && onDragStart(e, rank.id, member.id)}
+      onDragStart={(e) => canEdit && onDragStart(e, category.id, member.id)}
       className="group border-t border-white/5 transition hover:bg-white/[0.03]"
     >
       <td className="px-3 py-2.5">
@@ -657,8 +757,25 @@ function MemberRow({ member, rank, fields, statusFieldId, accent, colCount, canE
           </div>
         </div>
       </td>
+      <td className="px-3 py-2.5 align-middle text-sm">
+        {rt ? (
+          <div className="flex items-center gap-2">
+            {rt.insigniaUrl && (
+              <img src={rt.insigniaUrl} alt="" className="h-5 w-5 shrink-0 object-contain" />
+            )}
+            <span className="font-medium text-slate-200">{rt.name}</span>
+          </div>
+        ) : (
+          <span className="text-slate-600">—</span>
+        )}
+      </td>
       {fields.map((f) => (
-        <td key={f.id} className="px-3 py-2.5 align-middle text-sm">
+        <td
+          key={f.id}
+          className={`px-3 py-2.5 align-middle text-sm ${
+            isCenteredField(f, statusFieldId) ? "text-center" : ""
+          }`}
+        >
           <FieldValue
             field={f}
             value={member.fields?.[f.id]}
@@ -670,11 +787,11 @@ function MemberRow({ member, rank, fields, statusFieldId, accent, colCount, canE
       {canEdit && (
         <td className="px-3 py-2.5">
           <div className="flex items-center justify-end gap-1 opacity-0 transition group-hover:opacity-100">
-            <IconButton icon={Pencil} label="Edit member" onClick={() => onEdit(rank.id, member)} />
+            <IconButton icon={Pencil} label="Edit member" onClick={() => onEdit(category.id, member)} />
             <IconButton
               icon={Trash2}
               label="Remove member"
-              onClick={() => onDelete(rank.id, member)}
+              onClick={() => onDelete(category.id, member)}
               className="hover:border-red-500/40 hover:text-red-300"
             />
           </div>
@@ -692,109 +809,119 @@ function SubRoster({
   statusField,
   accent,
   canEdit,
-  rankFilter = "all",
+  categoryFilter = "all",
   matches,
   filtering,
-  dragOverRank,
-  setDragOverRank,
+  dragOverCat,
+  setDragOverCat,
   onDragStart,
   onDrop,
   onAddMember,
   onEditMember,
   onDeleteMember,
-  onMoveRank,
-  onEditRank,
-  onDeleteRank,
+  onMoveCategory,
+  onEditCategory,
+  onDeleteCategory,
   compact = false,
 }) {
-  const ranks = sub.ranks || [];
-  const colCount = 1 + fields.length + (canEdit ? 1 : 0);
-  const visibleRanks = ranks.filter((r) => rankFilter === "all" || r.id === rankFilter);
+  const categories = sub.categories || [];
+  const rankById = useMemo(
+    () => Object.fromEntries((sub.ranks || []).map((r) => [r.id, r])),
+    [sub.ranks]
+  );
+  const colCount = 2 + fields.length + (canEdit ? 1 : 0);
+  const visible = categories.filter((c) => categoryFilter === "all" || c.id === categoryFilter);
 
   return (
     <div className="overflow-x-auto">
       <table
-        className={`w-full border-collapse text-left ${compact ? "min-w-[460px]" : "min-w-[720px]"}`}
+        className={`w-full border-collapse text-left ${compact ? "min-w-[520px]" : "min-w-[760px]"}`}
       >
         <thead>
           <tr className="text-[11px] uppercase tracking-wider text-slate-500">
             <th className="px-3 py-2.5 font-semibold">Name</th>
+            <th className="px-3 py-2.5 font-semibold">Rank</th>
             {fields.map((f) => (
-              <th key={f.id} className="px-3 py-2.5 font-semibold">
+              <th
+                key={f.id}
+                className={`px-3 py-2.5 font-semibold ${
+                  isCenteredField(f, statusField?.id) ? "text-center" : ""
+                }`}
+              >
                 {f.label}
               </th>
             ))}
             {canEdit && <th className="px-3 py-2.5" />}
           </tr>
         </thead>
-        {visibleRanks.map((rank) => {
-          const members = rank.members.filter(matches);
+        {visible.map((cat) => {
+          const members = cat.members.filter(matches);
           if (filtering && members.length === 0) return null;
           return (
             <tbody
-              key={rank.id}
+              key={cat.id}
               onDragOver={(e) => {
                 if (!canEdit) return;
                 e.preventDefault();
-                setDragOverRank(rank.id);
+                setDragOverCat(cat.id);
               }}
-              onDragLeave={() => setDragOverRank((c) => (c === rank.id ? null : c))}
-              onDrop={(e) => canEdit && onDrop(e, sub.id, rank.id)}
-              className={dragOverRank === rank.id ? "bg-[color:var(--color-primary)]/5" : ""}
+              onDragLeave={() => setDragOverCat((c) => (c === cat.id ? null : c))}
+              onDrop={(e) => canEdit && onDrop(e, sub.id, cat.id)}
+              className={dragOverCat === cat.id ? "bg-[color:var(--color-primary)]/5" : ""}
             >
-              {/* Colored rank/team header row */}
+              {/* Colored category band header */}
               <tr>
                 <td
                   colSpan={colCount}
                   className="border-t border-white/10 px-3 py-2"
                   style={{
-                    background: `linear-gradient(90deg, ${rank.color}1f 0%, transparent 60%)`,
-                    borderLeft: `3px solid ${rank.color || "#3b82f6"}`,
+                    background: `linear-gradient(90deg, ${cat.color}1f 0%, transparent 60%)`,
+                    borderLeft: `3px solid ${cat.color || "#3b82f6"}`,
                   }}
                 >
                   <div className="flex items-center gap-2">
-                    {rank.insigniaUrl && (
-                      <img src={rank.insigniaUrl} alt="" className="h-5 w-5 shrink-0 object-contain" />
+                    {cat.insigniaUrl && (
+                      <img src={cat.insigniaUrl} alt="" className="h-5 w-5 shrink-0 object-contain" />
                     )}
                     <span
                       className="text-xs font-black uppercase tracking-[0.15em]"
-                      style={{ color: rank.color || "#3b82f6" }}
+                      style={{ color: cat.color || "#3b82f6" }}
                     >
-                      {rank.name}
+                      {cat.name}
                     </span>
-                    <Badge color={rank.color}>{rank.members.length}</Badge>
+                    <Badge color={cat.color}>{cat.members.length}</Badge>
                     {canEdit && (
                       <div className="ml-auto flex items-center gap-1">
                         <IconButton
                           icon={ChevronUp}
-                          label="Move rank up"
-                          disabled={ranks.indexOf(rank) === 0}
-                          onClick={() => onMoveRank(sub.id, rank.id, -1)}
+                          label="Move category up"
+                          disabled={categories.indexOf(cat) === 0}
+                          onClick={() => onMoveCategory(sub.id, cat.id, -1)}
                           className="h-7 w-7 disabled:opacity-30"
                         />
                         <IconButton
                           icon={ChevronDown}
-                          label="Move rank down"
-                          disabled={ranks.indexOf(rank) === ranks.length - 1}
-                          onClick={() => onMoveRank(sub.id, rank.id, 1)}
+                          label="Move category down"
+                          disabled={categories.indexOf(cat) === categories.length - 1}
+                          onClick={() => onMoveCategory(sub.id, cat.id, 1)}
                           className="h-7 w-7 disabled:opacity-30"
                         />
                         <IconButton
                           icon={UserPlus}
                           label="Add member"
-                          onClick={() => onAddMember(sub.id, rank.id)}
+                          onClick={() => onAddMember(sub.id, cat.id)}
                           className="h-7 w-7"
                         />
                         <IconButton
                           icon={Pencil}
-                          label="Edit rank"
-                          onClick={() => onEditRank(sub.id, rank)}
+                          label="Edit category"
+                          onClick={() => onEditCategory(sub.id, cat)}
                           className="h-7 w-7"
                         />
                         <IconButton
                           icon={Trash2}
-                          label="Delete rank"
-                          onClick={() => onDeleteRank(sub.id, rank)}
+                          label="Delete category"
+                          onClick={() => onDeleteCategory(sub.id, cat)}
                           className="h-7 w-7 hover:border-red-500/40 hover:text-red-300"
                         />
                       </div>
@@ -814,13 +941,14 @@ function SubRoster({
                   <MemberRow
                     key={member.id}
                     member={member}
-                    rank={rank}
+                    category={cat}
                     fields={fields}
                     statusFieldId={statusField?.id}
                     accent={accent}
+                    rankById={rankById}
                     canEdit={canEdit}
-                    onEdit={(rankId, m) => onEditMember(sub.id, rankId, m)}
-                    onDelete={(rankId, m) => onDeleteMember(sub.id, rankId, m)}
+                    onEdit={(catId, m) => onEditMember(sub.id, catId, m)}
+                    onDelete={(catId, m) => onDeleteMember(sub.id, catId, m)}
                     onDragStart={onDragStart}
                   />
                 ))
@@ -845,34 +973,42 @@ export default function Roster({ user }) {
   const [activeSubId, setActiveSubId] = useState(subdivisions[0]?.id);
   const activeSub = subdivisions.find((s) => s.id === activeSubId) || subdivisions[0];
   const subId = activeSub?.id;
-  const ranks = activeSub?.ranks || [];
-  const totalMembers = ranks.reduce((n, r) => n + r.members.length, 0);
+  const categories = activeSub?.categories || [];
+  const totalMembers = categories.reduce((n, c) => n + c.members.length, 0);
   const accent = activeSub?.accent || "var(--color-primary)";
   const stats = config.roster.stats;
   const statsShown = Boolean(stats?.show && stats.items?.length);
 
+  // Layout: "tabs" (one subdivision at a time) or "grid" (all side-by-side).
+  const layout = config.roster.layout === "grid" ? "grid" : "tabs";
+  const allCategories = useMemo(
+    () => subdivisions.flatMap((s) => s.categories || []),
+    [subdivisions]
+  );
+
   const [query, setQuery] = useState("");
-  const [rankFilter, setRankFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const [memberModal, setMemberModal] = useState(null);
-  const [rankModal, setRankModal] = useState(null);
+  const [categoryModal, setCategoryModal] = useState(null);
   const [subModal, setSubModal] = useState(null);
   const [columnsOpen, setColumnsOpen] = useState(false);
+  const [rankTitlesSubId, setRankTitlesSubId] = useState(null);
   const [confirm, setConfirm] = useState(null);
-  const [dragOverRank, setDragOverRank] = useState(null);
+  const [dragOverCat, setDragOverCat] = useState(null);
 
   // Status counts for the summary pills (across the whole active subdivision).
   const statusCounts = useMemo(() => {
     const counts = {};
     if (statusField) {
-      for (const rank of ranks) {
-        for (const m of rank.members) {
+      for (const cat of categories) {
+        for (const m of cat.members) {
           const v = m.fields?.[statusField.id];
           if (v) counts[v] = (counts[v] || 0) + 1;
         }
       }
     }
     return counts;
-  }, [ranks, statusField]);
+  }, [categories, statusField]);
 
   const q = query.trim().toLowerCase();
   function matches(member) {
@@ -883,65 +1019,64 @@ export default function Roster({ user }) {
       .toLowerCase();
     return hay.includes(q);
   }
-  const filtering = q !== "" || rankFilter !== "all";
+  const filtering = q !== "" || categoryFilter !== "all";
 
-  // Layout: "tabs" (one subdivision at a time) or "grid" (all side-by-side).
-  const layout = config.roster.layout === "grid" ? "grid" : "tabs";
-  const allRanks = useMemo(
-    () => subdivisions.flatMap((s) => s.ranks || []),
-    [subdivisions]
-  );
-  const statsRanks = layout === "grid" ? allRanks : ranks;
-
-  // ── Member handlers (subdivision-agnostic; the active/card sub is passed in) ──
-  function openNewMember(forSubId, rankId) {
+  // ── Member handlers (subdivision + category aware) ──
+  function openNewMember(forSubId, categoryId) {
     setMemberModal({
       subId: forSubId,
-      rankId,
-      member: { id: R.uid("member"), name: "", fields: {}, isNew: true },
+      categoryId,
+      member: { id: R.uid("member"), name: "", rank: "", fields: {}, isNew: true },
     });
   }
-  function openEditMember(forSubId, rankId, member) {
-    setMemberModal({ subId: forSubId, rankId, member });
+  function openEditMember(forSubId, categoryId, member) {
+    setMemberModal({ subId: forSubId, categoryId, member });
   }
-  function saveMember(draft, targetRank) {
-    const { subId: mSubId, rankId } = memberModal;
+  function saveMember(draft, targetCategory) {
+    const { subId: mSub, categoryId } = memberModal;
     const { isNew, ...clean } = draft;
     mutate((cfg) => {
-      if (isNew) return R.addMember(cfg, mSubId, rankId, clean);
-      let next = R.updateMember(cfg, mSubId, rankId, clean.id, clean);
-      if (targetRank && targetRank !== rankId) {
-        next = R.moveMember(next, mSubId, rankId, clean.id, targetRank);
+      if (isNew) return R.addMember(cfg, mSub, categoryId, clean);
+      let next = R.updateMember(cfg, mSub, categoryId, clean.id, clean);
+      if (targetCategory && targetCategory !== categoryId) {
+        next = R.moveMember(next, mSub, categoryId, clean.id, targetCategory);
       }
       return next;
     });
     setMemberModal(null);
   }
+  function confirmDeleteMember(forSubId, categoryId, member) {
+    setConfirm({ type: "member", subId: forSubId, categoryId, member });
+  }
 
-  // ── Rank handlers ──
-  function openAddRank(forSubId) {
-    setRankModal({ id: R.uid("rank"), name: "", color: "#3b82f6", isNew: true, subId: forSubId });
+  // ── Category handlers ──
+  function openAddCategory(forSubId) {
+    setCategoryModal({
+      id: R.uid("cat"),
+      name: "",
+      color: "#3b82f6",
+      insigniaUrl: "",
+      isNew: true,
+      subId: forSubId,
+    });
   }
-  function openEditRank(forSubId, rank) {
-    setRankModal({ ...rank, subId: forSubId });
+  function openEditCategory(forSubId, category) {
+    setCategoryModal({ ...category, subId: forSubId });
   }
-  function saveRank(draft) {
-    const targetSub = rankModal.subId;
+  function saveCategory(draft) {
+    const targetSub = categoryModal.subId;
     const { isNew, ...clean } = draft;
     const patch = { name: clean.name, color: clean.color, insigniaUrl: clean.insigniaUrl || "" };
     mutate((cfg) =>
-      isNew ? R.addRank(cfg, targetSub, patch) : R.updateRank(cfg, targetSub, clean.id, patch)
+      isNew ? R.addCategory(cfg, targetSub, patch) : R.updateCategory(cfg, targetSub, clean.id, patch)
     );
-    setRankModal(null);
+    setCategoryModal(null);
   }
-  function moveRank(forSubId, rankId, dir) {
-    mutate(R.moveRank(config, forSubId, rankId, dir));
+  function moveCategory(forSubId, categoryId, dir) {
+    mutate(R.moveCategory(config, forSubId, categoryId, dir));
   }
-  function confirmDeleteRank(forSubId, rank) {
-    setConfirm({ type: "rank", subId: forSubId, rank });
-  }
-  function confirmDeleteMember(forSubId, rankId, member) {
-    setConfirm({ type: "member", subId: forSubId, rankId, member });
+  function confirmDeleteCategory(forSubId, category) {
+    setConfirm({ type: "category", subId: forSubId, category });
   }
 
   // ── Subdivision handlers ──
@@ -958,17 +1093,17 @@ export default function Roster({ user }) {
   }
 
   // ── Drag and drop (within a subdivision) ──
-  function onDragStart(e, fromRankId, memberId) {
+  function onDragStart(e, fromCatId, memberId) {
     e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", JSON.stringify({ fromRankId, memberId }));
+    e.dataTransfer.setData("text/plain", JSON.stringify({ fromCatId, memberId }));
   }
-  function onDrop(e, toSubId, toRankId) {
+  function onDrop(e, toSubId, toCatId) {
     e.preventDefault();
-    setDragOverRank(null);
+    setDragOverCat(null);
     try {
-      const { fromRankId, memberId } = JSON.parse(e.dataTransfer.getData("text/plain"));
-      if (fromRankId !== toRankId) {
-        mutate((cfg) => R.moveMember(cfg, toSubId, fromRankId, memberId, toRankId));
+      const { fromCatId, memberId } = JSON.parse(e.dataTransfer.getData("text/plain"));
+      if (fromCatId !== toCatId) {
+        mutate((cfg) => R.moveMember(cfg, toSubId, fromCatId, memberId, toCatId));
       }
     } catch {
       /* ignore malformed drop */
@@ -982,16 +1117,16 @@ export default function Roster({ user }) {
     canEdit,
     matches,
     filtering,
-    dragOverRank,
-    setDragOverRank,
+    dragOverCat,
+    setDragOverCat,
     onDragStart,
     onDrop,
     onAddMember: openNewMember,
     onEditMember: openEditMember,
     onDeleteMember: confirmDeleteMember,
-    onMoveRank: moveRank,
-    onEditRank: openEditRank,
-    onDeleteRank: confirmDeleteRank,
+    onMoveCategory: moveCategory,
+    onEditCategory: openEditCategory,
+    onDeleteCategory: confirmDeleteCategory,
   };
 
   const modalSub = memberModal
@@ -1005,8 +1140,8 @@ export default function Roster({ user }) {
         title="Roster"
         subtitle={
           layout === "grid"
-            ? `${subdivisions.length} subdivision${subdivisions.length === 1 ? "" : "s"} · ${allRanks.reduce(
-                (n, r) => n + r.members.length,
+            ? `${subdivisions.length} subdivision${subdivisions.length === 1 ? "" : "s"} · ${allCategories.reduce(
+                (n, c) => n + c.members.length,
                 0
               )} members`
             : activeSub
@@ -1020,9 +1155,14 @@ export default function Roster({ user }) {
                 Columns
               </Button>
               {layout === "tabs" && subId && (
-                <Button icon={Plus} onClick={() => openAddRank(subId)}>
-                  Add rank
-                </Button>
+                <>
+                  <Button variant="secondary" icon={Award} onClick={() => setRankTitlesSubId(subId)}>
+                    Add rank
+                  </Button>
+                  <Button icon={Plus} onClick={() => openAddCategory(subId)}>
+                    Add category
+                  </Button>
+                </>
               )}
             </>
           )
@@ -1037,7 +1177,7 @@ export default function Roster({ user }) {
             canEdit={canEdit}
             onSelect={(id) => {
               setActiveSubId(id);
-              setRankFilter("all");
+              setCategoryFilter("all");
             }}
             onAdd={() => setSubModal({ id: R.uid("sub"), name: "", isNew: true })}
             onRename={(sub) => setSubModal(sub)}
@@ -1046,7 +1186,7 @@ export default function Roster({ user }) {
           />
 
           <RosterBanner sub={activeSub} accent={accent} />
-          <StatsPanel stats={stats} ranks={ranks} statusField={statusField} accent={accent} />
+          <StatsPanel stats={stats} groups={categories} statusField={statusField} accent={accent} />
 
           {/* Summary + controls */}
           <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -1065,26 +1205,26 @@ export default function Roster({ user }) {
                   className="w-56 pl-9"
                 />
               </div>
-              <Select value={rankFilter} onChange={(e) => setRankFilter(e.target.value)} className="w-40">
-                <option value="all">All ranks</option>
-                {ranks.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
+              <Select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="w-44">
+                <option value="all">All categories</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
                   </option>
                 ))}
               </Select>
             </div>
           </div>
 
-          {ranks.length === 0 ? (
+          {categories.length === 0 ? (
             <EmptyState
               icon={Users}
-              title="No ranks yet"
-              subtitle={`Add your first rank to start building the ${activeSub?.name || "roster"}.`}
+              title="No categories yet"
+              subtitle={`Add your first category to start building the ${activeSub?.name || "roster"}.`}
               action={
                 canEdit && (
-                  <Button icon={Plus} onClick={() => openAddRank(subId)}>
-                    Add rank
+                  <Button icon={Plus} onClick={() => openAddCategory(subId)}>
+                    Add category
                   </Button>
                 )
               }
@@ -1094,7 +1234,7 @@ export default function Roster({ user }) {
               <SubRoster
                 sub={activeSub}
                 accent={accent}
-                rankFilter={rankFilter}
+                categoryFilter={categoryFilter}
                 {...subRosterProps}
               />
             </Panel>
@@ -1128,7 +1268,7 @@ export default function Roster({ user }) {
 
           <StatsPanel
             stats={stats}
-            ranks={allRanks}
+            groups={allCategories}
             statusField={statusField}
             accent="var(--color-primary)"
           />
@@ -1136,8 +1276,8 @@ export default function Roster({ user }) {
           <div className="grid gap-4 lg:grid-cols-2">
             {subdivisions.map((s) => {
               const sAccent = s.accent || "var(--color-primary)";
-              const sRanks = s.ranks || [];
-              const count = sRanks.reduce((n, r) => n + r.members.length, 0);
+              const cats = s.categories || [];
+              const count = cats.reduce((n, c) => n + c.members.length, 0);
               return (
                 <Panel key={s.id} className="overflow-hidden">
                   <div
@@ -1166,9 +1306,15 @@ export default function Roster({ user }) {
                     {canEdit && (
                       <div className="ml-auto flex shrink-0 items-center gap-1">
                         <IconButton
+                          icon={Award}
+                          label="Manage ranks"
+                          onClick={() => setRankTitlesSubId(s.id)}
+                          className="h-7 w-7"
+                        />
+                        <IconButton
                           icon={Plus}
-                          label="Add rank"
-                          onClick={() => openAddRank(s.id)}
+                          label="Add category"
+                          onClick={() => openAddCategory(s.id)}
                           className="h-7 w-7"
                         />
                         <IconButton
@@ -1202,9 +1348,9 @@ export default function Roster({ user }) {
                     )}
                   </div>
 
-                  {sRanks.length === 0 ? (
+                  {cats.length === 0 ? (
                     <div className="px-4 py-6 text-sm text-slate-500">
-                      No ranks yet{canEdit ? " — use + to add one." : "."}
+                      No categories yet{canEdit ? " — use + to add one." : "."}
                     </div>
                   ) : (
                     <SubRoster sub={s} accent={sAccent} compact {...subRosterProps} />
@@ -1222,14 +1368,20 @@ export default function Roster({ user }) {
           open
           onClose={() => setMemberModal(null)}
           fields={fields}
-          ranks={modalSub?.ranks || ranks}
-          rankId={memberModal.rankId}
+          categories={modalSub?.categories || categories}
+          rankTitles={modalSub?.ranks || []}
+          categoryId={memberModal.categoryId}
           member={memberModal.member}
           onSave={saveMember}
         />
       )}
-      {rankModal && (
-        <RankModal open onClose={() => setRankModal(null)} rank={rankModal} onSave={saveRank} />
+      {categoryModal && (
+        <CategoryModal
+          open
+          onClose={() => setCategoryModal(null)}
+          category={categoryModal}
+          onSave={saveCategory}
+        />
       )}
       {subModal && (
         <SubdivisionModal
@@ -1241,40 +1393,46 @@ export default function Roster({ user }) {
         />
       )}
       <ColumnsModal open={columnsOpen} onClose={() => setColumnsOpen(false)} />
+      {rankTitlesSubId && (
+        <RankTitlesModal open onClose={() => setRankTitlesSubId(null)} subId={rankTitlesSubId} />
+      )}
 
       <ConfirmDialog
         open={Boolean(confirm)}
         title={
-          confirm?.type === "rank"
-            ? "Delete rank?"
+          confirm?.type === "category"
+            ? "Delete category?"
             : confirm?.type === "subdivision"
             ? "Delete subdivision?"
             : "Remove member?"
         }
         message={
-          confirm?.type === "rank"
-            ? `Delete "${confirm?.rank?.name}" and all ${confirm?.rank?.members?.length || 0} member(s) in it? This can't be undone.`
+          confirm?.type === "category"
+            ? `Delete "${confirm?.category?.name}" and all ${confirm?.category?.members?.length || 0} member(s) in it? This can't be undone.`
             : confirm?.type === "subdivision"
             ? `Delete the "${confirm?.subdivision?.name}" subdivision and its entire roster? This can't be undone.`
             : `Remove "${confirm?.member?.name}" from the roster?`
         }
         confirmLabel={
-          confirm?.type === "rank"
-            ? "Delete rank"
+          confirm?.type === "category"
+            ? "Delete category"
             : confirm?.type === "subdivision"
             ? "Delete subdivision"
             : "Remove"
         }
         onCancel={() => setConfirm(null)}
         onConfirm={() => {
-          if (confirm.type === "rank") mutate(R.deleteRank(config, confirm.subId, confirm.rank.id));
-          else if (confirm.type === "subdivision") {
+          if (confirm.type === "category") {
+            mutate(R.deleteCategory(config, confirm.subId, confirm.category.id));
+          } else if (confirm.type === "subdivision") {
             mutate(R.deleteSubdivision(config, confirm.subdivision.id));
             if (confirm.subdivision.id === activeSubId) {
               const fallback = subdivisions.find((s) => s.id !== confirm.subdivision.id);
               setActiveSubId(fallback?.id);
             }
-          } else mutate(R.deleteMember(config, confirm.subId, confirm.rankId, confirm.member.id));
+          } else {
+            mutate(R.deleteMember(config, confirm.subId, confirm.categoryId, confirm.member.id));
+          }
           setConfirm(null);
         }}
       />
