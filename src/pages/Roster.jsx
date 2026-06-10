@@ -17,6 +17,7 @@ import {
   BarChart3,
   SlidersHorizontal,
   Undo2,
+  Copy,
 } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
 import { canEditSubdivision, canEditRosterStructure } from "../lib/permissions.js";
@@ -287,6 +288,49 @@ function MemberAvatar({ member }) {
     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-2)] text-xs font-bold text-slate-300">
       {initials(member.name)}
     </div>
+  );
+}
+
+// ─── Click-to-copy Discord ID ────────────────────────────────────────────────
+
+function DiscordIdChip({ id }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy(e) {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(id);
+    } catch {
+      // Clipboard API needs a secure context; fall back to the legacy path.
+      const ta = document.createElement("textarea");
+      ta.value = id;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1200);
+  }
+
+  if (copied) {
+    return (
+      <span className="anim-fade-in flex items-center gap-1 text-[11px] font-semibold text-green-300">
+        <Check size={11} strokeWidth={3} />
+        Copied!
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      title="Click to copy Discord ID"
+      className="group/id flex max-w-full items-center gap-1 font-mono text-[11px] text-slate-500 transition hover:text-slate-300"
+    >
+      <span className="truncate">{id}</span>
+      <Copy size={10} className="shrink-0 opacity-0 transition group-hover/id:opacity-100" />
+    </button>
   );
 }
 
@@ -909,9 +953,7 @@ function MemberRow({ member, category, fields, statusFieldId, accent, rankById, 
           <MemberAvatar member={member} />
           <div className="min-w-0">
             <div className="truncate text-sm font-semibold text-white">{member.name}</div>
-            {member.discordId && (
-              <div className="truncate font-mono text-[11px] text-slate-500">{member.discordId}</div>
-            )}
+            {member.discordId && <DiscordIdChip id={member.discordId} />}
           </div>
         </div>
       </td>
