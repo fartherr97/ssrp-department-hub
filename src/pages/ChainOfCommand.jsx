@@ -31,6 +31,10 @@ import { safeMediaUrl } from "../lib/urls.js";
  * with everything under it.
  */
 
+// Robust check that the active drag is one of our boxes (types can be an
+// array or a DOMStringList depending on the browser).
+const hasNodeDrag = (e) => Array.from(e.dataTransfer?.types || []).includes("text/coc-node");
+
 function newNode(title = "New Position") {
   return { id: uid("node"), title, name: "", color: "", imageUrl: "", members: [], children: [] };
 }
@@ -147,8 +151,8 @@ function NodeCard({ node, accent, canEdit, isRoot, onEdit, dropHint, setDropHint
     const r = e.currentTarget.getBoundingClientRect();
     const x = (e.clientX - r.left) / r.width;
     if (isRoot) return "child"; // nothing sits beside the top box
-    if (x < 0.25) return "before";
-    if (x > 0.75) return "after";
+    if (x < 0.3) return "before";
+    if (x > 0.7) return "after";
     return "child";
   };
 
@@ -174,7 +178,7 @@ function NodeCard({ node, accent, canEdit, isRoot, onEdit, dropHint, setDropHint
       }}
       onDragEnd={() => setDropHint(null)}
       onDragOver={(e) => {
-        if (!canEdit || !e.dataTransfer.types.includes("text/coc-node")) return;
+        if (!canEdit || !hasNodeDrag(e)) return;
         e.preventDefault();
         const mode = zoneFor(e);
         if (myHint !== mode) setDropHint({ targetId: node.id, mode });
@@ -274,18 +278,38 @@ function NodeTree({ node, accent, canEdit, isRoot = true, onEdit, onAddChild, dr
             </div>
           ))}
           {canEdit && (
-            // A dashed slot under every box, so growing the chart is one
-            // obvious click instead of digging through the edit modal.
+            // A dashed slot under every box: click to add a box there, or
+            // drop a dragged box onto it to move it into that spot.
             <div className="flex flex-col items-center">
               <div className="my-1 h-[13px]" />
               <button
                 type="button"
                 onClick={() => onAddChild(node.id)}
-                title={`Add a box under “${node.title}”`}
-                className="press flex h-[46px] w-44 items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/20 text-xs font-semibold text-slate-500 transition hover:border-[color:var(--color-border-strong)] hover:text-[var(--color-primary)]"
+                title={`Add a box under “${node.title}”, or drop a dragged box here to move it under “${node.title}”`}
+                onDragOver={(e) => {
+                  if (!hasNodeDrag(e)) return;
+                  e.preventDefault();
+                  if (dropHint?.targetId !== node.id || dropHint?.mode !== "slot") {
+                    setDropHint({ targetId: node.id, mode: "slot" });
+                  }
+                }}
+                onDragLeave={() => {
+                  if (dropHint?.mode === "slot" && dropHint?.targetId === node.id) setDropHint(null);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const dragId = e.dataTransfer.getData("text/coc-node");
+                  if (dragId) onDropNode(dragId, node.id, "child");
+                }}
+                className={`press flex h-[46px] w-44 items-center justify-center gap-1.5 rounded-lg border border-dashed text-xs font-semibold transition ${
+                  dropHint?.targetId === node.id && dropHint?.mode === "slot"
+                    ? "border-[var(--color-primary)] bg-[color:var(--color-primary)]/15 text-[var(--color-primary)]"
+                    : "border-white/20 text-slate-500 hover:border-[color:var(--color-border-strong)] hover:text-[var(--color-primary)]"
+                }`}
               >
                 <Plus size={13} />
-                Add box
+                {dropHint?.targetId === node.id && dropHint?.mode === "slot" ? "Move here" : "Add box"}
               </button>
             </div>
           )}
