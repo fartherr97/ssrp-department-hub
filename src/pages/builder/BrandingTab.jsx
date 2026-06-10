@@ -30,9 +30,10 @@ const COLOR_FIELDS = [
 // the department reads distinctly (not just a re-accented navy).
 const PRESETS = [
   {
-    id: "ssrp-cad",
-    label: "SSRP CAD",
-    colors: { primary: "#3d82f0", hover: "#5a97f5", bg: "#101d31", surface1: "#13233b", surface2: "#192f4d", bodyBg: "#0b1424" },
+    // Hillsborough County Fire Rescue, built around their #d7342a red.
+    id: "hcfr",
+    label: "HCFR",
+    colors: { primary: "#d7342a", hover: "#e25a51", bg: "#211010", surface1: "#291312", surface2: "#3a1b19", bodyBg: "#150807" },
   },
   {
     // Florida Highway Patrol, black & tan.
