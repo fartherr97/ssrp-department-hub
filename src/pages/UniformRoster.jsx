@@ -225,11 +225,20 @@ function OutfitCard({ outfit, canEdit, onEdit, onDelete, onMove, isFirst, isLast
 
       <div className="flex flex-1 flex-col sm:flex-row">
         {outfit.imageUrl && (
-          <img
-            src={outfit.imageUrl}
-            alt={outfit.name}
-            className="h-48 w-full border-b border-white/10 object-cover object-top sm:h-auto sm:max-h-none sm:w-40 sm:border-b-0 sm:border-r"
-          />
+          <a
+            href={outfit.imageUrl}
+            target="_blank"
+            rel="noreferrer"
+            title="Open full size"
+            className="flex shrink-0 items-center justify-center border-b border-white/10 bg-black/30 sm:w-44 sm:border-b-0 sm:border-r"
+          >
+            {/* object-contain so the whole reference photo is always visible */}
+            <img
+              src={outfit.imageUrl}
+              alt={outfit.name}
+              className="max-h-72 w-full object-contain sm:max-h-none"
+            />
+          </a>
         )}
         <div className="min-w-0 flex-1 p-3">
           {items.length === 0 ? (
