@@ -170,6 +170,8 @@ function PageModal({ open, onClose, config, page, onSave }) {
                     ? { tiers: [], notes: "" }
                     : type === "uniforms"
                     ? { outfits: [], notes: "" }
+                    : type === "chain"
+                    ? { root: null, notes: "" }
                     : type === "calendar"
                     ? { events: [] }
                     : { heroTitle: draft.label || "New Page", blocks: [] };
@@ -179,17 +181,20 @@ function PageModal({ open, onClose, config, page, onSave }) {
               <option value="content">Content page (blocks)</option>
               <option value="fleet">Vehicle roster (fleet structure)</option>
               <option value="uniforms">Uniform roster (class structure)</option>
+              <option value="chain">Chain of command (org chart)</option>
               <option value="calendar">Department calendar</option>
             </Select>
           </Field>
         )}
 
-        {(draft.type === "fleet" || draft.type === "calendar" || draft.type === "uniforms") && (
+        {["fleet", "calendar", "uniforms", "chain"].includes(draft.type) && (
           <p className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm text-slate-400">
             {draft.type === "fleet"
               ? "Vehicle roster pages are built on the page itself: add a column per rank or unit, then the vehicles each may use. Editing requires the “Edit main roster” capability."
               : draft.type === "uniforms"
               ? "Uniform roster pages are built on the page itself: a card per uniform with a reference photo and its component numbers/textures. Editing requires the “Edit main roster” capability."
+              : draft.type === "chain"
+              ? "Chain of command pages are built on the page itself: start with the top position, then click boxes to add the ranks below them. Editing requires the “Edit main roster” capability."
               : "Calendar events are added on the page itself. Adding/editing events requires the “Manage calendar” capability (Command and up by default); anyone can mark attendance."}
           </p>
         )}
