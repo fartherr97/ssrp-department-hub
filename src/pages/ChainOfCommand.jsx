@@ -270,7 +270,7 @@ function SlotButton({ title, dragging, valid, hinted, setHint, onDropId, onAdd }
           const id = e.dataTransfer.getData("text/coc-node");
           if (id) onDropId(id);
         }}
-        className={`flex h-[42px] w-44 items-center justify-center gap-1.5 rounded-lg border border-dashed text-xs font-semibold transition ${
+        className={`flex h-[42px] w-44 items-center justify-center gap-1.5 rounded-lg border border-dashed bg-[var(--color-surface-1)] text-xs font-semibold transition ${
           hinted
             ? "border-[var(--color-primary)] bg-[color:var(--color-primary)]/15 text-[var(--color-primary)]"
             : "border-white/25 text-slate-400"
@@ -286,7 +286,7 @@ function SlotButton({ title, dragging, valid, hinted, setHint, onDropId, onAdd }
       type="button"
       onClick={onAdd}
       title={title}
-      className={`press mt-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-dashed transition ${
+      className={`press mt-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-dashed bg-[var(--color-surface-1)] transition ${
         dragging
           ? "border-white/10 text-slate-700"
           : "border-white/25 text-slate-500 hover:border-[color:var(--color-border-strong)] hover:text-[var(--color-primary)]"
@@ -337,12 +337,16 @@ function NodeTree({ node, accent, canEdit, isRoot = true, onEdit, onAddChild, dr
       {showRow && (
         <>
           <span className="h-3 w-px bg-white/15" />
-          <div className="flex items-start">
+          <div className="group/kids flex items-start">
             {canEdit && total > 0 && (
               // Zero-width appendage on the LEFT: adds/drops a box at the
               // front of this row without affecting layout or centering.
               <div className="relative w-0 self-stretch">
-                <div className="absolute right-1 top-2 z-10">
+                <div
+                  className={`absolute right-1 top-2 z-10 transition-opacity ${
+                    dragId ? "opacity-100" : "opacity-0 group-hover/kids:opacity-100"
+                  }`}
+                >
                   <SlotButton
                     title={`Add a box under \u201c${node.title}\u201d (left side)`}
                     dragging={Boolean(dragId)}
@@ -378,7 +382,11 @@ function NodeTree({ node, accent, canEdit, isRoot = true, onEdit, onAddChild, dr
             {canEdit && total > 0 && (
               // Zero-width appendage on the RIGHT: adds/drops at the end.
               <div className="relative w-0 self-stretch">
-                <div className="absolute left-1 top-2 z-10">
+                <div
+                  className={`absolute left-1 top-2 z-10 transition-opacity ${
+                    dragId ? "opacity-100" : "opacity-0 group-hover/kids:opacity-100"
+                  }`}
+                >
                   <SlotButton
                     title={`Add a box under \u201c${node.title}\u201d`}
                     dragging={Boolean(dragId)}
