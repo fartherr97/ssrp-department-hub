@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { Plus, Network, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Plus, Network, ZoomIn, ZoomOut, Maximize2, Minimize2 } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
 import { canEditFleet } from "../lib/permissions.js";
 import { uid } from "../lib/roster.js";
@@ -474,6 +474,18 @@ export default function ChainOfCommand({ page, user }) {
   const [zoom, setZoom] = useState(1);
   const panRef = useRef(null);
   const panState = useRef(null);
+  // Fullscreen the chart canvas via the browser Fullscreen API.
+  const fsRef = useRef(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(document.fullscreenElement === fsRef.current);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else fsRef.current?.requestFullscreen?.();
+  };
   const editingM = useModalData(editing);
 
   // Whether the dragged box may land on `targetId`: not itself, and never
@@ -571,7 +583,12 @@ export default function ChainOfCommand({ page, user }) {
         </Panel>
       ) : (
         <Panel className="relative">
-          {/* Zoom controls */}
+          <div
+            ref={fsRef}
+            className="relative"
+            style={isFullscreen ? { background: "var(--color-body-bg)", padding: "1rem" } : undefined}
+          >
+          {/* Zoom + fullscreen controls */}
           <div className="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-xl border border-white/10 bg-[var(--color-surface-1)]/95 p-1">
             <IconButton
               icon={ZoomOut}
@@ -579,16 +596,25 @@ export default function ChainOfCommand({ page, user }) {
               onClick={() => setZoom((z) => Math.max(0.4, +(z - 0.1).toFixed(2)))}
               className="h-7 w-7"
             />
-            <span className="w-10 text-center text-[11px] font-bold text-slate-400">
+            <button
+              onClick={() => setZoom(1)}
+              title="Reset zoom"
+              className="w-10 text-center text-[11px] font-bold text-slate-400 transition hover:text-white"
+            >
               {Math.round(zoom * 100)}%
-            </span>
+            </button>
             <IconButton
               icon={ZoomIn}
               label="Zoom in"
               onClick={() => setZoom((z) => Math.min(1.5, +(z + 0.1).toFixed(2)))}
               className="h-7 w-7"
             />
-            <IconButton icon={Maximize2} label="Reset zoom" onClick={() => setZoom(1)} className="h-7 w-7" />
+            <IconButton
+              icon={isFullscreen ? Minimize2 : Maximize2}
+              label={isFullscreen ? "Exit full screen" : "Full screen"}
+              onClick={toggleFullscreen}
+              className="h-7 w-7"
+            />
           </div>
 
           {/* Pannable, zoomable chart canvas */}
@@ -612,7 +638,9 @@ export default function ChainOfCommand({ page, user }) {
             }}
             onMouseUp={() => (panState.current = null)}
             onMouseLeave={() => (panState.current = null)}
-            className="max-h-[72vh] cursor-grab overflow-auto p-6 active:cursor-grabbing"
+            className={`cursor-grab overflow-auto p-6 active:cursor-grabbing ${
+              isFullscreen ? "h-full max-h-none" : "max-h-[72vh]"
+            }`}
           >
             <div style={{ zoom }} className="mx-auto w-max">
               <NodeTree
@@ -629,6 +657,7 @@ export default function ChainOfCommand({ page, user }) {
                 dragId={dragId}
               />
             </div>
+          </div>
           </div>
         </Panel>
       )}
