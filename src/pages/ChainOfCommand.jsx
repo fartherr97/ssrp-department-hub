@@ -253,23 +253,44 @@ function MemberColumn({ node, accent }) {
  * there); while a drag is in progress, valid slots expand into "Drop here"
  * targets and invalid ones (inside the dragged branch) stay dim dots.
  */
-function SlotButton({ title, dragging, valid, hinted, setHint, onDropId, onAdd }) {
+function SlotButton({ title, dragging, valid, hinted, setHint, onDropId, onAdd, compact = false }) {
   if (dragging && valid) {
+    const dnd = {
+      onDragOver: (e) => {
+        if (!hasNodeDrag(e)) return;
+        e.preventDefault();
+        if (!hinted) setHint(true);
+      },
+      onDragLeave: () => hinted && setHint(false),
+      onDrop: (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const id = e.dataTransfer.getData("text/coc-node");
+        if (id) onDropId(id);
+      },
+    };
+    // Side slots have no layout width of their own, so they stay small
+    // circles during a drag instead of covering the neighboring boxes.
+    if (compact) {
+      return (
+        <button
+          type="button"
+          title="Drop here"
+          {...dnd}
+          className={`flex h-9 w-9 items-center justify-center rounded-full border border-dashed bg-[var(--color-surface-1)] transition ${
+            hinted
+              ? "scale-110 border-[var(--color-primary)] bg-[color:var(--color-primary)]/20 text-[var(--color-primary)]"
+              : "border-white/30 text-slate-400"
+          }`}
+        >
+          <Plus size={14} />
+        </button>
+      );
+    }
     return (
       <button
         type="button"
-        onDragOver={(e) => {
-          if (!hasNodeDrag(e)) return;
-          e.preventDefault();
-          if (!hinted) setHint(true);
-        }}
-        onDragLeave={() => hinted && setHint(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          const id = e.dataTransfer.getData("text/coc-node");
-          if (id) onDropId(id);
-        }}
+        {...dnd}
         className={`flex h-[42px] w-44 items-center justify-center gap-1.5 rounded-lg border border-dashed bg-[var(--color-surface-1)] text-xs font-semibold transition ${
           hinted
             ? "border-[var(--color-primary)] bg-[color:var(--color-primary)]/15 text-[var(--color-primary)]"
@@ -355,6 +376,7 @@ function NodeTree({ node, accent, canEdit, isRoot = true, onEdit, onAddChild, dr
                     setHint={(on) => setDropHint(on ? { targetId: node.id, mode: "slot-start" } : null)}
                     onDropId={(id) => onDropNode(id, children[0].id, "before")}
                     onAdd={() => onAddChild(node.id, "start")}
+                    compact
                   />
                 </div>
               </div>
@@ -395,6 +417,7 @@ function NodeTree({ node, accent, canEdit, isRoot = true, onEdit, onAddChild, dr
                     setHint={(on) => setDropHint(on ? { targetId: node.id, mode: "slot" } : null)}
                     onDropId={(id) => onDropNode(id, node.id, "child")}
                     onAdd={() => onAddChild(node.id, "end")}
+                    compact
                   />
                 </div>
               </div>
