@@ -209,7 +209,8 @@ function PageModal({ open, onClose, config, page, onSave }) {
           <IconGrid selected={draft.icon} query={iconQuery} onPick={pickIcon} />
         </Field>
 
-        {isContentLike && (
+        {/* Any custom page type can be restricted to chosen groups. */}
+        {["content", "home", "fleet", "uniforms", "chain", "calendar"].includes(draft.type) && (
           <Field label="Who can see this page">
             <div className="grid gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-3">
               <label className="flex items-center gap-2 text-sm text-slate-300">
