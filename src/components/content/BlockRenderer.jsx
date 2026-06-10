@@ -40,7 +40,8 @@ function LinksBlock({ block }) {
   return (
     <Panel className="p-5">
       {block.title && <h3 className="mb-3 text-lg font-semibold text-white">{block.title}</h3>}
-      <div className="grid gap-2 sm:grid-cols-2">
+      {/* auto-fit: links fill whatever width the block has, however many there are */}
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-2">
         {(block.items || []).map((item) => (
           <a
             key={item.id}
@@ -130,7 +131,7 @@ function ColumnsBlock({ block }) {
   return (
     <Panel className="p-5">
       {block.title && <h3 className="mb-3 text-lg font-semibold text-white">{block.title}</h3>}
-      <div className="grid gap-5 sm:grid-cols-2">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-5">
         {[block.left, block.right].map((body, i) => (
           <p key={i} className="whitespace-pre-line text-sm leading-7 text-[var(--color-text-muted)]">
             {body}
@@ -146,7 +147,8 @@ function SpotlightBlock({ block }) {
   return (
     <Panel className="p-5">
       {block.title && <h3 className="mb-3 text-lg font-semibold text-white">{block.title}</h3>}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {/* auto-fit: one person fills the whole block, more share it evenly */}
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3">
         {people.map((p) => (
           <div
             key={p.id}
