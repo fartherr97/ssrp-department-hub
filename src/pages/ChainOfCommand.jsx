@@ -13,8 +13,10 @@ import {
   Input,
   Textarea,
   ColorInput,
+  MediaInput,
   useModalData,
 } from "../components/common/index.jsx";
+import { safeMediaUrl } from "../lib/urls.js";
 
 /*
  * Chain of Command page ("chain"), replacing the org-chart sheets departments
@@ -30,7 +32,7 @@ import {
  */
 
 function newNode(title = "New Position") {
-  return { id: uid("node"), title, name: "", color: "", members: [], children: [] };
+  return { id: uid("node"), title, name: "", color: "", imageUrl: "", members: [], children: [] };
 }
 
 // ── Pure tree helpers (immutable, by node id) ────────────────────────────────
@@ -135,6 +137,13 @@ function NodeTree({ node, accent, canEdit, onEdit, onAddChild }) {
   const children = node.children || [];
   return (
     <div className="flex flex-col items-center">
+      {safeMediaUrl(node.imageUrl) && (
+        <img
+          src={safeMediaUrl(node.imageUrl)}
+          alt={node.title}
+          className="mb-1.5 h-14 w-14 object-contain"
+        />
+      )}
       <NodeCard node={node} accent={accent} canEdit={canEdit} onEdit={onEdit} />
       <MemberColumn node={node} accent={accent} />
       {(children.length > 0 || canEdit) && (
@@ -216,6 +225,16 @@ function NodeModal({ open, onClose, node, isRoot, onSave, onAddChild, onMove, on
         </div>
         <Field label="Box color" hint="Blank uses the page accent.">
           <ColorInput value={draft.color || ""} onChange={(color) => setDraft({ ...draft, color })} />
+        </Field>
+        <Field
+          label="Logo / insignia"
+          hint="Optional, shows above the box, e.g. a subdivision patch or unit badge. Paste a link or upload."
+        >
+          <MediaInput
+            value={draft.imageUrl || ""}
+            maxDim={256}
+            onChange={(imageUrl) => setDraft({ ...draft, imageUrl })}
+          />
         </Field>
         <Field
           label="Member list"
