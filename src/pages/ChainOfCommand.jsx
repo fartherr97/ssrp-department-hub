@@ -131,20 +131,42 @@ function MemberColumn({ node, accent }) {
   );
 }
 
-function NodeTree({ node, accent, canEdit, onEdit }) {
+function NodeTree({ node, accent, canEdit, onEdit, onAddChild }) {
   const children = node.children || [];
   return (
     <div className="flex flex-col items-center">
       <NodeCard node={node} accent={accent} canEdit={canEdit} onEdit={onEdit} />
       <MemberColumn node={node} accent={accent} />
-      {children.length > 0 && (
+      {(children.length > 0 || canEdit) && (
         <div className="mt-1 flex items-start gap-3">
           {children.map((child) => (
             <div key={child.id} className="flex flex-col items-center">
               <ArrowUp size={13} className="my-1 shrink-0 text-slate-500" />
-              <NodeTree node={child} accent={accent} canEdit={canEdit} onEdit={onEdit} />
+              <NodeTree
+                node={child}
+                accent={accent}
+                canEdit={canEdit}
+                onEdit={onEdit}
+                onAddChild={onAddChild}
+              />
             </div>
           ))}
+          {canEdit && (
+            // A dashed slot under every box, so growing the chart is one
+            // obvious click instead of digging through the edit modal.
+            <div className="flex flex-col items-center">
+              <div className="my-1 h-[13px]" />
+              <button
+                type="button"
+                onClick={() => onAddChild(node.id)}
+                title={`Add a box under “${node.title}”`}
+                className="press flex h-[46px] w-44 items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/20 text-xs font-semibold text-slate-500 transition hover:border-[color:var(--color-border-strong)] hover:text-[var(--color-primary)]"
+              >
+                <Plus size={13} />
+                Add box
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -263,6 +285,12 @@ export default function ChainOfCommand({ page, user }) {
     setRoot(addChild(updateNode(root, draft.id, cleanMembers(draft)), draft.id, child));
     setEditing(child);
   }
+  // From the dashed "+ Add box" slots on the chart itself.
+  function addChildTo(nodeId) {
+    const child = newNode();
+    setRoot(addChild(root, nodeId, child));
+    setEditing(child);
+  }
   function move(dir) {
     setRoot(moveNode(root, editing.id, dir));
   }
@@ -275,7 +303,7 @@ export default function ChainOfCommand({ page, user }) {
         subtitle={
           cfg.heroSubtitle ||
           (canEdit
-            ? "Click any box to edit it, add boxes below it, or list members under it."
+            ? "Use the dashed “Add box” slots to grow the chart; click any box to edit it."
             : "Who reports to whom, from the top down.")
         }
         actions={
@@ -320,7 +348,13 @@ export default function ChainOfCommand({ page, user }) {
       ) : (
         <Panel className="overflow-x-auto p-6">
           <div className="flex min-w-max justify-center">
-            <NodeTree node={root} accent={accent} canEdit={canEdit} onEdit={setEditing} />
+            <NodeTree
+              node={root}
+              accent={accent}
+              canEdit={canEdit}
+              onEdit={setEditing}
+              onAddChild={addChildTo}
+            />
           </div>
         </Panel>
       )}

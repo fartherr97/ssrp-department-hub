@@ -643,8 +643,11 @@ export function Modal({ open, onClose, title, children, footer, size = "md" }) {
         open ? "" : "pointer-events-none"
       }`}
     >
+      {/* No backdrop blur here: blurring the whole viewport made every modal
+          (and typing inside it) laggy on weaker GPUs. A darker dim reads
+          nearly the same and costs nothing. */}
       <div
-        className={`fixed inset-0 bg-black/70 backdrop-blur-sm ${
+        className={`fixed inset-0 bg-black/75 ${
           open ? "anim-overlay-in" : "anim-overlay-out"
         }`}
         onClick={onClose}
