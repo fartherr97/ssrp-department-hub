@@ -360,6 +360,35 @@ export function applyPromotion(config, subId, memberIds, { rankId }) {
   );
 }
 
+/*
+ * Discord rank sync. Ranks can carry a `discordRoleId`; when the backend's
+ * Discord bot reports a member's current roles, this maps them to ranks and
+ * updates the member everywhere they appear on the roster. Within a
+ * subdivision, ranks are ordered highest-first, so the first rank whose
+ * Discord role the member holds wins. Rank changes go through applyPromotion,
+ * so promotion-date stamping and callsign formats behave exactly like a
+ * manual promotion. Returns the (possibly unchanged) config.
+ */
+export function syncMemberRanksFromDiscord(config, discordId, roleIds) {
+  if (!discordId) return config;
+  const roles = new Set((roleIds || []).map(String));
+  let next = config;
+  for (const sub of config.roster.subdivisions || []) {
+    const target = (sub.ranks || []).find(
+      (r) => r.discordRoleId && roles.has(String(r.discordRoleId))
+    );
+    if (!target) continue;
+    for (const cat of sub.categories || []) {
+      for (const m of cat.members) {
+        if (m.discordId && String(m.discordId) === String(discordId) && m.rank !== target.id) {
+          next = applyPromotion(next, sub.id, [m.id], { rankId: target.id });
+        }
+      }
+    }
+  }
+  return next;
+}
+
 // ─── Member fields (shared custom columns) ───────────────────────────────────
 
 export function addMemberField(config, field = {}) {

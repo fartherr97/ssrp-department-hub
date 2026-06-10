@@ -511,35 +511,49 @@ function RankTitlesModal({ open, onClose, subId }) {
           Rank titles a member can hold (e.g. Colonel, Captain). The insignia shows
           in the Rank column next to the title. A callsign format like “91##” lets
           the promotion tool hand out the next free callsign (9100, 9101…) automatically.
+          Set a Discord role ID to auto-update members' ranks when the bot sees their
+          Discord roles change (requires the backend bot).
         </p>
         {ranks.map((rt, idx) => (
           <div
             key={rt.id}
-            className="grid grid-cols-[1.2fr_1fr_0.8fr_auto_auto_auto] items-end gap-2 rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-3"
+            className="grid gap-2 rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-3"
           >
-            <Field label="Rank name">
-              <Input
-                value={rt.name}
-                onChange={(e) => mutate(R.updateRank(config, subId, rt.id, { name: e.target.value }))}
-              />
-            </Field>
-            <Field label="Insignia · ~64×64">
-              <MediaInput
-                value={rt.insigniaUrl || ""}
-                maxDim={128}
-                onChange={(insigniaUrl) => mutate(R.updateRank(config, subId, rt.id, { insigniaUrl }))}
-              />
-            </Field>
-            <Field label="Callsign format" hint="# auto-numbers, e.g. 91##">
-              <Input
-                value={rt.callsignFormat || ""}
-                placeholder="91##"
-                onChange={(e) =>
-                  mutate(R.updateRank(config, subId, rt.id, { callsignFormat: e.target.value }))
-                }
-              />
-            </Field>
-            <IconButton
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Rank name">
+                <Input
+                  value={rt.name}
+                  onChange={(e) => mutate(R.updateRank(config, subId, rt.id, { name: e.target.value }))}
+                />
+              </Field>
+              <Field label="Insignia · ~64×64">
+                <MediaInput
+                  value={rt.insigniaUrl || ""}
+                  maxDim={128}
+                  onChange={(insigniaUrl) => mutate(R.updateRank(config, subId, rt.id, { insigniaUrl }))}
+                />
+              </Field>
+            </div>
+            <div className="grid grid-cols-[1fr_1fr_auto_auto_auto] items-end gap-2">
+              <Field label="Callsign format" hint="# auto-numbers, e.g. 91##">
+                <Input
+                  value={rt.callsignFormat || ""}
+                  placeholder="91##"
+                  onChange={(e) =>
+                    mutate(R.updateRank(config, subId, rt.id, { callsignFormat: e.target.value }))
+                  }
+                />
+              </Field>
+              <Field label="Discord role ID" hint="For auto rank sync via the bot.">
+                <Input
+                  value={rt.discordRoleId || ""}
+                  placeholder="000000000000000000"
+                  onChange={(e) =>
+                    mutate(R.updateRank(config, subId, rt.id, { discordRoleId: e.target.value.trim() }))
+                  }
+                />
+              </Field>
+              <IconButton
               icon={ChevronUp}
               label="Move up"
               disabled={idx === 0}
@@ -559,6 +573,7 @@ function RankTitlesModal({ open, onClose, subId }) {
               onClick={() => mutate(R.deleteRank(config, subId, rt.id))}
               className="hover:border-red-500/40 hover:text-red-300"
             />
+            </div>
           </div>
         ))}
         {ranks.length === 0 && <p className="text-sm text-slate-500">No ranks yet.</p>}

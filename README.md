@@ -157,6 +157,30 @@ Log is staff-only, and the Builder Portal needs manage-site. Roster editing is
 gated per-subdivision (main vs. subdivisions). See `src/lib/permissions.js` — the
 backend must re-check capabilities on every protected request, never the client.
 
+### Discord rank sync (bot → roster)
+
+Ranks can carry a `discordRoleId` (set in the Roster page's Ranks editor).
+When the Discord bot sees a member's roles change (`guildMemberUpdate`), it
+should call the backend, which loads the department's config and applies:
+
+```js
+import { syncMemberRanksFromDiscord } from ".../src/lib/roster.js";
+const next = syncMemberRanksFromDiscord(config, discordUserId, currentRoleIds);
+// if next !== config → save it + append an audit entry
+```
+
+Suggested endpoint (bot-authenticated, not session-authenticated):
+
+| Method | Path                | Body                          | Effect                          |
+| ------ | ------------------- | ----------------------------- | ------------------------------- |
+| `POST` | `/api/roster/sync`  | `{ discordId, roleIds: [] }`  | Update that member's rank(s)    |
+
+The helper is pure and already encodes the rules: ranks are ordered
+highest-first, the first rank whose Discord role the member holds wins, and a
+rank change runs through the same promotion pipeline as the UI (promotion-date
+stamping per the Time in Grade setting, callsign auto-assignment from the
+rank's callsign format). Members are matched by `member.discordId`.
+
 ### Environment
 
 See `.env.example` for the Discord OAuth, MariaDB, and session variables the
