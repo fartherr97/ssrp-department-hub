@@ -4,7 +4,7 @@ import Logo from "../components/common/Logo.jsx";
 import { BrandName } from "../components/common/index.jsx";
 import { getIcon } from "../lib/icons.js";
 import { buildNav } from "../lib/navigation.js";
-import { userAvatar, userRoleLabel } from "../lib/user.js";
+import { userAvatar, userDisplayName, userRoleLabel } from "../lib/user.js";
 
 // ─── Account chip (top-right) ────────────────────────────────────────────────
 
@@ -23,11 +23,11 @@ function AccountMenu({ user, config, open, setOpen, onLogout }) {
         <img
           src={userAvatar(user)}
           className="h-8 w-8 rounded-full border border-white/10 object-cover"
-          alt={user.username}
+          alt={userDisplayName(user)}
         />
         <div className="hidden min-w-0 text-left sm:block">
           <div className="max-w-[160px] truncate text-sm font-semibold leading-tight text-white">
-            {user.username}
+            {userDisplayName(user)}
           </div>
           <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-primary)]">
             {role}
@@ -39,7 +39,7 @@ function AccountMenu({ user, config, open, setOpen, onLogout }) {
       {open && (
         <div className="hub-menu hub-menu-floating anim-dropdown-in absolute right-0 top-full z-50 mt-2 min-w-[230px] p-2">
           <div className="px-3 py-2">
-            <div className="truncate text-sm font-semibold text-white">{user.username}</div>
+            <div className="truncate text-sm font-semibold text-white">{userDisplayName(user)}</div>
             <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-primary)]">
               {role}
             </div>

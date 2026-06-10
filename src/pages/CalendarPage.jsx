@@ -340,13 +340,16 @@ export default function CalendarPage({ page, user }) {
       location: "",
       title: "",
       description: "",
-      createdBy: user?.username || "",
+      createdBy: user?.displayName || user?.globalName || user?.username || "",
       attendees: [],
       isNew: true,
     });
   }
   function toggleAttend(eventId) {
     if (!user?.id) return;
+    // Prefer the SSRP guild nickname (displayName, provided by the backend's
+    // /auth/me) over the global Discord username.
+    const name = user.displayName || user.globalName || user.username || "Member";
     setEvents(
       events.map((e) => {
         if (e.id !== eventId) return e;
@@ -356,7 +359,7 @@ export default function CalendarPage({ page, user }) {
           ...e,
           attendees: mine
             ? attendees.filter((a) => a.id !== user.id)
-            : [...attendees, { id: user.id, name: user.username || "Member" }],
+            : [...attendees, { id: user.id, name }],
         };
       })
     );

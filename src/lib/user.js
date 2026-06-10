@@ -13,6 +13,12 @@ export function userAvatar(user) {
   return "https://cdn.discordapp.com/embed/avatars/0.png";
 }
 
+// The name to show for a user: SSRP guild nickname first, then Discord
+// global display name, then username.
+export function userDisplayName(user) {
+  return user?.displayName || user?.globalName || user?.username || "Member";
+}
+
 export function userRoleLabel(user, config) {
   if (!user) return "";
   // Not in any permission group — a regular view-only member.

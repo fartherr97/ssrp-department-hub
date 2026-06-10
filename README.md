@@ -145,11 +145,16 @@ shaped like:
 {
   "id": "discordUserId",
   "username": "Name",
+  "displayName": "Guild Nick",  // the member's nickname in the SSRP guild
+                                 // (member.nick → global display name → username)
   "avatar": "avatarHash",   // or avatarUrl
   "group": "command",       // highest matching mapped group
   "isAdmin": false
 }
 ```
+
+The front-end shows `displayName` wherever a human name appears (e.g. calendar
+attendance), falling back to `username`.
 
 Content pages are viewable by any signed-in member. The Administration pages are
 gated: Access & Roles needs manage-access (or being a group manager), the Audit
