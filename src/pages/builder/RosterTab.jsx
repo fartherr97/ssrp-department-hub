@@ -343,7 +343,7 @@ export default function RosterTab() {
       <Panel className="p-5">
         <SectionHeader
           title="Department statistics"
-          subtitle="The metrics panel above the roster, computed over the active subdivision. Roster editors can also adjust this from the roster itself (the Stats button)."
+          subtitle="The metrics panel above the roster, computed over the active subdivision. Roster editors can also adjust this from the roster itself (Manage → Statistics)."
         />
         <StatsEditor />
       </Panel>

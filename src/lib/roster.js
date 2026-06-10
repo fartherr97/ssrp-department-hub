@@ -153,6 +153,7 @@ export function addMember(config, subId, categoryId, member = {}) {
     discordId: member.discordId || "",
     avatarUrl: member.avatarUrl || "",
     fields: member.fields || {},
+    ...(member.loa ? { loa: member.loa } : {}),
   };
   return mapCategories(config, subId, (cats) =>
     cats.map((c) => (c.id === categoryId ? { ...c, members: [...c.members, newMember] } : c))
@@ -328,13 +329,14 @@ function makeCallsignGenerator(format, used) {
  * date to today, and, if the target rank has a callsignFormat, hand each one
  * the next free callsign.
  */
-export function applyPromotion(config, subId, memberIds, { rankId }) {
+export function applyPromotion(config, subId, memberIds, { rankId, probationUntil = "" }) {
   const ids = new Set(memberIds);
   const sub = findSubdivision(config, subId);
   if (!sub || !rankId) return config;
   const rank = (sub.ranks || []).find((r) => r.id === rankId);
   const promoId = promotionDateFieldId(config);
   const csId = callsignFieldId(config);
+  const probId = probationUntil ? probationFieldId(config) : null;
 
   // Callsigns already taken in this subdivision (selected members give theirs up).
   const used = new Set();
@@ -354,6 +356,7 @@ export function applyPromotion(config, subId, memberIds, { rankId }) {
         if (!ids.has(m.id)) return m;
         const fields = { ...(m.fields || {}) };
         if (promoId && tenureResetsOn(config, "rank")) fields[promoId] = todayISO();
+        if (probId) fields[probId] = probationUntil;
         if (nextCallsign) {
           const cs = nextCallsign();
           if (cs) fields[csId] = cs;
@@ -362,6 +365,201 @@ export function applyPromotion(config, subId, memberIds, { rankId }) {
       }),
     }))
   );
+}
+
+// ── Column auto-detection (probation / hire date / status / notes) ──────────
+
+export function probationFieldId(config) {
+  return (config.roster.memberFields || []).find(
+    (f) => f.type === "date" && /probation/i.test(`${f.label} ${f.id}`)
+  )?.id || null;
+}
+
+export function hireDateFieldId(config) {
+  return (config.roster.memberFields || []).find(
+    (f) => f.type === "date" && /hire|entry|join|start/i.test(`${f.label} ${f.id}`)
+  )?.id || null;
+}
+
+export function statusFieldId(config) {
+  const fields = config.roster.memberFields || [];
+  return (
+    fields.find((f) => f.type === "select" && /status|activity/i.test(`${f.label} ${f.id}`)) ||
+    fields.find((f) => f.type === "select")
+  )?.id || null;
+}
+
+export function notesFieldId(config) {
+  return (config.roster.memberFields || []).find(
+    (f) => f.type === "text" && /note/i.test(`${f.label} ${f.id}`)
+  )?.id || null;
+}
+
+export const isLoaValue = (v) => /loa|leave/i.test(String(v || ""));
+
+// The next free callsign for a rank's format (or null), used when hiring.
+export function nextCallsignFor(config, subId, rankId) {
+  const csId = callsignFieldId(config);
+  const sub = findSubdivision(config, subId);
+  const rank = (sub?.ranks || []).find((r) => r.id === rankId);
+  if (!csId || !rank?.callsignFormat) return null;
+  const used = new Set();
+  for (const c of sub.categories || []) {
+    for (const m of c.members) if (m.fields?.[csId]) used.add(String(m.fields[csId]));
+  }
+  return makeCallsignGenerator(rank.callsignFormat, used)?.() ?? null;
+}
+
+// ── LOA bookkeeping ──────────────────────────────────────────────────────────
+// Going on LOA stores the return date + prior status on the member and writes
+// a structured note into the notes column (if one exists); coming off LOA
+// removes both. The note pattern is ours, so we can strip it cleanly.
+
+const LOA_NOTE = /\s*\[LOA until [^\]]*\]/g;
+
+export function withLoaTransition(config, member, prevFields = member.fields || {}) {
+  const statusId = statusFieldId(config);
+  if (!statusId) return member;
+  const notesId = notesFieldId(config);
+  const fields = { ...(member.fields || {}) };
+  const nowLoa = isLoaValue(fields[statusId]);
+  const wasLoa = isLoaValue(prevFields[statusId]);
+  let next = { ...member, fields };
+
+  if (notesId) fields[notesId] = String(fields[notesId] || "").replace(LOA_NOTE, "").trim();
+
+  if (nowLoa) {
+    const loa = {
+      returnDate: member.loa?.returnDate || "",
+      prev: wasLoa ? member.loa?.prev || "" : prevFields[statusId] || "",
+    };
+    next.loa = loa;
+    if (notesId) {
+      const until = loa.returnDate || "Indefinite";
+      const prior = loa.prev ? ` | Prior: ${loa.prev}` : "";
+      fields[notesId] = `${fields[notesId] ? fields[notesId] + " " : ""}[LOA until ${until}${prior}]`;
+    }
+  } else if (next.loa) {
+    const { loa, ...rest } = next;
+    next = rest;
+  }
+  return next;
+}
+
+// ── Bulk actions (operate on selected members within one subdivision) ───────
+
+export function bulkSetFields(config, subId, memberIds, patch) {
+  const ids = new Set(memberIds);
+  return mapCategories(config, subId, (cats) =>
+    cats.map((c) => ({
+      ...c,
+      members: c.members.map((m) =>
+        ids.has(m.id) ? { ...m, fields: { ...(m.fields || {}), ...patch } } : m
+      ),
+    }))
+  );
+}
+
+export function bulkSetStatus(config, subId, memberIds, value) {
+  const statusId = statusFieldId(config);
+  if (!statusId) return config;
+  const ids = new Set(memberIds);
+  return mapCategories(config, subId, (cats) =>
+    cats.map((c) => ({
+      ...c,
+      members: c.members.map((m) => {
+        if (!ids.has(m.id)) return m;
+        const prevFields = m.fields || {};
+        return withLoaTransition(
+          config,
+          { ...m, fields: { ...prevFields, [statusId]: value } },
+          prevFields
+        );
+      }),
+    }))
+  );
+}
+
+// ── Terminations ─────────────────────────────────────────────────────────────
+// "Fire" removes the person from EVERY subdivision (matched by Discord ID when
+// set, else just that entry) and archives a snapshot so Overturn/reinstate can
+// restore name, rank, fields, and subdivision memberships.
+
+const TERMINATION_LIMIT = 300;
+
+export function terminateMember(config, memberId, { by = "" } = {}) {
+  let target = null;
+  for (const sub of config.roster.subdivisions || []) {
+    for (const cat of sub.categories || []) {
+      const hit = cat.members.find((m) => m.id === memberId);
+      if (hit) target = hit;
+    }
+  }
+  if (!target) return config;
+  const matches = (m) =>
+    m.id === memberId || (target.discordId && m.discordId === target.discordId);
+
+  const entries = [];
+  const subdivisions = (config.roster.subdivisions || []).map((sub) => ({
+    ...sub,
+    categories: (sub.categories || []).map((cat) => ({
+      ...cat,
+      members: cat.members.filter((m) => {
+        if (!matches(m)) return true;
+        entries.push({ subId: sub.id, subName: sub.name, catId: cat.id, catName: cat.name, member: m });
+        return false;
+      }),
+    })),
+  }));
+  if (!entries.length) return config;
+
+  const record = {
+    id: uid("term"),
+    name: target.name || "Unknown",
+    discordId: target.discordId || "",
+    at: new Date().toISOString(),
+    by,
+    entries,
+  };
+  const terminations = [record, ...(config.roster.terminations || [])].slice(0, TERMINATION_LIMIT);
+  return { ...config, roster: { ...config.roster, subdivisions, terminations } };
+}
+
+// Overturn: put every archived entry back (falling back to the subdivision's
+// first category, or skipping subdivisions that no longer exist).
+export function reinstateTermination(config, recordId) {
+  const record = (config.roster.terminations || []).find((r) => r.id === recordId);
+  if (!record) return config;
+  let next = config;
+  for (const entry of record.entries || []) {
+    const sub = findSubdivision(next, entry.subId);
+    if (!sub) continue;
+    const cat =
+      (sub.categories || []).find((c) => c.id === entry.catId) || (sub.categories || [])[0];
+    if (!cat) continue;
+    next = mapCategories(next, sub.id, (cats) =>
+      cats.map((c) =>
+        c.id === cat.id ? { ...c, members: [...c.members, entry.member] } : c
+      )
+    );
+  }
+  return {
+    ...next,
+    roster: {
+      ...next.roster,
+      terminations: (next.roster.terminations || []).filter((r) => r.id !== recordId),
+    },
+  };
+}
+
+export function deleteTermination(config, recordId) {
+  return {
+    ...config,
+    roster: {
+      ...config.roster,
+      terminations: (config.roster.terminations || []).filter((r) => r.id !== recordId),
+    },
+  };
 }
 
 /*

@@ -18,11 +18,15 @@ import {
   SlidersHorizontal,
   Undo2,
   Copy,
+  Archive,
+  RotateCcw,
+  UserX,
+  Wrench,
 } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
 import { canEditSubdivision, canEditRosterStructure } from "../lib/permissions.js";
 import { getSubPagePath, buildSubPath } from "../lib/navigation.js";
-import { initials } from "../lib/user.js";
+import { initials, userDisplayName } from "../lib/user.js";
 import {
   Button,
   IconButton,
@@ -340,7 +344,7 @@ function DiscordIdChip({ id }) {
 
 // ─── Member edit modal ───────────────────────────────────────────────────────
 
-function MemberModal({ open, onClose, fields, categories, rankTitles, categoryId, member, onSave }) {
+function MemberModal({ open, onClose, fields, categories, rankTitles, categoryId, member, onSave, onTerminate }) {
   const [draft, setDraft] = useState(member);
   const [targetCat, setTargetCat] = useState(categoryId);
 
@@ -360,6 +364,17 @@ function MemberModal({ open, onClose, fields, categories, rankTitles, categoryId
       title={member.isNew ? "Add member" : "Edit member"}
       footer={
         <>
+          {!member.isNew && onTerminate && (
+            <Button
+              variant="danger"
+              icon={UserX}
+              className="mr-auto"
+              title="Remove from every subdivision and archive to the Termination Roster"
+              onClick={() => onTerminate(member)}
+            >
+              Terminate
+            </Button>
+          )}
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
@@ -465,6 +480,27 @@ function MemberModal({ open, onClose, fields, categories, rankTitles, categoryId
           );
         })}
 
+        {(() => {
+          // Going on LOA: capture the return date (prior status + the roster
+          // note are handled automatically on save).
+          const sf = findStatusField(fields);
+          if (!sf || !R.isLoaValue(draft.fields?.[sf.id])) return null;
+          return (
+            <Field
+              label="LOA return date"
+              hint="Optional. Their prior status is stored and a roster note is written automatically."
+            >
+              <Input
+                type="date"
+                value={draft.loa?.returnDate || ""}
+                onChange={(e) =>
+                  setDraft((d) => ({ ...d, loa: { ...(d.loa || {}), returnDate: e.target.value } }))
+                }
+              />
+            </Field>
+          );
+        })()}
+
         <Field label="Category" hint="Move this member to a different category.">
           <Select value={targetCat} onChange={(e) => setTargetCat(e.target.value)}>
             {categories.map((c) => (
@@ -544,22 +580,12 @@ function CategoryModal({ open, onClose, category, onSave }) {
 
 // ─── Rank titles manager (Colonel, Captain… shown in the Rank column) ────────
 
-function RankTitlesModal({ open, onClose, subId }) {
+function RanksEditor({ subId }) {
   const { config, mutate } = useConfig();
   const sub = R.findSubdivision(config, subId);
   const ranks = sub?.ranks || [];
 
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title={`Ranks, ${sub?.name || ""}`}
-      footer={
-        <Button variant="secondary" onClick={onClose}>
-          Done
-        </Button>
-      }
-    >
       <div className="grid gap-3">
         <p className="text-sm text-slate-400">
           Rank titles a member can hold (e.g. Colonel, Captain). The insignia shows
@@ -641,7 +667,6 @@ function RankTitlesModal({ open, onClose, subId }) {
           Add rank
         </Button>
       </div>
-    </Modal>
   );
 }
 
@@ -673,21 +698,11 @@ function SubdivisionModal({ open, onClose, subdivision, onSave }) {
 
 // ─── Columns (shared member fields) editor ───────────────────────────────────
 
-function ColumnsModal({ open, onClose }) {
+function ColumnsEditor() {
   const { config, mutate } = useConfig();
   const fields = config.roster.memberFields || [];
 
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="Roster columns"
-      footer={
-        <Button variant="secondary" onClick={onClose}>
-          Done
-        </Button>
-      }
-    >
       <div className="grid gap-3">
         <p className="text-sm text-slate-400">
           Custom fields shown for every member, across all subdivisions.
@@ -800,6 +815,156 @@ function ColumnsModal({ open, onClose }) {
           Add column
         </Button>
       </div>
+  );
+}
+
+// ─── Termination roster (fired members archive + reinstate) ─────────────────
+
+function TerminationsBody({ onReinstated }) {
+  const { config, mutate } = useConfig();
+  const records = config.roster.terminations || [];
+  const [confirmDel, setConfirmDel] = useState(null);
+
+  return (
+    <div>
+      <p className="mb-3 text-sm text-slate-400">
+        Members terminated from the roster are archived here with their rank, fields, and
+        subdivision memberships. Overturn restores everything exactly as it was.
+      </p>
+      {records.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-slate-500">
+          No terminations on record.
+        </p>
+      ) : (
+        <div className="grid gap-2">
+          {records.map((r) => (
+            <div
+              key={r.id}
+              className="flex flex-wrap items-center gap-3 rounded-xl border border-white/10 bg-[var(--color-surface-2)] px-3 py-2.5"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-semibold text-white">{r.name}</div>
+                <div className="truncate text-xs text-slate-500">
+                  {formatDate((r.at || "").slice(0, 10))}
+                  {r.by ? ` · by ${r.by}` : ""}
+                  {" · "}
+                  {(r.entries || []).map((e) => e.subName).join(", ")}
+                  {r.discordId ? ` · ${r.discordId}` : ""}
+                </div>
+              </div>
+              <Button
+                variant="secondary"
+                icon={RotateCcw}
+                className="!py-1.5 text-xs"
+                onClick={() => {
+                  mutate(R.reinstateTermination(config, r.id));
+                  onReinstated?.(`${r.name} reinstated`);
+                }}
+              >
+                Overturn
+              </Button>
+              <IconButton
+                icon={Trash2}
+                label="Delete record permanently"
+                onClick={() => setConfirmDel(r)}
+                className="hover:border-red-500/40 hover:text-red-300"
+              />
+            </div>
+          ))}
+        </div>
+      )}
+      <ConfirmDialog
+        open={Boolean(confirmDel)}
+        title="Delete termination record?"
+        message={`Permanently delete the record for "${confirmDel?.name}"? They can no longer be reinstated from the archive.`}
+        confirmLabel="Delete record"
+        onCancel={() => setConfirmDel(null)}
+        onConfirm={() => {
+          mutate(R.deleteTermination(config, confirmDel.id));
+          setConfirmDel(null);
+        }}
+      />
+    </div>
+  );
+}
+
+// ─── Roster Controller, one tabbed modal for all roster management ──────────
+
+const CONTROLLER_TABS = [
+  { id: "ranks", label: "Ranks", icon: Award },
+  { id: "columns", label: "Columns", icon: Columns3 },
+  { id: "stats", label: "Statistics", icon: BarChart3 },
+  { id: "terminations", label: "Terminations", icon: Archive },
+];
+
+function RosterControllerModal({ open, onClose, initialTab = "ranks", initialSubId, statsSubId, onToast }) {
+  const { config } = useConfig();
+  const [tab, setTab] = useState(initialTab);
+  const subdivisions = config.roster.subdivisions || [];
+  const [subId, setSubId] = useState(initialSubId || subdivisions[0]?.id);
+  const sub = subdivisions.find((x) => x.id === subId) || subdivisions[0];
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Roster controller"
+      size="xl"
+      footer={
+        <Button variant="secondary" onClick={onClose}>
+          Done
+        </Button>
+      }
+    >
+      <div className="mb-4 flex gap-1.5 overflow-x-auto rounded-xl border border-white/10 bg-white/[0.02] p-1">
+        {CONTROLLER_TABS.map((t) => {
+          const Icon = t.icon;
+          const active = tab === t.id;
+          return (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                active
+                  ? "bg-[color:var(--color-primary)]/18 text-white"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              <Icon size={13} className={active ? "text-[var(--color-primary)]" : ""} />
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {tab === "ranks" && (
+        <div className="grid gap-3">
+          {subdivisions.length > 1 && (
+            <Field label="Subdivision">
+              <Select value={sub?.id || ""} onChange={(e) => setSubId(e.target.value)} className="max-w-xs">
+                {subdivisions.map((x) => (
+                  <option key={x.id} value={x.id}>
+                    {x.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
+          {sub && <RanksEditor subId={sub.id} />}
+        </div>
+      )}
+      {tab === "columns" && <ColumnsEditor />}
+      {tab === "stats" && (
+        <div>
+          <p className="mb-4 text-sm text-slate-400">
+            Choose what the statistics panel displays. Metrics are computed over the
+            subdivision being viewed; changes apply instantly. By default every subdivision
+            shares one panel, or give one its own below.
+          </p>
+          <StatsEditor subId={statsSubId} />
+        </div>
+      )}
+      {tab === "terminations" && <TerminationsBody onReinstated={onToast} />}
     </Modal>
   );
 }
@@ -1207,6 +1372,8 @@ export default function Roster({ user, page }) {
   const fields = config.roster.memberFields || [];
   const subdivisions = config.roster.subdivisions || [];
   const statusField = findStatusField(fields);
+  const probationId = R.probationFieldId(config);
+  const certBulkFields = fields.filter((f) => f.type === "cert" || f.type === "checkbox");
   const pageId = page?.id || "roster";
 
   // Subdivision tabs are routable: /roster/sub-xyz.
@@ -1251,9 +1418,8 @@ export default function Roster({ user, page }) {
   const [memberModal, setMemberModal] = useState(null);
   const [categoryModal, setCategoryModal] = useState(null);
   const [subModal, setSubModal] = useState(null);
-  const [columnsOpen, setColumnsOpen] = useState(false);
-  const [statsOpen, setStatsOpen] = useState(false);
-  const [rankTitlesSubId, setRankTitlesSubId] = useState(null);
+  // One tabbed controller for ranks / columns / stats / terminations.
+  const [controller, setController] = useState(null); // { tab, subId? }
   const [confirm, setConfirm] = useState(null);
   const [dragOverCat, setDragOverCat] = useState(null);
   // The row a dragged member would land before (insertion indicator).
@@ -1261,7 +1427,12 @@ export default function Roster({ user, page }) {
   // Mass promotion/demotion: selected member ids (within one subdivision).
   const [selected, setSelected] = useState(() => new Set());
   const [selSubId, setSelSubId] = useState(null);
-  const [promoRank, setPromoRank] = useState("");
+  const [bulkAction, setBulkAction] = useState("rank");
+  const [bulkRank, setBulkRank] = useState("");
+  const [bulkProb, setBulkProb] = useState(""); // optional probation with promote
+  const [bulkStatus, setBulkStatus] = useState("");
+  const [bulkCert, setBulkCert] = useState("");
+  const [bulkDate, setBulkDate] = useState(""); // probation action date
   const { toast, show } = useToast();
 
   // Status counts for the summary pills (across the whole active subdivision).
@@ -1319,7 +1490,23 @@ export default function Roster({ user, page }) {
           fields = { ...fields, [promoId]: new Date().toISOString().slice(0, 10) };
         }
       }
-      const next0 = { ...clean, fields };
+      // Hire automation: new members get today's date in the hire/entry
+      // column and the next free callsign for their rank's format.
+      if (isNew) {
+        const hireId = R.hireDateFieldId(cfg);
+        if (hireId && !fields[hireId]) {
+          fields = { ...fields, [hireId]: new Date().toISOString().slice(0, 10) };
+        }
+        const csId = R.callsignFieldId(cfg);
+        if (csId && !fields[csId] && clean.rank) {
+          const cs = R.nextCallsignFor(cfg, mSub, clean.rank);
+          if (cs) fields = { ...fields, [csId]: cs };
+        }
+      }
+      // LOA bookkeeping: going on LOA stores return date + prior status and
+      // writes the roster note; coming off LOA cleans both up.
+      let next0 = R.withLoaTransition(cfg, { ...clean, fields }, orig.fields || {});
+      if (!next0.loa) next0 = { ...next0, loa: undefined };
       if (isNew) return R.addMember(cfg, mSub, categoryId, next0);
       let next = R.updateMember(cfg, mSub, categoryId, next0.id, next0);
       if (catChanged) {
@@ -1439,16 +1626,32 @@ export default function Roster({ user, page }) {
     });
   }
   const selSub = subdivisions.find((s) => s.id === selSubId);
-  function runPromotion() {
-    const rank = (selSub?.ranks || []).find((r) => r.id === promoRank);
-    mutate((cfg) => R.applyPromotion(cfg, selSubId, [...selected], { rankId: promoRank }));
-    show(
-      `${selected.size} member${selected.size === 1 ? "" : "s"} set to ${rank?.name || "new rank"}${
-        rank?.callsignFormat ? ", callsigns & promotion dates updated" : ", promotion dates updated"
-      }`
-    );
+  function runBulk() {
+    const ids = [...selected];
+    const n = ids.length;
+    const certLabel = fields.find((f) => f.id === bulkCert)?.label || "certification";
+    if (bulkAction === "rank") {
+      const rank = (selSub?.ranks || []).find((r) => r.id === bulkRank);
+      mutate((cfg) => R.applyPromotion(cfg, selSubId, ids, { rankId: bulkRank, probationUntil: bulkProb }));
+      show(
+        `${n} member${n === 1 ? "" : "s"} set to ${rank?.name || "new rank"}` +
+          `${rank?.callsignFormat ? ", callsigns updated" : ""}${bulkProb ? ", probation set" : ""}`
+      );
+    } else if (bulkAction === "status") {
+      mutate((cfg) => R.bulkSetStatus(cfg, selSubId, ids, bulkStatus));
+      show(`${n} member${n === 1 ? "" : "s"} set to ${bulkStatus}`);
+    } else if (bulkAction === "cert-grant" || bulkAction === "cert-revoke") {
+      const grant = bulkAction === "cert-grant";
+      mutate((cfg) => R.bulkSetFields(cfg, selSubId, ids, { [bulkCert]: grant }));
+      show(`${certLabel} ${grant ? "granted to" : "revoked from"} ${n} member${n === 1 ? "" : "s"}`);
+    } else if (bulkAction === "probation") {
+      mutate((cfg) => R.bulkSetFields(cfg, selSubId, ids, { [probationId]: bulkDate }));
+      show(`Probation set for ${n} member${n === 1 ? "" : "s"}`);
+    } else if (bulkAction === "probation-clear") {
+      mutate((cfg) => R.bulkSetFields(cfg, selSubId, ids, { [probationId]: "" }));
+      show(`Probation cleared for ${n} member${n === 1 ? "" : "s"}`);
+    }
     setSelected(new Set());
-    setPromoRank("");
   }
 
   // Shared SubRoster wiring (same handlers for both layouts). `canEdit` is
@@ -1481,7 +1684,7 @@ export default function Roster({ user, page }) {
   const memberM = useModalData(memberModal);
   const categoryM = useModalData(categoryModal);
   const subM = useModalData(subModal);
-  const rankTitlesM = useModalData(rankTitlesSubId);
+  const controllerM = useModalData(controller);
   const modalSub = memberM.data
     ? subdivisions.find((s) => s.id === memberM.data.subId)
     : null;
@@ -1516,24 +1719,19 @@ export default function Roster({ user, page }) {
                 Undo
               </Button>
               {canEditStructure && (
-                <>
-                  <Button variant="secondary" icon={Columns3} onClick={() => setColumnsOpen(true)}>
-                    Columns
-                  </Button>
-                  <Button variant="secondary" icon={BarChart3} onClick={() => setStatsOpen(true)}>
-                    Stats
-                  </Button>
-                </>
+                <Button
+                  variant="secondary"
+                  icon={Wrench}
+                  onClick={() => setController({ tab: "ranks", subId })}
+                  title="Ranks, columns, statistics, and terminations in one place"
+                >
+                  Manage
+                </Button>
               )}
               {layout === "tabs" && subId && canEditActive && (
-                <>
-                  <Button variant="secondary" icon={Award} onClick={() => setRankTitlesSubId(subId)}>
-                    Add rank
-                  </Button>
-                  <Button icon={Plus} onClick={() => openAddCategory(subId)}>
-                    Add category
-                  </Button>
-                </>
+                <Button icon={Plus} onClick={() => openAddCategory(subId)}>
+                  Add category
+                </Button>
               )}
             </>
           )
@@ -1563,7 +1761,7 @@ export default function Roster({ user, page }) {
             statusField={statusField}
             accent={accent}
             canEdit={canEditStructure}
-            onEdit={() => setStatsOpen(true)}
+            onEdit={() => setController({ tab: "stats" })}
           />
 
           {/* Summary + controls */}
@@ -1651,7 +1849,7 @@ export default function Roster({ user, page }) {
             statusField={statusField}
             accent="var(--color-primary)"
             canEdit={canEditStructure}
-            onEdit={() => setStatsOpen(true)}
+            onEdit={() => setController({ tab: "stats" })}
           />
 
           <div className="grid gap-4 lg:grid-cols-2">
@@ -1692,7 +1890,7 @@ export default function Roster({ user, page }) {
                             <IconButton
                               icon={Award}
                               label="Manage ranks"
-                              onClick={() => setRankTitlesSubId(s.id)}
+                              onClick={() => setController({ tab: "ranks", subId: s.id })}
                               className="h-7 w-7"
                             />
                             <IconButton
@@ -1754,42 +1952,97 @@ export default function Roster({ user, page }) {
 
       <Toast message={toast} />
 
-      {/* Promotion / demotion bar, appears when members are selected */}
+      {/* Bulk action bar, appears when members are selected */}
       {selected.size > 0 && selSub && canEditSubdivision(user, config, selSub) && (
-        <div className="fixed bottom-6 left-1/2 z-[90] w-[min(94vw,640px)] -translate-x-1/2">
+        <div className="fixed bottom-6 left-1/2 z-[90] w-[min(94vw,760px)] -translate-x-1/2">
           <Panel className="flex flex-wrap items-center gap-2 p-3 shadow-2xl shadow-black/60">
             <span className="rounded-full bg-[color:var(--color-primary)]/15 px-3 py-1 text-sm font-bold text-white">
               {selected.size} selected
             </span>
-            <Select
-              value={promoRank}
-              onChange={(e) => setPromoRank(e.target.value)}
-              className="w-48"
-              placeholder="Choose new rank…"
-            >
-              <option value="">Choose new rank…</option>
-              {(selSub.ranks || []).map((rt) => (
-                <option key={rt.id} value={rt.id}>
-                  {rt.name}
-                </option>
-              ))}
+            <Select value={bulkAction} onChange={(e) => setBulkAction(e.target.value)} className="w-44">
+              <option value="rank">Promote / Demote</option>
+              {statusField && <option value="status">Set activity status</option>}
+              {certBulkFields.length > 0 && <option value="cert-grant">Grant certification</option>}
+              {certBulkFields.length > 0 && <option value="cert-revoke">Revoke certification</option>}
+              {probationId && <option value="probation">Set probation</option>}
+              {probationId && <option value="probation-clear">Clear probation</option>}
             </Select>
-            <Button disabled={!promoRank} onClick={runPromotion}>
-              Promote / Demote
-            </Button>
+
+            {bulkAction === "rank" && (
+              <>
+                <Select value={bulkRank} onChange={(e) => setBulkRank(e.target.value)} className="w-44">
+                  <option value="">Choose new rank…</option>
+                  {(selSub.ranks || []).map((rt) => (
+                    <option key={rt.id} value={rt.id}>
+                      {rt.name}
+                    </option>
+                  ))}
+                </Select>
+                {probationId && (
+                  <Input
+                    type="date"
+                    value={bulkProb}
+                    onChange={(e) => setBulkProb(e.target.value)}
+                    title="Optional: also place them on probation until this date"
+                    className="w-40"
+                  />
+                )}
+              </>
+            )}
+            {bulkAction === "status" && (
+              <Select value={bulkStatus} onChange={(e) => setBulkStatus(e.target.value)} className="w-40">
+                <option value="">Choose status…</option>
+                {(statusField?.options || []).map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
+                ))}
+              </Select>
+            )}
+            {(bulkAction === "cert-grant" || bulkAction === "cert-revoke") && (
+              <Select value={bulkCert} onChange={(e) => setBulkCert(e.target.value)} className="w-44">
+                <option value="">Choose certification…</option>
+                {certBulkFields.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.label}
+                  </option>
+                ))}
+              </Select>
+            )}
+            {bulkAction === "probation" && (
+              <Input
+                type="date"
+                value={bulkDate}
+                onChange={(e) => setBulkDate(e.target.value)}
+                className="w-40"
+              />
+            )}
+
             <Button
-              variant="ghost"
-              onClick={() => {
-                setSelected(new Set());
-                setPromoRank("");
-              }}
+              disabled={
+                (bulkAction === "rank" && !bulkRank) ||
+                (bulkAction === "status" && !bulkStatus) ||
+                ((bulkAction === "cert-grant" || bulkAction === "cert-revoke") && !bulkCert) ||
+                (bulkAction === "probation" && !bulkDate)
+              }
+              onClick={runBulk}
             >
+              Apply
+            </Button>
+            <Button variant="ghost" onClick={() => setSelected(new Set())}>
               Clear
             </Button>
             <p className="w-full text-[11px] text-slate-500">
-              Sets the new rank, updates Date of Promotion per your Time in Grade “resets
-              when” setting, and auto-assigns callsigns when the rank has a callsign format
-              (set in Ranks).
+              {bulkAction === "rank"
+                ? "Sets the new rank, updates Date of Promotion per your Time in Grade setting, auto-assigns callsigns from the rank's format" +
+                  (probationId ? ", and optionally places them on probation." : ".")
+                : bulkAction === "status"
+                ? "Updates everyone's activity status. LOA stores their prior status and notes it automatically."
+                : bulkAction === "probation"
+                ? "Writes the date into the probation column for everyone selected."
+                : bulkAction === "probation-clear"
+                ? "Empties the probation column for everyone selected."
+                : "Toggles the chosen certification for everyone selected."}
             </p>
           </Panel>
         </div>
@@ -1807,6 +2060,14 @@ export default function Roster({ user, page }) {
           categoryId={memberM.data.categoryId}
           member={memberM.data.member}
           onSave={saveMember}
+          onTerminate={
+            canEditStructure
+              ? (m) => {
+                  setMemberModal(null);
+                  setConfirm({ type: "terminate", member: m });
+                }
+              : undefined
+          }
         />
       )}
       {categoryM.data && (
@@ -1827,30 +2088,15 @@ export default function Roster({ user, page }) {
           onSave={saveSubdivision}
         />
       )}
-      <ColumnsModal open={columnsOpen} onClose={() => setColumnsOpen(false)} />
-      <Modal
-        open={statsOpen}
-        onClose={() => setStatsOpen(false)}
-        title="Department statistics"
-        size="lg"
-        footer={
-          <Button variant="secondary" onClick={() => setStatsOpen(false)}>
-            Done
-          </Button>
-        }
-      >
-        <p className="mb-4 text-sm text-slate-400">
-          Choose what the statistics panel displays. Metrics are computed over the
-          subdivision being viewed; changes apply instantly. By default every
-          subdivision shares one panel, or give this one its own below.
-        </p>
-        <StatsEditor subId={layout === "tabs" ? subId : null} />
-      </Modal>
-      {rankTitlesM.data && (
-        <RankTitlesModal
-          open={rankTitlesM.open}
-          onClose={() => setRankTitlesSubId(null)}
-          subId={rankTitlesM.data}
+      {controllerM.data && (
+        <RosterControllerModal
+          key={controllerM.key}
+          open={controllerM.open}
+          onClose={() => setController(null)}
+          initialTab={controllerM.data.tab}
+          initialSubId={controllerM.data.subId || subId}
+          statsSubId={layout === "tabs" ? subId : null}
+          onToast={show}
         />
       )}
 
@@ -1861,6 +2107,8 @@ export default function Roster({ user, page }) {
             ? "Delete category?"
             : confirm?.type === "subdivision"
             ? "Delete subdivision?"
+            : confirm?.type === "terminate"
+            ? "Terminate member?"
             : "Remove member?"
         }
         message={
@@ -1868,6 +2116,8 @@ export default function Roster({ user, page }) {
             ? `Delete "${confirm?.category?.name}" and all ${confirm?.category?.members?.length || 0} member(s) in it? This can't be undone.`
             : confirm?.type === "subdivision"
             ? `Delete the "${confirm?.subdivision?.name}" subdivision and its entire roster? This can't be undone.`
+            : confirm?.type === "terminate"
+            ? `Terminate "${confirm?.member?.name}"? They are removed from every subdivision and archived to the Termination Roster (Manage → Terminations), where they can be reinstated with Overturn.`
             : `Remove "${confirm?.member?.name}" from the roster?`
         }
         confirmLabel={
@@ -1875,11 +2125,16 @@ export default function Roster({ user, page }) {
             ? "Delete category"
             : confirm?.type === "subdivision"
             ? "Delete subdivision"
+            : confirm?.type === "terminate"
+            ? "Terminate"
             : "Remove"
         }
         onCancel={() => setConfirm(null)}
         onConfirm={() => {
-          if (confirm.type === "category") {
+          if (confirm.type === "terminate") {
+            mutate((cfg) => R.terminateMember(cfg, confirm.member.id, { by: userDisplayName(user) }));
+            show(`${confirm.member.name || "Member"} terminated and archived`);
+          } else if (confirm.type === "category") {
             mutate(R.deleteCategory(config, confirm.subId, confirm.category.id));
           } else if (confirm.type === "subdivision") {
             mutate(R.deleteSubdivision(config, confirm.subdivision.id));
