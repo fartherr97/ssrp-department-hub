@@ -1,10 +1,11 @@
-import { useState } from "react";
-import { Plus, ArrowUp, Network } from "lucide-react";
+import { useRef, useState } from "react";
+import { Plus, Network, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
 import { canEditFleet } from "../lib/permissions.js";
 import { uid } from "../lib/roster.js";
 import {
   Button,
+  IconButton,
   Panel,
   PageHeader,
   Modal,
@@ -241,8 +242,67 @@ function MemberColumn({ node, accent }) {
   );
 }
 
-function NodeTree({ node, accent, canEdit, isRoot = true, onEdit, onAddChild, dropHint, setDropHint, onDropNode, canDropOn, setDragId }) {
+/*
+ * The "+" slot under each box: a small dot normally (click to add a box
+ * there); while a drag is in progress, valid slots expand into "Drop here"
+ * targets and invalid ones (inside the dragged branch) stay dim dots.
+ */
+function SlotButton({ node, dragging, valid, hinted, setDropHint, onDropNode, onAddChild, canDropOn }) {
+  if (dragging && valid) {
+    return (
+      <button
+        type="button"
+        onDragOver={(e) => {
+          if (!hasNodeDrag(e) || !canDropOn(node.id)) return;
+          e.preventDefault();
+          if (!hinted) setDropHint({ targetId: node.id, mode: "slot" });
+        }}
+        onDragLeave={() => hinted && setDropHint(null)}
+        onDrop={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const id = e.dataTransfer.getData("text/coc-node");
+          if (id) onDropNode(id, node.id, "child");
+        }}
+        className={`flex h-[42px] w-44 items-center justify-center gap-1.5 rounded-lg border border-dashed text-xs font-semibold transition ${
+          hinted
+            ? "border-[var(--color-primary)] bg-[color:var(--color-primary)]/15 text-[var(--color-primary)]"
+            : "border-white/25 text-slate-400"
+        }`}
+      >
+        <Plus size={13} />
+        {hinted ? "Move here" : "Drop here"}
+      </button>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => onAddChild(node.id)}
+      title={`Add a box under \u201c${node.title}\u201d`}
+      className={`press mt-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-dashed transition ${
+        dragging
+          ? "border-white/10 text-slate-700"
+          : "border-white/25 text-slate-500 hover:border-[color:var(--color-border-strong)] hover:text-[var(--color-primary)]"
+      }`}
+    >
+      <Plus size={12} />
+    </button>
+  );
+}
+
+function NodeTree({ node, accent, canEdit, isRoot = true, onEdit, onAddChild, dropHint, setDropHint, onDropNode, canDropOn, setDragId, dragId }) {
   const children = node.children || [];
+  const total = children.length + (canEdit ? 1 : 0);
+  // Half-width rail segments joining the children's stubs into one connector.
+  const rails = (i) =>
+    total > 1 ? (
+      <>
+        {i > 0 && <span className="absolute left-0 top-0 h-px w-1/2 bg-white/15" />}
+        {i < total - 1 && <span className="absolute right-0 top-0 h-px w-1/2 bg-white/15" />}
+      </>
+    ) : null;
+
   return (
     <div className="flex flex-col items-center">
       {safeMediaUrl(node.imageUrl) && (
@@ -265,63 +325,48 @@ function NodeTree({ node, accent, canEdit, isRoot = true, onEdit, onAddChild, dr
         setDragId={setDragId}
       />
       <MemberColumn node={node} accent={accent} />
-      {(children.length > 0 || canEdit) && (
-        <div className="mt-1 flex items-start gap-3">
-          {children.map((child) => (
-            <div key={child.id} className="flex flex-col items-center">
-              <ArrowUp size={13} className="my-1 shrink-0 text-slate-500" />
-              <NodeTree
-                node={child}
-                accent={accent}
-                canEdit={canEdit}
-                isRoot={false}
-                onEdit={onEdit}
-                onAddChild={onAddChild}
-                dropHint={dropHint}
-                setDropHint={setDropHint}
-                onDropNode={onDropNode}
-                canDropOn={canDropOn}
-                setDragId={setDragId}
-              />
-            </div>
-          ))}
-          {canEdit && (
-            // A dashed slot under every box: click to add a box there, or
-            // drop a dragged box onto it to move it into that spot.
-            <div className="flex flex-col items-center">
-              <div className="my-1 h-[13px]" />
-              <button
-                type="button"
-                onClick={() => onAddChild(node.id)}
-                title={`Add a box under “${node.title}”, or drop a dragged box here to move it under “${node.title}”`}
-                onDragOver={(e) => {
-                  if (!hasNodeDrag(e) || !canDropOn(node.id)) return;
-                  e.preventDefault();
-                  if (dropHint?.targetId !== node.id || dropHint?.mode !== "slot") {
-                    setDropHint({ targetId: node.id, mode: "slot" });
-                  }
-                }}
-                onDragLeave={() => {
-                  if (dropHint?.mode === "slot" && dropHint?.targetId === node.id) setDropHint(null);
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  const dragId = e.dataTransfer.getData("text/coc-node");
-                  if (dragId) onDropNode(dragId, node.id, "child");
-                }}
-                className={`press flex h-[46px] w-44 items-center justify-center gap-1.5 rounded-lg border border-dashed text-xs font-semibold transition ${
-                  dropHint?.targetId === node.id && dropHint?.mode === "slot"
-                    ? "border-[var(--color-primary)] bg-[color:var(--color-primary)]/15 text-[var(--color-primary)]"
-                    : "border-white/20 text-slate-500 hover:border-[color:var(--color-border-strong)] hover:text-[var(--color-primary)]"
-                }`}
-              >
-                <Plus size={13} />
-                {dropHint?.targetId === node.id && dropHint?.mode === "slot" ? "Move here" : "Add box"}
-              </button>
-            </div>
-          )}
-        </div>
+      {total > 0 && (
+        <>
+          <span className="h-3 w-px bg-white/15" />
+          <div className="flex items-start">
+            {children.map((child, i) => (
+              <div key={child.id} className="relative flex flex-col items-center px-1.5">
+                {rails(i)}
+                <span className="h-3 w-px bg-white/15" />
+                <NodeTree
+                  node={child}
+                  accent={accent}
+                  canEdit={canEdit}
+                  isRoot={false}
+                  onEdit={onEdit}
+                  onAddChild={onAddChild}
+                  dropHint={dropHint}
+                  setDropHint={setDropHint}
+                  onDropNode={onDropNode}
+                  canDropOn={canDropOn}
+                  setDragId={setDragId}
+                  dragId={dragId}
+                />
+              </div>
+            ))}
+            {canEdit && (
+              <div className="relative flex flex-col items-center px-1.5">
+                {rails(children.length)}
+                <span className="h-3 w-px bg-white/15" />
+                <SlotButton
+                  node={node}
+                  dragging={Boolean(dragId)}
+                  valid={!dragId || canDropOn(node.id)}
+                  hinted={dropHint?.targetId === node.id && dropHint?.mode === "slot"}
+                  setDropHint={setDropHint}
+                  onDropNode={onDropNode}
+                  onAddChild={onAddChild}
+                  canDropOn={canDropOn}
+                />
+              </div>
+            )}
+          </div>
+        </>
       )}
     </div>
   );
@@ -426,6 +471,9 @@ export default function ChainOfCommand({ page, user }) {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [dropHint, setDropHint] = useState(null); // { targetId, mode } while dragging
   const [dragId, setDragId] = useState(null); // box currently being dragged
+  const [zoom, setZoom] = useState(1);
+  const panRef = useRef(null);
+  const panState = useRef(null);
   const editingM = useModalData(editing);
 
   // Whether the dragged box may land on `targetId`: not itself, and never
@@ -522,20 +570,65 @@ export default function ChainOfCommand({ page, user }) {
           )}
         </Panel>
       ) : (
-        <Panel className="overflow-x-auto p-6">
-          <div className="flex min-w-max justify-center">
-            <NodeTree
-              node={root}
-              accent={accent}
-              canEdit={canEdit}
-              onEdit={setEditing}
-              onAddChild={addChildTo}
-              dropHint={dropHint}
-              setDropHint={setDropHint}
-              onDropNode={handleDropNode}
-              canDropOn={canDropOn}
-              setDragId={setDragId}
+        <Panel className="relative">
+          {/* Zoom controls */}
+          <div className="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-xl border border-white/10 bg-[var(--color-surface-1)]/95 p-1">
+            <IconButton
+              icon={ZoomOut}
+              label="Zoom out"
+              onClick={() => setZoom((z) => Math.max(0.4, +(z - 0.1).toFixed(2)))}
+              className="h-7 w-7"
             />
+            <span className="w-10 text-center text-[11px] font-bold text-slate-400">
+              {Math.round(zoom * 100)}%
+            </span>
+            <IconButton
+              icon={ZoomIn}
+              label="Zoom in"
+              onClick={() => setZoom((z) => Math.min(1.5, +(z + 0.1).toFixed(2)))}
+              className="h-7 w-7"
+            />
+            <IconButton icon={Maximize2} label="Reset zoom" onClick={() => setZoom(1)} className="h-7 w-7" />
+          </div>
+
+          {/* Pannable, zoomable chart canvas */}
+          <div
+            ref={panRef}
+            onMouseDown={(e) => {
+              // Grab-to-pan on the background only, boxes keep their drag.
+              if (e.target.closest("button, img, input")) return;
+              panState.current = {
+                x: e.clientX,
+                y: e.clientY,
+                sl: panRef.current.scrollLeft,
+                st: panRef.current.scrollTop,
+              };
+            }}
+            onMouseMove={(e) => {
+              const ps = panState.current;
+              if (!ps) return;
+              panRef.current.scrollLeft = ps.sl - (e.clientX - ps.x);
+              panRef.current.scrollTop = ps.st - (e.clientY - ps.y);
+            }}
+            onMouseUp={() => (panState.current = null)}
+            onMouseLeave={() => (panState.current = null)}
+            className="max-h-[72vh] cursor-grab overflow-auto p-6 active:cursor-grabbing"
+          >
+            <div style={{ zoom }} className="mx-auto w-max">
+              <NodeTree
+                node={root}
+                accent={accent}
+                canEdit={canEdit}
+                onEdit={setEditing}
+                onAddChild={addChildTo}
+                dropHint={dropHint}
+                setDropHint={setDropHint}
+                onDropNode={handleDropNode}
+                canDropOn={canDropOn}
+                setDragId={setDragId}
+                dragId={dragId}
+              />
+            </div>
           </div>
         </Panel>
       )}
