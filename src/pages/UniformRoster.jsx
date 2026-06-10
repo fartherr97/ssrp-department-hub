@@ -3,6 +3,7 @@ import { Plus, Pencil, Trash2, ChevronUp, ChevronDown, Shirt } from "lucide-reac
 import { useConfig } from "../lib/configContext.jsx";
 import { canEditFleet } from "../lib/permissions.js";
 import { uid } from "../lib/roster.js";
+import { safeMediaUrl } from "../lib/urls.js";
 import {
   Button,
   IconButton,
@@ -224,9 +225,9 @@ function OutfitCard({ outfit, canEdit, onEdit, onDelete, onMove, isFirst, isLast
       </div>
 
       <div className="flex flex-1 flex-col sm:flex-row">
-        {outfit.imageUrl && (
+        {safeMediaUrl(outfit.imageUrl) && (
           <a
-            href={outfit.imageUrl}
+            href={safeMediaUrl(outfit.imageUrl)}
             target="_blank"
             rel="noreferrer"
             title="Open full size"
@@ -234,7 +235,7 @@ function OutfitCard({ outfit, canEdit, onEdit, onDelete, onMove, isFirst, isLast
           >
             {/* object-contain so the whole reference photo is always visible */}
             <img
-              src={outfit.imageUrl}
+              src={safeMediaUrl(outfit.imageUrl)}
               alt={outfit.name}
               className="max-h-72 w-full object-contain sm:max-h-none"
             />

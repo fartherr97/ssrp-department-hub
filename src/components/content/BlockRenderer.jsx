@@ -1,5 +1,6 @@
 import { ExternalLink, Info, User } from "lucide-react";
 import { Panel } from "../common/index.jsx";
+import { safeLinkUrl, safeMediaUrl, safeEmbedUrl } from "../../lib/urls.js";
 
 /*
  * Renders the content blocks stored on a page's config.blocks array.
@@ -43,7 +44,7 @@ function LinksBlock({ block }) {
         {(block.items || []).map((item) => (
           <a
             key={item.id}
-            href={item.url || "#"}
+            href={safeLinkUrl(item.url)}
             target={item.url && item.url !== "#" ? "_blank" : undefined}
             rel="noreferrer"
             className="lift flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-[var(--color-surface-2)] px-4 py-3 text-sm font-medium text-slate-200 hover:border-[color:var(--color-border-strong)] hover:text-white"
@@ -61,12 +62,12 @@ function LinksBlock({ block }) {
 }
 
 function ImageBlock({ block }) {
-  if (!block.url) return null;
+  if (!safeMediaUrl(block.url)) return null;
   return (
     <figure>
       {block.title && <h3 className="mb-2 text-lg font-semibold text-white">{block.title}</h3>}
       <img
-        src={block.url}
+        src={safeMediaUrl(block.url)}
         alt={block.caption || block.title || ""}
         className="w-full rounded-2xl border border-white/10 object-cover"
       />
@@ -84,8 +85,8 @@ export function youTubeId(url) {
 }
 
 function VideoBlock({ block }) {
-  if (!block.url) return null;
   const ytId = youTubeId(block.url);
+  if (!ytId && !safeMediaUrl(block.url)) return null;
   return (
     <Panel className="overflow-hidden p-5">
       {block.title && <h3 className="mb-3 text-lg font-semibold text-white">{block.title}</h3>}
@@ -99,7 +100,7 @@ function VideoBlock({ block }) {
         />
       ) : (
         <video
-          src={block.url}
+          src={safeMediaUrl(block.url)}
           controls
           className="aspect-video w-full rounded-xl border border-white/10 bg-black"
         />
@@ -109,12 +110,13 @@ function VideoBlock({ block }) {
 }
 
 function EmbedBlock({ block }) {
-  if (!block.url) return null;
+  // Iframes are the most sensitive sink, https URLs only.
+  if (!safeEmbedUrl(block.url)) return null;
   return (
     <Panel className="overflow-hidden p-5">
       {block.title && <h3 className="mb-3 text-lg font-semibold text-white">{block.title}</h3>}
       <iframe
-        src={block.url}
+        src={safeEmbedUrl(block.url)}
         title={block.title || "Embedded content"}
         className="w-full rounded-xl border border-white/10 bg-white/5"
         style={{ height: Number(block.height) || 480 }}

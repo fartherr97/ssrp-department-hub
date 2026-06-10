@@ -3,6 +3,7 @@ import { LogIn } from "lucide-react";
 import Logo from "../common/Logo.jsx";
 import { Button, BrandName } from "../common/index.jsx";
 import { getIcon } from "../../lib/icons.js";
+import { safeLinkUrl } from "../../lib/urls.js";
 
 // ─── Loading ─────────────────────────────────────────────────────────────────
 
@@ -90,7 +91,7 @@ function SocialRow({ socials }) {
           return (
             <a
               key={s.id || s.url || i}
-              href={s.url || "#"}
+              href={safeLinkUrl(s.url)}
               target={s.url && s.url !== "#" ? "_blank" : undefined}
               rel="noreferrer"
               aria-label={s.label}

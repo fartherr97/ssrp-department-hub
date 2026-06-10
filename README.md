@@ -189,6 +189,23 @@ rank change runs through the same promotion pipeline as the UI (promotion-date
 stamping per the Time in Grade setting, callsign auto-assignment from the
 rank's callsign format). Members are matched by `member.discordId`.
 
+### Security checklist (backend)
+
+- **Re-check every capability server-side** (`src/lib/permissions.js` is the
+  reference); the client checks are UX only.
+- **Disable dev login in production**, ignore `config.auth.devLoginEnabled`
+  server-side and never issue sessions without Discord OAuth.
+- **CSRF**: the API is cookie-authenticated, so set the session cookie
+  `SameSite=Lax` (or `Strict`) + `HttpOnly` + `Secure`, and require a CSRF
+  token (or custom header) on mutating routes (`PUT /api/config`, `POST
+  /api/audit`, `POST /api/roster/sync`).
+- **`POST /api/roster/sync` is bot-only**, authenticate it with a shared
+  secret/bot token, never a user session.
+- **Validate imported configs** (`PUT /api/config`): enforce size limits and
+  reject non-object shapes; the front-end sanitizes URLs at render time
+  (`src/lib/urls.js`) but the server should never trust the payload.
+- **Rate-limit** auth and config endpoints.
+
 ### Environment
 
 See `.env.example` for the Discord OAuth, MariaDB, and session variables the
