@@ -52,9 +52,15 @@ function updateNode(root, id, patch) {
   return mapTree(root, (n) => (n.id === id ? { ...n, ...patch } : n));
 }
 
-function addChild(root, id, child) {
+function addChild(root, id, child, position = "end") {
   return mapTree(root, (n) =>
-    n.id === id ? { ...n, children: [...(n.children || []), child] } : n
+    n.id === id
+      ? {
+          ...n,
+          children:
+            position === "start" ? [child, ...(n.children || [])] : [...(n.children || []), child],
+        }
+      : n
   );
 }
 
@@ -247,22 +253,22 @@ function MemberColumn({ node, accent }) {
  * there); while a drag is in progress, valid slots expand into "Drop here"
  * targets and invalid ones (inside the dragged branch) stay dim dots.
  */
-function SlotButton({ node, dragging, valid, hinted, setDropHint, onDropNode, onAddChild, canDropOn }) {
+function SlotButton({ title, dragging, valid, hinted, setHint, onDropId, onAdd }) {
   if (dragging && valid) {
     return (
       <button
         type="button"
         onDragOver={(e) => {
-          if (!hasNodeDrag(e) || !canDropOn(node.id)) return;
+          if (!hasNodeDrag(e)) return;
           e.preventDefault();
-          if (!hinted) setDropHint({ targetId: node.id, mode: "slot" });
+          if (!hinted) setHint(true);
         }}
-        onDragLeave={() => hinted && setDropHint(null)}
+        onDragLeave={() => hinted && setHint(false)}
         onDrop={(e) => {
           e.preventDefault();
           e.stopPropagation();
           const id = e.dataTransfer.getData("text/coc-node");
-          if (id) onDropNode(id, node.id, "child");
+          if (id) onDropId(id);
         }}
         className={`flex h-[42px] w-44 items-center justify-center gap-1.5 rounded-lg border border-dashed text-xs font-semibold transition ${
           hinted
@@ -278,8 +284,8 @@ function SlotButton({ node, dragging, valid, hinted, setDropHint, onDropNode, on
   return (
     <button
       type="button"
-      onClick={() => onAddChild(node.id)}
-      title={`Add a box under \u201c${node.title}\u201d`}
+      onClick={onAdd}
+      title={title}
       className={`press mt-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-dashed transition ${
         dragging
           ? "border-white/10 text-slate-700"
@@ -332,6 +338,23 @@ function NodeTree({ node, accent, canEdit, isRoot = true, onEdit, onAddChild, dr
         <>
           <span className="h-3 w-px bg-white/15" />
           <div className="flex items-start">
+            {canEdit && total > 0 && (
+              // Zero-width appendage on the LEFT: adds/drops a box at the
+              // front of this row without affecting layout or centering.
+              <div className="relative w-0 self-stretch">
+                <div className="absolute right-1 top-2 z-10">
+                  <SlotButton
+                    title={`Add a box under \u201c${node.title}\u201d (left side)`}
+                    dragging={Boolean(dragId)}
+                    valid={!dragId || canDropOn(children[0].id)}
+                    hinted={dropHint?.targetId === node.id && dropHint?.mode === "slot-start"}
+                    setHint={(on) => setDropHint(on ? { targetId: node.id, mode: "slot-start" } : null)}
+                    onDropId={(id) => onDropNode(id, children[0].id, "before")}
+                    onAdd={() => onAddChild(node.id, "start")}
+                  />
+                </div>
+              </div>
+            )}
             {children.map((child, i) => (
               <div key={child.id} className="relative flex flex-col items-center px-1.5">
                 {rails(i)}
@@ -353,19 +376,17 @@ function NodeTree({ node, accent, canEdit, isRoot = true, onEdit, onAddChild, dr
               </div>
             ))}
             {canEdit && total > 0 && (
-              // Zero-width appendage: the "+" hangs beside the last child
-              // without affecting layout, so parents stay centered.
+              // Zero-width appendage on the RIGHT: adds/drops at the end.
               <div className="relative w-0 self-stretch">
                 <div className="absolute left-1 top-2 z-10">
                   <SlotButton
-                    node={node}
+                    title={`Add a box under \u201c${node.title}\u201d`}
                     dragging={Boolean(dragId)}
                     valid={!dragId || canDropOn(node.id)}
                     hinted={dropHint?.targetId === node.id && dropHint?.mode === "slot"}
-                    setDropHint={setDropHint}
-                    onDropNode={onDropNode}
-                    onAddChild={onAddChild}
-                    canDropOn={canDropOn}
+                    setHint={(on) => setDropHint(on ? { targetId: node.id, mode: "slot" } : null)}
+                    onDropId={(id) => onDropNode(id, node.id, "child")}
+                    onAdd={() => onAddChild(node.id, "end")}
                   />
                 </div>
               </div>
@@ -374,14 +395,13 @@ function NodeTree({ node, accent, canEdit, isRoot = true, onEdit, onAddChild, dr
               <div className="flex flex-col items-center px-1.5">
                 <span className="h-3 w-px bg-white/15" />
                 <SlotButton
-                  node={node}
+                  title={`Add a box under \u201c${node.title}\u201d`}
                   dragging={Boolean(dragId)}
                   valid={!dragId || canDropOn(node.id)}
                   hinted={dropHint?.targetId === node.id && dropHint?.mode === "slot"}
-                  setDropHint={setDropHint}
-                  onDropNode={onDropNode}
-                  onAddChild={onAddChild}
-                  canDropOn={canDropOn}
+                  setHint={(on) => setDropHint(on ? { targetId: node.id, mode: "slot" } : null)}
+                  onDropId={(id) => onDropNode(id, node.id, "child")}
+                  onAdd={() => onAddChild(node.id, "end")}
                 />
               </div>
             )}
@@ -538,9 +558,9 @@ export default function ChainOfCommand({ page, user }) {
     setEditing(child);
   }
   // From the dashed "+ Add box" slots on the chart itself.
-  function addChildTo(nodeId) {
+  function addChildTo(nodeId, position = "end") {
     const child = newNode();
-    setRoot(addChild(root, nodeId, child));
+    setRoot(addChild(root, nodeId, child, position));
     setEditing(child);
   }
   function handleDropNode(dragId, targetId, mode) {
