@@ -1189,7 +1189,8 @@ export default function Roster({ user, page }) {
   const totalMembers = categories.reduce((n, c) => n + c.members.length, 0);
   const accent = activeSub?.accent || "var(--color-primary)";
   const canEditActive = canEditSubdivision(user, config, activeSub);
-  const stats = config.roster.stats;
+  // A subdivision may carry its own stats panel; otherwise the shared one.
+  const stats = activeSub?.stats ?? config.roster.stats;
   const statsShown = Boolean(stats?.show && stats.items?.length);
 
   // Layout: "tabs" (one subdivision at a time) or "grid" (all side-by-side).
@@ -1599,7 +1600,7 @@ export default function Roster({ user, page }) {
           </div>
 
           <StatsPanel
-            stats={stats}
+            stats={config.roster.stats}
             groups={allCategories}
             statusField={statusField}
             accent="var(--color-primary)"
@@ -1794,9 +1795,10 @@ export default function Roster({ user, page }) {
       >
         <p className="mb-4 text-sm text-slate-400">
           Choose what the statistics panel displays. Metrics are computed over the
-          subdivision being viewed; changes apply instantly.
+          subdivision being viewed; changes apply instantly. By default every
+          subdivision shares one panel, or give this one its own below.
         </p>
-        <StatsEditor />
+        <StatsEditor subId={layout === "tabs" ? subId : null} />
       </Modal>
       {rankTitlesM.data && (
         <RankTitlesModal

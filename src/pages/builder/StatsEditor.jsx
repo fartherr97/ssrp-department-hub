@@ -19,25 +19,43 @@ export const STAT_MODES = [
 
 /*
  * The Department Statistics editor, shared between the Builder's Roster Setup
- * tab and the gear button on the Roster page itself, so anyone with roster
- * structure access can choose what the stats panel displays.
+ * tab and the gear button on the Roster page itself. When `subId` is given
+ * (the Roster page), the subdivision can opt into its OWN stats panel,
+ * stored on the subdivision, while the others keep the shared one. Without
+ * `subId` (the Builder), it always edits the shared panel.
  */
-export default function StatsEditor() {
+export default function StatsEditor({ subId = null }) {
   const { config, mutate } = useConfig();
   const fields = config.roster.memberFields || [];
-  const stats = config.roster.stats || { show: false, items: [] };
+  const sub = subId ? (config.roster.subdivisions || []).find((s) => s.id === subId) : null;
+  const shared = config.roster.stats || { show: false, items: [] };
+  const hasOverride = Boolean(sub?.stats);
+  const stats = hasOverride ? sub.stats : shared;
   const items = stats.items || [];
+
+  // Turn a subdivision-specific panel on (seeded from the shared one) or off.
+  const setOverride = (on) =>
+    mutate(
+      R.updateSubdivision(config, subId, {
+        stats: on ? JSON.parse(JSON.stringify({ show: true, ...shared })) : null,
+      })
+    );
 
   const statusField =
     fields.find((f) => f.type === "select" && /status/i.test(`${f.label} ${f.id}`)) ||
     fields.find((f) => f.type === "select");
   const certFields = fields.filter((f) => f.type === "cert" || f.type === "checkbox");
 
-  const setStats = (patch) =>
-    mutate((cfg) => ({
-      ...cfg,
-      roster: { ...cfg.roster, stats: { ...(cfg.roster.stats || {}), ...patch } },
-    }));
+  const setStats = (patch) => {
+    if (hasOverride) {
+      mutate(R.updateSubdivision(config, subId, { stats: { ...sub.stats, ...patch } }));
+    } else {
+      mutate((cfg) => ({
+        ...cfg,
+        roster: { ...cfg.roster, stats: { ...(cfg.roster.stats || {}), ...patch } },
+      }));
+    }
+  };
   const setItems = (next) => setStats({ items: next });
   const addItem = () =>
     setItems([...items, { id: R.uid("stat"), label: "Metric", mode: "total" }]);
@@ -55,6 +73,26 @@ export default function StatsEditor() {
 
   return (
     <div className="grid gap-4">
+      {sub && (
+        <label className="flex items-start gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm text-slate-300">
+          <input
+            type="checkbox"
+            checked={hasOverride}
+            onChange={(e) => setOverride(e.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-[var(--color-primary)]"
+          />
+          <span>
+            Give <strong className="text-white">{sub.name}</strong> its own statistics panel
+            (e.g. “Subdivision Statistics”). Other subdivisions keep the shared panel,
+            untick to go back to it.
+            {!hasOverride && (
+              <span className="block text-xs text-slate-500">
+                Currently editing the shared panel used by every subdivision.
+              </span>
+            )}
+          </span>
+        </label>
+      )}
       <div className="grid gap-4 sm:grid-cols-[auto_1fr] sm:items-end">
         <label className="flex items-center gap-2 pb-2 text-sm text-slate-300">
           <input
