@@ -293,7 +293,10 @@ function SlotButton({ node, dragging, valid, hinted, setDropHint, onDropNode, on
 
 function NodeTree({ node, accent, canEdit, isRoot = true, onEdit, onAddChild, dropHint, setDropHint, onDropNode, canDropOn, setDragId, dragId }) {
   const children = node.children || [];
-  const total = children.length + (canEdit ? 1 : 0);
+  // Only real boxes count for layout/centering, the editor's "+" slot hangs
+  // off to the side with zero width so parents center over their children.
+  const total = children.length;
+  const showRow = total > 0 || canEdit;
   // Half-width rail segments joining the children's stubs into one connector.
   const rails = (i) =>
     total > 1 ? (
@@ -325,7 +328,7 @@ function NodeTree({ node, accent, canEdit, isRoot = true, onEdit, onAddChild, dr
         setDragId={setDragId}
       />
       <MemberColumn node={node} accent={accent} />
-      {total > 0 && (
+      {showRow && (
         <>
           <span className="h-3 w-px bg-white/15" />
           <div className="flex items-start">
@@ -349,9 +352,26 @@ function NodeTree({ node, accent, canEdit, isRoot = true, onEdit, onAddChild, dr
                 />
               </div>
             ))}
-            {canEdit && (
-              <div className="relative flex flex-col items-center px-1.5">
-                {rails(children.length)}
+            {canEdit && total > 0 && (
+              // Zero-width appendage: the "+" hangs beside the last child
+              // without affecting layout, so parents stay centered.
+              <div className="relative w-0 self-stretch">
+                <div className="absolute left-1 top-2 z-10">
+                  <SlotButton
+                    node={node}
+                    dragging={Boolean(dragId)}
+                    valid={!dragId || canDropOn(node.id)}
+                    hinted={dropHint?.targetId === node.id && dropHint?.mode === "slot"}
+                    setDropHint={setDropHint}
+                    onDropNode={onDropNode}
+                    onAddChild={onAddChild}
+                    canDropOn={canDropOn}
+                  />
+                </div>
+              </div>
+            )}
+            {canEdit && total === 0 && (
+              <div className="flex flex-col items-center px-1.5">
                 <span className="h-3 w-px bg-white/15" />
                 <SlotButton
                   node={node}
