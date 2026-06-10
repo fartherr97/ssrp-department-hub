@@ -103,9 +103,8 @@ const GLOSSARY = [
     terms: [
       { term: "Autosave", def: "There is no Save button — every change is stored automatically. The badge at the top of the Builder shows “Saving…” then “All changes saved”." },
       { term: "Undo", def: "The button at the top of the Builder that reverts your most recent change. It remembers your last 10 changes; a burst of quick edits counts as one." },
-      { term: "Backup", def: "A single file containing your entire setup, downloaded from Backup & Reset. Keep one before big changes — restoring it brings everything back exactly." },
-      { term: "Restore", def: "Loading a backup file to replace the current setup, under Backup & Reset." },
-      { term: "Reset", def: "Wipes everything back to the blank template. Permanent — download a backup first." },
+      { term: "Backup", def: "A single file containing your entire setup, downloaded from Backup & Restore. Keep one before big changes — restoring it brings everything back exactly." },
+      { term: "Restore", def: "Loading a backup file to replace the current setup, under Backup & Restore." },
       { term: "Template", def: "A ready-made starting setup (Police / Fire / EMS) on the Start Here tab — colors, ranks, subdivisions, and a starter SOPs page, ready to rename and adjust." },
     ],
   },

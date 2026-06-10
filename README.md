@@ -91,8 +91,7 @@ Admins configure the hub here (auto-saves, with a 10-step **Undo** history):
   (managers add/remove their group's people), a level hierarchy (you can only
   manage groups at or below your own), and member lists by name + Discord ID;
   optional Discord role auto-assignment
-- **Backup & Reset** — download/restore the config as a file (or paste JSON),
-  reset to blank template
+- **Backup & Restore** — download/restore the config as a file (or paste JSON)
 
 The **Roster** page presents subdivisions (e.g. Patrol, K9, Traffic — each its
 own roster with its own accent color, banner image/logos, and stats box) as
@@ -120,10 +119,11 @@ real backend:
 | ------ | -------------------- | --------------- | -------------- |
 | `GET`  | `/api/config`        | —               | config object  |
 | `PUT`  | `/api/config`        | full config     | saved config   |
-| `POST` | `/api/config/reset`  | —               | default config |
 
 Store the config as a JSON document (or normalized tables) in MariaDB, scoped
-per department/guild.
+per department/guild. The audit log (`GET`/`POST /api/audit`) is append-only
+and kept **forever** — no pruning and no delete endpoint (the localStorage
+mock's 500-entry cap exists only for browser quota).
 
 ### Auth (Discord via passport-discord)
 

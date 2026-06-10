@@ -176,15 +176,11 @@ export async function saveConfig(config) {
   return next;
 }
 
-export async function resetConfig() {
-  if (USE_BACKEND) return http("/config/reset", { method: "POST" });
-  removeKey(CONFIG_KEY);
-  return cloneDefaultConfig();
-}
-
 // ─── AUDIT LOG ───────────────────────────────────────────────────────────────
-// Records of who changed what, newest first. Backend would store these in a
-// table and expose GET/POST /api/audit; the mock keeps the last AUDIT_LIMIT.
+// Records of who changed what, newest first. The backend stores these in a
+// table FOREVER (no pruning, no delete endpoint) and exposes GET/POST
+// /api/audit. Only the localStorage mock caps entries (AUDIT_LIMIT) to stay
+// inside browser storage quota — that limit must NOT carry over to MariaDB.
 
 export async function getAuditLog() {
   if (USE_BACKEND) return http("/audit");
@@ -199,12 +195,6 @@ export async function appendAuditLog(entry) {
   const next = [entry, ...log].slice(0, AUDIT_LIMIT);
   writeJSON(AUDIT_KEY, next);
   return entry;
-}
-
-export async function clearAuditLog() {
-  if (USE_BACKEND) return http("/audit", { method: "DELETE" });
-  removeKey(AUDIT_KEY);
-  return [];
 }
 
 // ─── AUTH / SESSION ──────────────────────────────────────────────────────────

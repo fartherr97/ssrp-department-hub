@@ -84,8 +84,8 @@ const TAB_GUIDE = [
   },
   {
     icon: Database,
-    title: "Backup & Reset",
-    body: "Download a backup of your whole setup, restore one, or start over from a blank template.",
+    title: "Backup & Restore",
+    body: "Download a backup file of your whole setup at any time, and restore one to bring everything back exactly as it was.",
   },
 ];
 
@@ -130,7 +130,7 @@ export default function StartHereTab({ goTo }) {
           controlled from the tabs on the left. Work through the checklist below in order
           and you'll have a fully branded department hub in a few minutes. You can't break
           anything: every step can be changed again later, and you can download a backup at
-          any time from <span className="font-semibold text-white">Backup &amp; Reset</span>.
+          any time from <span className="font-semibold text-white">Backup &amp; Restore</span>.
           Run into a word you don't know — like “hero kicker”? Look it up in the{" "}
           <button
             type="button"
@@ -180,7 +180,7 @@ export default function StartHereTab({ goTo }) {
         </div>
         <p className="mt-3 text-xs text-slate-500">
           Applying a template replaces your current setup (you can undo it, and a backup can
-          be downloaded first under Backup &amp; Reset). Roster members are not carried over.
+          be downloaded first under Backup &amp; Restore). Roster members are not carried over.
         </p>
       </Panel>
 
@@ -286,7 +286,7 @@ export default function StartHereTab({ goTo }) {
       <ConfirmDialog
         open={Boolean(confirmTemplate)}
         title={`Apply the ${confirmTemplate?.label} template?`}
-        message="This replaces your current branding, pages, and roster structure with the template. You can undo this from the top of the Builder, but downloading a backup first (Backup & Reset) is the safest."
+        message="This replaces your current branding, pages, and roster structure with the template. You can undo this from the top of the Builder, but downloading a backup first (Backup & Restore) is the safest."
         confirmLabel="Apply template"
         onCancel={() => setConfirmTemplate(null)}
         onConfirm={() => {

@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Download, Upload, RotateCcw, FileUp } from "lucide-react";
+import { Download, Upload, FileUp } from "lucide-react";
 import { useConfig } from "../../lib/configContext.jsx";
 import useToast from "../../hooks/useToast.js";
 import {
@@ -7,16 +7,14 @@ import {
   SectionHeader,
   Button,
   Textarea,
-  ConfirmDialog,
   Toast,
 } from "../../components/common/index.jsx";
 import TabIntro from "./TabIntro.jsx";
 
 export default function AdvancedTab() {
-  const { config, replaceConfig, resetConfig } = useConfig();
+  const { config, replaceConfig } = useConfig();
   const { toast, show } = useToast();
   const [importText, setImportText] = useState("");
-  const [confirmReset, setConfirmReset] = useState(false);
   const fileRef = useRef(null);
 
   function exportConfig() {
@@ -115,28 +113,6 @@ export default function AdvancedTab() {
         </details>
       </Panel>
 
-      <Panel className="border-red-500/20 p-5">
-        <SectionHeader
-          title="Start over from scratch"
-          subtitle="Wipes all branding, pages, and roster data and restores the blank template. Download a backup first — this can't be undone."
-        />
-        <Button variant="danger" icon={RotateCcw} onClick={() => setConfirmReset(true)}>
-          Reset everything
-        </Button>
-      </Panel>
-
-      <ConfirmDialog
-        open={confirmReset}
-        title="Reset to blank template?"
-        message="This permanently clears all configuration and roster data for this department. There is no undo — make sure you've downloaded a backup if you might want this setup back."
-        confirmLabel="Reset everything"
-        onCancel={() => setConfirmReset(false)}
-        onConfirm={async () => {
-          await resetConfig();
-          setConfirmReset(false);
-          show("Reset to blank template");
-        }}
-      />
     </div>
   );
 }

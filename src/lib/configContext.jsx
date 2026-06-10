@@ -123,17 +123,6 @@ export function ConfigProvider({ children }) {
     [persist, trackChange]
   );
 
-  const resetConfig = useCallback(async () => {
-    const fresh = await api.resetConfig();
-    trackChange(config);
-    setConfigState(fresh);
-    lastSavedRef.current = fresh;
-    applyTheme(fresh?.branding?.colors);
-    applyFont(fresh?.branding?.font);
-    audit.logEvent("config", "Reset the configuration to defaults");
-    return fresh;
-  }, [config, trackChange]);
-
   return (
     <ConfigContext.Provider
       value={{
@@ -142,7 +131,6 @@ export function ConfigProvider({ children }) {
         saving,
         mutate,
         replaceConfig,
-        resetConfig,
         undo,
         canUndo: undoDepth > 0,
       }}

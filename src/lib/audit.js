@@ -235,8 +235,3 @@ export async function logEvent(category, action) {
 export function getLog() {
   return api.getAuditLog();
 }
-
-export async function clearLog() {
-  await api.clearAuditLog();
-  notifyChanged();
-}
