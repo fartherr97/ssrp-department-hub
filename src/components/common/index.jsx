@@ -619,6 +619,9 @@ export function EmptyState({ icon: Icon, title, subtitle, action }) {
 // ─── Modal ───────────────────────────────────────────────────────────────────
 
 export function Modal({ open, onClose, title, children, footer, size = "md" }) {
+  // Stay mounted briefly after close so the out-animation can play.
+  const mounted = useMounted(open, 160);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e) => e.key === "Escape" && onClose?.();
@@ -631,17 +634,23 @@ export function Modal({ open, onClose, title, children, footer, size = "md" }) {
     };
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!mounted) return null;
   const widths = { sm: "max-w-md", md: "max-w-lg", lg: "max-w-2xl", xl: "max-w-4xl" };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto p-4 sm:items-center">
+    <div
+      className={`fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto p-4 sm:items-center ${
+        open ? "" : "pointer-events-none"
+      }`}
+    >
       <div
-        className="anim-overlay-in fixed inset-0 bg-black/70 backdrop-blur-sm"
+        className={`fixed inset-0 bg-black/70 backdrop-blur-sm ${
+          open ? "anim-overlay-in" : "anim-overlay-out"
+        }`}
         onClick={onClose}
       />
       <div
-        className={`anim-modal-in hub-panel relative z-10 w-full ${widths[size]} rounded-2xl`}
+        className={`${open ? "anim-modal-in" : "anim-modal-out"} hub-panel relative z-10 w-full ${widths[size]} rounded-2xl`}
       >
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
           <h3 className="text-lg font-semibold text-white">{title}</h3>
@@ -662,6 +671,24 @@ export function Modal({ open, onClose, title, children, footer, size = "md" }) {
       </div>
     </div>
   );
+}
+
+/*
+ * Drives a conditionally-opened modal so its close animation can play:
+ *   const m = useModalData(stateValue); // stateValue is null when closed
+ *   {m.data && <MyModal key={m.key} open={m.open} thing={m.data} … />}
+ * `data` keeps the last value during close; `key` changes on each open so the
+ * modal remounts with fresh internal state.
+ */
+export function useModalData(value) {
+  const ref = useRef({ data: null, key: 0, wasOpen: false });
+  const open = value != null;
+  if (open && (!ref.current.wasOpen || value !== ref.current.data)) {
+    ref.current = { data: value, key: ref.current.key + 1, wasOpen: true };
+  } else if (!open && ref.current.wasOpen) {
+    ref.current = { ...ref.current, wasOpen: false };
+  }
+  return { data: open ? value : ref.current.data, key: ref.current.key, open };
 }
 
 export function ConfirmDialog({ open, title, message, confirmLabel = "Confirm", onConfirm, onCancel }) {

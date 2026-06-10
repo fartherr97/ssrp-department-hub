@@ -223,6 +223,14 @@ body::-webkit-scrollbar-thumb {
   from { opacity: 0; }
   to { opacity: 1; }
 }
+@keyframes modalOut {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(10px) scale(0.97); }
+}
+@keyframes overlayOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
 @keyframes sheetIn {
   from { opacity: 0; transform: translateY(100%); }
   to { opacity: 1; transform: translateY(0); }
@@ -251,6 +259,8 @@ body::-webkit-scrollbar-thumb {
 .anim-dropdown-out { animation: dropdownFadeOut 0.12s var(--ease-soft) both; }
 .anim-overlay-in { animation: overlayIn 0.18s ease-out; }
 .anim-modal-in { animation: modalIn 0.26s var(--ease-out) both; }
+.anim-modal-out { animation: modalOut 0.16s var(--ease-soft) both; }
+.anim-overlay-out { animation: overlayOut 0.18s ease-out both; }
 .anim-sheet-in { animation: sheetIn 0.3s var(--ease-out) both; } /* mobile bottom sheets */
 .stagger-item {
   animation: staggerIn 0.34s var(--ease-out) both;

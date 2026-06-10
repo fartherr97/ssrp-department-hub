@@ -14,6 +14,7 @@ import {
   Input,
   Textarea,
   Badge,
+  useModalData,
 } from "../components/common/index.jsx";
 
 /*
@@ -112,12 +113,12 @@ function EventModal({ open, onClose, event, onSave }) {
   );
 }
 
-function EventDetails({ event, user, canManage, onClose, onEdit, onDelete, onToggleAttend }) {
+function EventDetails({ open, event, user, canManage, onClose, onEdit, onDelete, onToggleAttend }) {
   const attendees = event.attendees || [];
   const attending = attendees.some((a) => a.id === user?.id);
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={event.title}
       size="sm"
@@ -321,6 +322,8 @@ export default function CalendarPage({ page, user }) {
   const isCurrentMonth = view.y === now.getFullYear() && view.m === now.getMonth();
   const tKey = todayKey();
   const details = events.find((e) => e.id === detailsId);
+  const eventM = useModalData(eventModal);
+  const detailsM = useModalData(details);
 
   function saveEvent(draft) {
     const { isNew, ...clean } = draft;
@@ -527,24 +530,31 @@ export default function CalendarPage({ page, user }) {
         </div>
       </Panel>
 
-      {eventModal && (
-        <EventModal open onClose={() => setEventModal(null)} event={eventModal} onSave={saveEvent} />
+      {eventM.data && (
+        <EventModal
+          key={eventM.key}
+          open={eventM.open}
+          onClose={() => setEventModal(null)}
+          event={eventM.data}
+          onSave={saveEvent}
+        />
       )}
-      {details && (
+      {detailsM.data && (
         <EventDetails
-          event={details}
+          open={detailsM.open}
+          event={detailsM.data}
           user={user}
           canManage={canManage}
           onClose={() => setDetailsId(null)}
           onEdit={() => {
-            setEventModal(details);
+            setEventModal(detailsM.data);
             setDetailsId(null);
           }}
           onDelete={() => {
-            setConfirmDelete(details);
+            setConfirmDelete(detailsM.data);
             setDetailsId(null);
           }}
-          onToggleAttend={() => toggleAttend(details.id)}
+          onToggleAttend={() => toggleAttend(detailsM.data.id)}
         />
       )}
       <ArchiveModal open={archiveOpen} onClose={() => setArchiveOpen(false)} events={events} />

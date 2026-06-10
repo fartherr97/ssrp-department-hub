@@ -87,7 +87,13 @@ export default function BuilderPortal({ user }) {
           })}
         </nav>
 
-        <div className="min-w-0 flex-1">{Active && <Active user={user} goTo={setTab} />}</div>
+        <div className="min-w-0 flex-1">
+          {Active && (
+            <div key={active.id} className="animate-pageFade">
+              <Active user={user} goTo={setTab} />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

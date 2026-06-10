@@ -36,6 +36,7 @@ import {
   CommaListInput,
   MediaInput,
   Toast,
+  useModalData,
 } from "../components/common/index.jsx";
 import useToast from "../hooks/useToast.js";
 import * as R from "../lib/roster.js";
@@ -1388,8 +1389,14 @@ export default function Roster({ user }) {
     onDeleteCategory: confirmDeleteCategory,
   };
 
-  const modalSub = memberModal
-    ? subdivisions.find((s) => s.id === memberModal.subId)
+  // Modal wrappers: keep each modal mounted through its close animation and
+  // remount it (fresh state) on every open.
+  const memberM = useModalData(memberModal);
+  const categoryM = useModalData(categoryModal);
+  const subM = useModalData(subModal);
+  const rankTitlesM = useModalData(rankTitlesSubId);
+  const modalSub = memberM.data
+    ? subdivisions.find((s) => s.id === memberM.data.subId)
     : null;
 
   return (
@@ -1702,32 +1709,34 @@ export default function Roster({ user }) {
       )}
 
       {/* Modals (shared by both layouts) */}
-      {memberModal && (
+      {memberM.data && (
         <MemberModal
-          open
+          key={memberM.key}
+          open={memberM.open}
           onClose={() => setMemberModal(null)}
           fields={fields}
           categories={modalSub?.categories || categories}
           rankTitles={modalSub?.ranks || []}
-          categoryId={memberModal.categoryId}
-          member={memberModal.member}
+          categoryId={memberM.data.categoryId}
+          member={memberM.data.member}
           onSave={saveMember}
         />
       )}
-      {categoryModal && (
+      {categoryM.data && (
         <CategoryModal
-          open
+          key={categoryM.key}
+          open={categoryM.open}
           onClose={() => setCategoryModal(null)}
-          category={categoryModal}
+          category={categoryM.data}
           onSave={saveCategory}
         />
       )}
-      {subModal && (
+      {subM.data && (
         <SubdivisionModal
-          key={subModal.id}
-          open
+          key={subM.key}
+          open={subM.open}
           onClose={() => setSubModal(null)}
-          subdivision={subModal}
+          subdivision={subM.data}
           onSave={saveSubdivision}
         />
       )}
@@ -1749,8 +1758,12 @@ export default function Roster({ user }) {
         </p>
         <StatsEditor />
       </Modal>
-      {rankTitlesSubId && (
-        <RankTitlesModal open onClose={() => setRankTitlesSubId(null)} subId={rankTitlesSubId} />
+      {rankTitlesM.data && (
+        <RankTitlesModal
+          open={rankTitlesM.open}
+          onClose={() => setRankTitlesSubId(null)}
+          subId={rankTitlesM.data}
+        />
       )}
 
       <ConfirmDialog

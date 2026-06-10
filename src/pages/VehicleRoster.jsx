@@ -14,6 +14,7 @@ import {
   Input,
   Textarea,
   Select,
+  useModalData,
 } from "../components/common/index.jsx";
 
 /*
@@ -183,6 +184,7 @@ export default function VehicleRoster({ page, user }) {
   const [vehicleModal, setVehicleModal] = useState(null); // { tierId, vehicle }
   const [tagsOpen, setTagsOpen] = useState(false);
   const [confirm, setConfirm] = useState(null);
+  const vehicleM = useModalData(vehicleModal);
 
   // All edits patch this page's config object inside the global config.
   const setCfg = (patch) =>
@@ -386,11 +388,12 @@ export default function VehicleRoster({ page, user }) {
         </Panel>
       )}
 
-      {vehicleModal && (
+      {vehicleM.data && (
         <VehicleModal
-          open
+          key={vehicleM.key}
+          open={vehicleM.open}
           onClose={() => setVehicleModal(null)}
-          vehicle={vehicleModal.vehicle}
+          vehicle={vehicleM.data.vehicle}
           tags={tags}
           onSave={saveVehicle}
         />

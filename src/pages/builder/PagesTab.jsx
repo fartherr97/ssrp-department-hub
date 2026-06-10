@@ -14,6 +14,7 @@ import {
   Input,
   Select,
   Badge,
+  useModalData,
 } from "../../components/common/index.jsx";
 import BlockEditor from "./BlockEditor.jsx";
 import TabIntro from "./TabIntro.jsx";
@@ -386,6 +387,7 @@ export default function PagesTab() {
   const { config, mutate } = useConfig();
   const [editing, setEditing] = useState(null);
   const [confirm, setConfirm] = useState(null);
+  const editingM = useModalData(editing);
 
   function movePage(id, dir) {
     mutate((cfg) => {
@@ -489,12 +491,13 @@ export default function PagesTab() {
         </div>
       </Panel>
 
-      {editing && (
+      {editingM.data && (
         <PageModal
-          open
+          key={editingM.key}
+          open={editingM.open}
           onClose={() => setEditing(null)}
           config={config}
-          page={editing}
+          page={editingM.data}
           onSave={savePage}
         />
       )}
