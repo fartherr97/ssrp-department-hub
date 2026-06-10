@@ -79,19 +79,119 @@ function countNodes(node) {
   return 1 + (node.children || []).reduce((s, c) => s + countNodes(c), 0);
 }
 
+function findNode(root, id) {
+  if (!root) return null;
+  if (root.id === id) return root;
+  for (const c of root.children || []) {
+    const hit = findNode(c, id);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+function isDescendant(node, id) {
+  if (!node) return false;
+  if (node.id === id) return true;
+  return (node.children || []).some((c) => isDescendant(c, id));
+}
+
+// Drag-and-drop move: re-parent a node (mode "child") or slot it beside a
+// sibling ("before"/"after"). The tree layout itself keeps everything aligned.
+function moveNodeTo(root, dragId, targetId, mode) {
+  if (!root || dragId === targetId || root.id === dragId) return root;
+  const dragNode = findNode(root, dragId);
+  // Never drop a box into its own subtree, that would orphan the branch.
+  if (!dragNode || isDescendant(dragNode, targetId)) return root;
+
+  let moved = null;
+  const prune = (n) => ({
+    ...n,
+    children: (n.children || [])
+      .filter((c) => {
+        if (c.id === dragId) {
+          moved = c;
+          return false;
+        }
+        return true;
+      })
+      .map(prune),
+  });
+  const stripped = prune(root);
+  if (!moved) return root;
+
+  if (mode === "child") {
+    return mapTree(stripped, (n) =>
+      n.id === targetId ? { ...n, children: [...(n.children || []), moved] } : n
+    );
+  }
+  // before/after: insert among the target's siblings (no-op if target is root).
+  return mapTree(stripped, (n) => {
+    const kids = n.children || [];
+    const i = kids.findIndex((c) => c.id === targetId);
+    if (i === -1) return n;
+    const next = [...kids];
+    next.splice(mode === "before" ? i : i + 1, 0, moved);
+    return { ...n, children: next };
+  });
+}
+
 // ── Rendering ────────────────────────────────────────────────────────────────
 
-function NodeCard({ node, accent, canEdit, onEdit }) {
+function NodeCard({ node, accent, canEdit, isRoot, onEdit, dropHint, setDropHint, onDropNode }) {
   const color = node.color || accent;
+  const myHint = dropHint?.targetId === node.id ? dropHint.mode : null;
+
+  // Which drop zone the cursor is over: outer quarters = insert beside,
+  // middle = move under this box.
+  const zoneFor = (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width;
+    if (isRoot) return "child"; // nothing sits beside the top box
+    if (x < 0.25) return "before";
+    if (x > 0.75) return "after";
+    return "child";
+  };
+
+  const hintStyle =
+    myHint === "before"
+      ? { boxShadow: "inset 4px 0 0 0 var(--color-primary)" }
+      : myHint === "after"
+      ? { boxShadow: "inset -4px 0 0 0 var(--color-primary)" }
+      : myHint === "child"
+      ? { boxShadow: "inset 0 0 0 2px var(--color-primary)" }
+      : undefined;
+
   return (
     <button
       type="button"
       disabled={!canEdit}
       onClick={() => onEdit(node)}
-      title={canEdit ? "Edit this box" : undefined}
+      title={canEdit ? "Click to edit. Drag onto another box to move under it, or to a box's edge to slot beside it." : undefined}
+      draggable={canEdit && !isRoot}
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/coc-node", node.id);
+      }}
+      onDragEnd={() => setDropHint(null)}
+      onDragOver={(e) => {
+        if (!canEdit || !e.dataTransfer.types.includes("text/coc-node")) return;
+        e.preventDefault();
+        const mode = zoneFor(e);
+        if (myHint !== mode) setDropHint({ targetId: node.id, mode });
+      }}
+      onDragLeave={() => {
+        if (myHint) setDropHint(null);
+      }}
+      onDrop={(e) => {
+        if (!canEdit) return;
+        e.preventDefault();
+        const dragId = e.dataTransfer.getData("text/coc-node");
+        if (dragId) onDropNode(dragId, node.id, zoneFor(e));
+      }}
       style={{
         borderColor: `color-mix(in srgb, ${color} 55%, transparent)`,
         backgroundColor: `color-mix(in srgb, ${color} 12%, var(--color-surface-2))`,
+        ...hintStyle,
       }}
       className={`w-44 rounded-lg border px-2 py-1.5 text-center ${
         canEdit ? "press cursor-pointer hover:brightness-125" : "cursor-default"
@@ -133,7 +233,7 @@ function MemberColumn({ node, accent }) {
   );
 }
 
-function NodeTree({ node, accent, canEdit, onEdit, onAddChild }) {
+function NodeTree({ node, accent, canEdit, isRoot = true, onEdit, onAddChild, dropHint, setDropHint, onDropNode }) {
   const children = node.children || [];
   return (
     <div className="flex flex-col items-center">
@@ -144,7 +244,16 @@ function NodeTree({ node, accent, canEdit, onEdit, onAddChild }) {
           className="mb-1.5 h-14 w-14 object-contain"
         />
       )}
-      <NodeCard node={node} accent={accent} canEdit={canEdit} onEdit={onEdit} />
+      <NodeCard
+        node={node}
+        accent={accent}
+        canEdit={canEdit}
+        isRoot={isRoot}
+        onEdit={onEdit}
+        dropHint={dropHint}
+        setDropHint={setDropHint}
+        onDropNode={onDropNode}
+      />
       <MemberColumn node={node} accent={accent} />
       {(children.length > 0 || canEdit) && (
         <div className="mt-1 flex items-start gap-3">
@@ -155,8 +264,12 @@ function NodeTree({ node, accent, canEdit, onEdit, onAddChild }) {
                 node={child}
                 accent={accent}
                 canEdit={canEdit}
+                isRoot={false}
                 onEdit={onEdit}
                 onAddChild={onAddChild}
+                dropHint={dropHint}
+                setDropHint={setDropHint}
+                onDropNode={onDropNode}
               />
             </div>
           ))}
@@ -279,6 +392,7 @@ export default function ChainOfCommand({ page, user }) {
 
   const [editing, setEditing] = useState(null); // node being edited
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [dropHint, setDropHint] = useState(null); // { targetId, mode } while dragging
   const editingM = useModalData(editing);
 
   const setCfg = (patch) =>
@@ -310,6 +424,10 @@ export default function ChainOfCommand({ page, user }) {
     setRoot(addChild(root, nodeId, child));
     setEditing(child);
   }
+  function handleDropNode(dragId, targetId, mode) {
+    setDropHint(null);
+    setRoot(moveNodeTo(root, dragId, targetId, mode));
+  }
   function move(dir) {
     setRoot(moveNode(root, editing.id, dir));
   }
@@ -322,7 +440,7 @@ export default function ChainOfCommand({ page, user }) {
         subtitle={
           cfg.heroSubtitle ||
           (canEdit
-            ? "Use the dashed “Add box” slots to grow the chart; click any box to edit it."
+            ? "Use the dashed “Add box” slots to grow the chart, click a box to edit it, or drag one onto another box (or its edge) to move it."
             : "Who reports to whom, from the top down.")
         }
         actions={
@@ -373,6 +491,9 @@ export default function ChainOfCommand({ page, user }) {
               canEdit={canEdit}
               onEdit={setEditing}
               onAddChild={addChildTo}
+              dropHint={dropHint}
+              setDropHint={setDropHint}
+              onDropNode={handleDropNode}
             />
           </div>
         </Panel>
