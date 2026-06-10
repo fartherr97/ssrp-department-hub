@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Plus,
   Pencil,
@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
 import { canEditSubdivision, canEditRosterStructure } from "../lib/permissions.js";
+import { getSubPagePath, buildSubPath } from "../lib/navigation.js";
 import { initials } from "../lib/user.js";
 import {
   Button,
@@ -1134,15 +1135,35 @@ function SubRoster({
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
-export default function Roster({ user }) {
+export default function Roster({ user, page }) {
   const { config, mutate, undo, canUndo } = useConfig();
   // Structural edits (subdivisions, shared columns) vs. per-subdivision editing.
   const canEditStructure = canEditRosterStructure(user, config);
   const fields = config.roster.memberFields || [];
   const subdivisions = config.roster.subdivisions || [];
   const statusField = findStatusField(fields);
+  const pageId = page?.id || "roster";
 
-  const [activeSubId, setActiveSubId] = useState(subdivisions[0]?.id);
+  // Subdivision tabs are routable: /roster/sub-xyz.
+  const [activeSubId, setActiveSubId] = useState(() => {
+    const fromUrl = getSubPagePath();
+    return subdivisions.some((s) => s.id === fromUrl) ? fromUrl : subdivisions[0]?.id;
+  });
+  function selectSub(id, { push = true } = {}) {
+    setActiveSubId(id);
+    const path = buildSubPath(pageId, id);
+    if (push) window.history.pushState(null, "", path);
+    else window.history.replaceState(null, "", path);
+  }
+  useEffect(() => {
+    const onPop = () => {
+      const fromUrl = getSubPagePath();
+      const subs = config.roster.subdivisions || [];
+      setActiveSubId(subs.some((s) => s.id === fromUrl) ? fromUrl : subs[0]?.id);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [config]);
   const activeSub = subdivisions.find((s) => s.id === activeSubId) || subdivisions[0];
   const subId = activeSub?.id;
   const categories = activeSub?.categories || [];
@@ -1282,7 +1303,7 @@ export default function Roster({ user }) {
     if (sub.isNew) {
       const newId = R.uid("sub");
       mutate((cfg) => R.addSubdivision(cfg, { id: newId, name: name || "New Subdivision" }));
-      setActiveSubId(newId);
+      selectSub(newId);
     } else {
       mutate(R.updateSubdivision(config, sub.id, { name }));
     }
@@ -1460,7 +1481,7 @@ export default function Roster({ user }) {
             activeId={subId}
             canEdit={canEditStructure}
             onSelect={(id) => {
-              setActiveSubId(id);
+              selectSub(id);
               setCategoryFilter("all");
             }}
             onAdd={() => setSubModal({ id: R.uid("sub"), name: "", isNew: true })}
@@ -1797,7 +1818,8 @@ export default function Roster({ user }) {
             mutate(R.deleteSubdivision(config, confirm.subdivision.id));
             if (confirm.subdivision.id === activeSubId) {
               const fallback = subdivisions.find((s) => s.id !== confirm.subdivision.id);
-              setActiveSubId(fallback?.id);
+              if (fallback) selectSub(fallback.id, { push: false });
+              else setActiveSubId(undefined);
             }
           } else {
             mutate(R.deleteMember(config, confirm.subId, confirm.categoryId, confirm.member.id));

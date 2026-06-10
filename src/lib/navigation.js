@@ -41,3 +41,18 @@ export function getPagePath(pageId, config) {
   const first = config?.pages?.[0]?.id;
   return pageId === first ? "/" : `/${encodeURIComponent(pageId)}`;
 }
+
+// ── Sub-page routing (second URL segment) ────────────────────────────────────
+// Pages with internal tabs (Builder tabs, roster subdivisions) expose them as
+// /pageId/subId so every view is directly linkable.
+
+export function getSubPagePath() {
+  if (typeof window === "undefined") return "";
+  return decodeURIComponent(
+    window.location.pathname.replace(/^\/+/, "").split("/")[1] || ""
+  );
+}
+
+export function buildSubPath(pageId, subId) {
+  return `/${encodeURIComponent(pageId)}${subId ? `/${encodeURIComponent(subId)}` : ""}`;
+}

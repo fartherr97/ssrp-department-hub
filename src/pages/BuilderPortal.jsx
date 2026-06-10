@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Palette, LayoutList, Users, Database, Check, Compass, Undo2, BookOpen } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
 import { canManageSite } from "../lib/permissions.js";
+import { getSubPagePath, buildSubPath } from "../lib/navigation.js";
 import { PageHeader, Button } from "../components/common/index.jsx";
 import StartHereTab from "./builder/StartHereTab.jsx";
 import BrandingTab from "./builder/BrandingTab.jsx";
@@ -21,13 +22,33 @@ const TABS = [
   { id: "guide", label: "Key Guide", desc: "Every term, in plain words", icon: BookOpen, Component: KeyGuideTab },
 ];
 
-export default function BuilderPortal({ user }) {
+export default function BuilderPortal({ user, page }) {
   const { config, saving, undo, canUndo } = useConfig();
   const allowed = canManageSite(user, config);
   const tabs = allowed ? TABS : [];
-  const [tab, setTab] = useState(tabs[0]?.id);
+  // Tabs are routable: /builder/branding, /builder/pages, …
+  const [tab, setTab] = useState(() => {
+    const fromUrl = getSubPagePath();
+    return tabs.some((t) => t.id === fromUrl) ? fromUrl : tabs[0]?.id;
+  });
   const active = tabs.find((t) => t.id === tab) || tabs[0];
   const Active = active?.Component;
+  const pageId = page?.id || "builder";
+
+  function selectTab(id) {
+    setTab(id);
+    window.history.pushState(null, "", buildSubPath(pageId, id));
+  }
+
+  // Back/forward between tabs.
+  useEffect(() => {
+    const onPop = () => {
+      const fromUrl = getSubPagePath();
+      setTab(TABS.some((t) => t.id === fromUrl) ? fromUrl : TABS[0].id);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
 
   return (
     <div>
@@ -68,7 +89,7 @@ export default function BuilderPortal({ user }) {
             return (
               <button
                 key={t.id}
-                onClick={() => setTab(t.id)}
+                onClick={() => selectTab(t.id)}
                 className={`press flex shrink-0 items-center gap-2.5 rounded-xl px-4 py-2.5 text-left text-sm font-semibold transition ${
                   isActive
                     ? "border border-[color:var(--color-border-strong)] bg-[color:var(--color-primary)]/12 text-white"
@@ -90,7 +111,7 @@ export default function BuilderPortal({ user }) {
         <div className="min-w-0 flex-1">
           {Active && (
             <div key={active.id} className="animate-pageFade">
-              <Active user={user} goTo={setTab} />
+              <Active user={user} goTo={selectTab} />
             </div>
           )}
         </div>

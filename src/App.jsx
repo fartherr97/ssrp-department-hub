@@ -109,9 +109,15 @@ export default function App() {
 
   useEffect(() => {
     if (!config || !activePageId) return;
-    const desired = getPagePath(activePageId, config);
-    if (window.location.pathname !== desired) {
-      window.history.replaceState(null, "", desired);
+    // Normalize the URL's *page* segment only — pages with internal tabs
+    // manage the second segment themselves (e.g. /builder/branding).
+    const seg = decodeURIComponent(
+      window.location.pathname.replace(/^\/+/, "").split("/")[0] || ""
+    );
+    const matches =
+      seg === activePageId || (seg === "" && activePageId === config.pages[0]?.id);
+    if (!matches) {
+      window.history.replaceState(null, "", getPagePath(activePageId, config));
     }
   }, [activePageId, config]);
 
