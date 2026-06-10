@@ -4,6 +4,7 @@ import { useConfig } from "../lib/configContext.jsx";
 import { uid } from "../lib/roster.js";
 import { initials } from "../lib/user.js";
 import {
+  CAPABILITIES,
   canManageSite,
   canManageAccess,
   canAdministerGroup,
@@ -22,13 +23,9 @@ import {
   Badge,
 } from "../components/common/index.jsx";
 
-const CAPS = [
-  { key: "manageSite", title: "Manage site", desc: "Open the Builder Portal, branding, pages, roster schema, advanced." },
-  { key: "manageAccess", title: "Manage access & roles", desc: "Create groups and assign people, within their own level." },
-  { key: "editRoster", title: "Edit the main roster", desc: "Edit the main department roster (also unlocks vehicle roster pages)." },
-  { key: "editSubdivisions", title: "Edit subdivision rosters", desc: "Edit the non-main subdivision rosters." },
-  { key: "manageCalendar", title: "Manage calendar", desc: "Add, edit, and delete department calendar events." },
-];
+// The capability list lives in permissions.js (single source of truth), so
+// new capabilities added there appear here automatically.
+const CAPS = CAPABILITIES;
 
 function CapabilityToggle({ checked, disabled, onChange, title, desc }) {
   return (

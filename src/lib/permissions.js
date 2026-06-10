@@ -19,6 +19,40 @@
  * restrictions (page.restricted + access list).
  */
 
+/*
+ * The capability registry, the single source of truth for what a group can be
+ * granted. Access & Roles renders its toggles from this list, so adding a new
+ * capability here (plus enforcement helpers below) automatically surfaces it
+ * in the UI for every department.
+ */
+export const CAPABILITIES = [
+  {
+    key: "manageSite",
+    title: "Manage site",
+    desc: "Open the Builder Portal: branding, pages, roster setup, backups. Implies every other capability.",
+  },
+  {
+    key: "manageAccess",
+    title: "Manage access & roles",
+    desc: "Create groups and assign people, within their own level.",
+  },
+  {
+    key: "editRoster",
+    title: "Edit the main roster",
+    desc: "Edit the main department roster. Also unlocks the structure pages: vehicle roster, uniform roster, and chain of command.",
+  },
+  {
+    key: "editSubdivisions",
+    title: "Edit subdivision rosters",
+    desc: "Edit the non-main subdivision rosters.",
+  },
+  {
+    key: "manageCalendar",
+    title: "Manage calendar",
+    desc: "Add, edit, and delete department calendar events. Anyone signed in can mark attendance.",
+  },
+];
+
 export function userGroup(config, user) {
   return config?.groups?.find((g) => g.id === user?.group) || null;
 }
