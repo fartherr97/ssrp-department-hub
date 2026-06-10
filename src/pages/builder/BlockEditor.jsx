@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Plus, Trash2, ChevronUp, ChevronDown, Type, Info, Link2, Image as ImageIcon, Clapperboard, AppWindow, Columns2, UserSquare2 } from "lucide-react";
 import {
   Button,
@@ -214,7 +215,7 @@ const EDITORS = {
  * Edits a page's `config.blocks` array. `value` is the blocks array; `onChange`
  * receives the next array. Pure/controlled, the parent persists via mutate.
  */
-export default function BlockEditor({ value = [], onChange }) {
+function BlockEditor({ value = [], onChange }) {
   const blocks = value;
 
   const update = (id, patch) =>
@@ -284,3 +285,7 @@ export default function BlockEditor({ value = [], onChange }) {
     </div>
   );
 }
+
+// Memoized: typing in the page label/hero fields leaves the blocks array
+// untouched, so the whole editor can skip those re-renders.
+export default memo(BlockEditor);

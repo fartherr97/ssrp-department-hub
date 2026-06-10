@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useCallback, useEffect, useState } from "react";
 import { Plus, Pencil, Trash2, ChevronUp, ChevronDown, Lock, GripVertical } from "lucide-react";
 import { useConfig } from "../../lib/configContext.jsx";
 import { getIcon, ICON_NAMES } from "../../lib/icons.js";
@@ -23,8 +23,9 @@ import BlockRenderer from "../../components/content/BlockRenderer.jsx";
 // ─── Page editor modal ───────────────────────────────────────────────────────
 
 // A live, non-interactive rendering of the page as it's being edited, so
-// people see the result without saving and navigating away.
-function PagePreview({ draft }) {
+// people see the result without saving and navigating away. Memoized and fed
+// a debounced draft so typing isn't slowed by re-rendering the whole page.
+const PagePreview = memo(function PagePreview({ draft }) {
   const cfg = draft.config || {};
   return (
     <div className="rounded-xl border border-white/10 bg-[var(--color-body-bg)] p-4">
@@ -51,20 +52,65 @@ function PagePreview({ draft }) {
       </div>
     </div>
   );
-}
+});
+
+// The searchable icon grid, memoized so typing in other fields doesn't
+// re-render ~30 icon buttons on every keystroke.
+const IconGrid = memo(function IconGrid({ selected, query, onPick }) {
+  const visible = ICON_NAMES.filter((n) =>
+    n.toLowerCase().includes(query.trim().toLowerCase())
+  );
+  return (
+    <div className="grid max-h-40 grid-cols-8 gap-1.5 overflow-y-auto rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-2">
+      {visible.length === 0 && (
+        <p className="col-span-8 py-2 text-center text-xs text-slate-500">
+          No icons match “{query}”.
+        </p>
+      )}
+      {visible.map((name) => {
+        const Icon = getIcon(name);
+        const active = selected === name;
+        return (
+          <button
+            key={name}
+            type="button"
+            onClick={() => onPick(name)}
+            className={`flex h-9 items-center justify-center rounded-lg transition ${
+              active
+                ? "bg-[color:var(--color-primary)]/20 text-[var(--color-primary)] ring-1 ring-[color:var(--color-border-strong)]"
+                : "text-slate-400 hover:bg-white/5 hover:text-white"
+            }`}
+            title={name}
+          >
+            <Icon size={16} />
+          </button>
+        );
+      })}
+    </div>
+  );
+});
 
 function PageModal({ open, onClose, config, page, onSave }) {
   const [draft, setDraft] = useState(page);
   const [iconQuery, setIconQuery] = useState("");
   if (open && draft.id !== page.id) setDraft(page);
 
-  const visibleIcons = ICON_NAMES.filter((n) =>
-    n.toLowerCase().includes(iconQuery.trim().toLowerCase())
-  );
+  // Debounce the live preview so it re-renders after a pause, not per keystroke.
+  const [previewDraft, setPreviewDraft] = useState(draft);
+  useEffect(() => {
+    const id = setTimeout(() => setPreviewDraft(draft), 150);
+    return () => clearTimeout(id);
+  }, [draft]);
 
   const isContentLike = draft.type === "content" || draft.type === "home";
   const cfg = draft.config || {};
   const setCfg = (patch) => setDraft((d) => ({ ...d, config: { ...(d.config || {}), ...patch } }));
+  // Stable callbacks so the memoized icon grid / block editor skip re-renders.
+  const pickIcon = useCallback((icon) => setDraft((d) => ({ ...d, icon })), []);
+  const onBlocksChange = useCallback(
+    (blocks) => setDraft((d) => ({ ...d, config: { ...(d.config || {}), blocks } })),
+    []
+  );
 
   // Per-group visibility (content pages only; system pages have their own rules).
   const access = Array.isArray(draft.access) ? draft.access : [];
@@ -155,32 +201,7 @@ function PageModal({ open, onClose, config, page, onSave }) {
             onChange={(e) => setIconQuery(e.target.value)}
             className="mb-2"
           />
-          <div className="grid max-h-40 grid-cols-8 gap-1.5 overflow-y-auto rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-2">
-            {visibleIcons.length === 0 && (
-              <p className="col-span-8 py-2 text-center text-xs text-slate-500">
-                No icons match “{iconQuery}”.
-              </p>
-            )}
-            {visibleIcons.map((name) => {
-              const Icon = getIcon(name);
-              const active = draft.icon === name;
-              return (
-                <button
-                  key={name}
-                  type="button"
-                  onClick={() => setDraft({ ...draft, icon: name })}
-                  className={`flex h-9 items-center justify-center rounded-lg transition ${
-                    active
-                      ? "bg-[color:var(--color-primary)]/20 text-[var(--color-primary)] ring-1 ring-[color:var(--color-border-strong)]"
-                      : "text-slate-400 hover:bg-white/5 hover:text-white"
-                  }`}
-                  title={name}
-                >
-                  <Icon size={16} />
-                </button>
-              );
-            })}
-          </div>
+          <IconGrid selected={draft.icon} query={iconQuery} onPick={pickIcon} />
         </Field>
 
         {isContentLike && (
@@ -238,7 +259,7 @@ function PageModal({ open, onClose, config, page, onSave }) {
 
             <div className="mt-4">
               <SectionHeader title="Content blocks" />
-              <BlockEditor value={cfg.blocks || []} onChange={(blocks) => setCfg({ blocks })} />
+              <BlockEditor value={cfg.blocks || []} onChange={onBlocksChange} />
             </div>
           </div>
         )}
@@ -253,7 +274,7 @@ function PageModal({ open, onClose, config, page, onSave }) {
 
       {isContentLike && (
         <div className="hidden min-w-0 lg:block">
-          <PagePreview draft={draft} />
+          <PagePreview draft={previewDraft} />
         </div>
       )}
       </div>
