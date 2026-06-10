@@ -78,7 +78,7 @@ Admins configure the hub here (auto-saves, with a 10-step **Undo** history):
 
 - **Start Here** — plain-English guide, auto-detected setup checklist, and
   one-click starter templates (Police / Fire / EMS)
-- **Branding** — names, logo, login copy, live theme colors, font picker,
+- **Branding** — names, logo, login copy, live theme colors,
   login community links, and the orange brand accent. Images accept a URL
   *or* a direct upload (downscaled and stored inline until the backend lands)
 - **Pages & Menu** — add/reorder/delete pages, nav groups, icons, optional

@@ -14,7 +14,6 @@ import {
   ColorInput,
   MediaInput,
 } from "../../components/common/index.jsx";
-import { FONTS } from "../../lib/theme.js";
 import TabIntro from "./TabIntro.jsx";
 
 const COLOR_FIELDS = [
@@ -266,22 +265,6 @@ export default function BrandingTab() {
               <ColorInput value={b.colors[c.key]} onChange={(v) => setColor(c.key, v)} />
             </Field>
           ))}
-        </div>
-      </Panel>
-
-      <Panel className="p-5">
-        <SectionHeader
-          title="Font"
-          subtitle="The typeface used across the whole hub. Applies instantly."
-        />
-        <div className="max-w-sm">
-          <Select value={b.font || "default"} onChange={(e) => setBrand({ font: e.target.value })}>
-            {FONTS.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.label}
-              </option>
-            ))}
-          </Select>
         </div>
       </Panel>
     </div>

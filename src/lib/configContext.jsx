@@ -8,7 +8,7 @@ import {
 } from "react";
 import * as api from "./api.js";
 import * as audit from "./audit.js";
-import { applyTheme, applyFont } from "./theme.js";
+import { applyTheme } from "./theme.js";
 import { readJSON, writeJSON } from "./storage.js";
 
 const ConfigContext = createContext(null);
@@ -41,7 +41,6 @@ export function ConfigProvider({ children }) {
       historyRef.current = readJSON(HISTORY_KEY, []);
       setUndoDepth(historyRef.current.length);
       applyTheme(loaded?.branding?.colors);
-      applyFont(loaded?.branding?.font);
       setReady(true);
     });
     return () => {
@@ -53,10 +52,6 @@ export function ConfigProvider({ children }) {
   useEffect(() => {
     if (config?.branding?.colors) applyTheme(config.branding.colors);
   }, [config?.branding?.colors]);
-
-  useEffect(() => {
-    if (config) applyFont(config.branding?.font);
-  }, [config?.branding?.font]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const persist = useCallback((next) => {
     setSaving(true);

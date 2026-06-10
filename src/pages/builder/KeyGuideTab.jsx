@@ -52,7 +52,6 @@ const GLOSSARY = [
       { term: "Primary / accent color", def: "Your main brand color, used for buttons, highlights, links, and active items." },
       { term: "Page background / Shell background", def: "Page background is the darkest layer behind everything; the shell background sits on top of it as the main app surface." },
       { term: "Surface 1 / Surface 2", def: "The colors of panels and cards stacked on the background, Surface 2 is used for elements sitting on top of Surface 1, like inputs and list rows." },
-      { term: "Font", def: "The typeface used across the whole hub, chosen at the bottom of the Branding tab." },
       { term: "Community links", def: "The “Connect With Us” buttons on the login screen, Discord, TikTok, and so on." },
       { term: "Preset", def: "A ready-made full color scheme applied with one click. You can still adjust individual colors afterwards." },
     ],

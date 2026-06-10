@@ -16,42 +16,6 @@ function rgba(hex, alpha) {
   return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha})`;
 }
 
-/*
- * Selectable UI fonts. `google` is a Google Fonts css2 family spec, loaded on
- * demand via a <link> tag; "default" uses the bundled system stack only.
- */
-export const FONTS = [
-  { id: "default", label: "Ubuntu (default)", family: `"Ubuntu", "Segoe UI", "Tahoma", "Arial", system-ui, sans-serif` },
-  { id: "inter", label: "Inter, clean & modern", family: `"Inter", "Segoe UI", system-ui, sans-serif`, google: "Inter:wght@400;500;600;700;800" },
-  { id: "roboto", label: "Roboto, neutral", family: `"Roboto", "Segoe UI", system-ui, sans-serif`, google: "Roboto:wght@400;500;700;900" },
-  { id: "source-sans", label: "Source Sans, friendly", family: `"Source Sans 3", "Segoe UI", system-ui, sans-serif`, google: "Source+Sans+3:wght@400;600;700;900" },
-  { id: "rajdhani", label: "Rajdhani, tactical", family: `"Rajdhani", "Segoe UI", system-ui, sans-serif`, google: "Rajdhani:wght@400;500;600;700" },
-  { id: "oswald", label: "Oswald, bold display", family: `"Oswald", "Segoe UI", system-ui, sans-serif`, google: "Oswald:wght@400;500;600;700" },
-];
-
-export function applyFont(fontId) {
-  if (typeof document === "undefined") return;
-  const font = FONTS.find((f) => f.id === fontId) || FONTS[0];
-
-  let link = document.getElementById("hub-font-link");
-  if (font.google) {
-    const href = `https://fonts.googleapis.com/css2?family=${font.google}&display=swap`;
-    if (!link) {
-      link = document.createElement("link");
-      link.id = "hub-font-link";
-      link.rel = "stylesheet";
-      document.head.appendChild(link);
-    }
-    if (link.href !== href) link.href = href;
-  } else if (link) {
-    link.remove();
-  }
-
-  const root = document.documentElement.style;
-  root.setProperty("--font-body", font.family);
-  root.setProperty("--font-display", font.family);
-}
-
 export function applyTheme(colors = {}) {
   if (typeof document === "undefined") return;
   const root = document.documentElement.style;
