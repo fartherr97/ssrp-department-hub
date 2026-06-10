@@ -120,7 +120,7 @@ function TopNav({ nav, activePage, dropdownGroups, openGroup, setOpenGroup, onNa
               onClick={() => setOpenGroup(open ? null : group.name)}
               className={`press hub-nav-link gap-1.5 px-3 text-sm font-semibold transition-colors ${
                 open || containsActive
-                  ? "hub-nav-link-active text-white"
+                  ? "hub-nav-link-active text-[var(--color-primary)]"
                   : "text-slate-300 hover:text-white"
               }`}
             >
@@ -128,19 +128,23 @@ function TopNav({ nav, activePage, dropdownGroups, openGroup, setOpenGroup, onNa
               <ChevronDown size={15} className={`transition-transform ${open ? "rotate-180" : ""}`} />
             </button>
             {open && (
-              <div className="hub-menu anim-dropdown-in absolute left-0 top-full z-50 grid min-w-[240px] gap-0.5 p-2">
-                {group.pages.map((page) => {
-                  const active = page.id === activePage;
-                  return (
-                    <button
-                      key={page.id}
-                      onClick={() => onNavigate(page.id)}
-                      className={active ? "hub-menu-item hub-menu-item-active" : "hub-menu-item"}
-                    >
-                      {page.label}
-                    </button>
-                  );
-                })}
+              // The pt-2 wrapper keeps the gap hoverable so the menu doesn't
+              // close while the cursor crosses from the trigger to the panel.
+              <div className="absolute left-0 top-full z-50 pt-2">
+                <div className="hub-menu hub-menu-floating anim-dropdown-in grid min-w-[250px] gap-1 p-2.5">
+                  {group.pages.map((page) => {
+                    const active = page.id === activePage;
+                    return (
+                      <button
+                        key={page.id}
+                        onClick={() => onNavigate(page.id)}
+                        className={active ? "hub-menu-item hub-menu-item-active" : "hub-menu-item"}
+                      >
+                        {page.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>

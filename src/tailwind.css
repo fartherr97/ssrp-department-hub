@@ -404,9 +404,10 @@ body::-webkit-scrollbar-thumb {
   box-shadow: 0 24px 50px rgba(0, 0, 0, 0.5);
 }
 
-/* For menus that float below their trigger with a gap (e.g. the account menu). */
+/* For menus that float below their trigger with a gap (nav + account menus). */
 .hub-menu-floating {
   border-radius: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .hub-menu-item {
@@ -416,9 +417,9 @@ body::-webkit-scrollbar-thumb {
   gap: 0.5rem;
   width: 100%;
   border-radius: 0.5rem;
-  padding: 0.6rem 0.85rem;
+  padding: 0.7rem 0.95rem;
   text-align: left;
-  font-size: 0.875rem;
+  font-size: 0.9rem;
   font-weight: 500;
   color: #cbd5e1;
   transition: background 150ms ease, color 150ms ease, transform 150ms ease,
