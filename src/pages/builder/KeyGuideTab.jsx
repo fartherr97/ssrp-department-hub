@@ -35,6 +35,7 @@ const GLOSSARY = [
       { term: "Embed block", def: "Shows another website inside your page, like a published Google Doc, Sheet, or Form. Paste the link and set a height." },
       { term: "Two columns block", def: "Two pieces of text side by side, useful for comparisons or pairing rules with examples." },
       { term: "Spotlight block", def: "Cards highlighting people: photo, name, role, and a short description. Good for “Officer of the Month” or command staff intros." },
+      { term: "Block width", def: "Each block has a width setting (full, ⅔, ½, ⅓). Narrower blocks share a row on desktop, so you can place boxes side by side like a dashboard; phones always stack them." },
       { term: "Live preview", def: "The right-hand pane of the page editor that shows the page exactly as members will see it, updating as you type." },
       { term: "Restricted page", def: "A page limited to certain permission groups under “Who can see this page”. Everyone else won't even see it in the top bar. Site managers always see every page." },
     ],

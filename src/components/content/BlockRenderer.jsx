@@ -187,13 +187,26 @@ const BLOCKS = {
   spotlight: SpotlightBlock,
 };
 
+// Block widths on desktop: blocks flow left-to-right into a 6-track grid, so
+// e.g. three "third" blocks share a row (Staff Hub style). Phones always stack.
+const WIDTH_SPANS = {
+  full: "lg:col-span-6",
+  twothirds: "lg:col-span-4",
+  half: "lg:col-span-3",
+  third: "lg:col-span-2",
+};
+
 export default function BlockRenderer({ blocks = [] }) {
   if (!blocks.length) return null;
   return (
-    <div className="grid gap-4">
+    <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-6">
       {blocks.map((block) => {
         const Block = BLOCKS[block.type] || TextBlock;
-        return <Block key={block.id} block={block} />;
+        return (
+          <div key={block.id} className={`min-w-0 ${WIDTH_SPANS[block.width] || WIDTH_SPANS.full}`}>
+            <Block block={block} />
+          </div>
+        );
       })}
     </div>
   );

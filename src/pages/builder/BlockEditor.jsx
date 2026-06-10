@@ -6,6 +6,7 @@ import {
   Field,
   Input,
   Textarea,
+  Select,
   MediaInput,
 } from "../../components/common/index.jsx";
 import { uid } from "../../lib/roster.js";
@@ -243,11 +244,22 @@ function BlockEditor({ value = [], onChange }) {
         const TypeEditor = EDITORS[block.type] || BodyEditor;
         return (
           <div key={block.id} className="rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-4">
-            <div className="mb-3 flex items-center gap-2">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
               <span className="rounded-md bg-white/5 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
                 {BLOCK_TYPES.find((t) => t.value === block.type)?.label || block.type}
               </span>
-              <div className="ml-auto flex items-center gap-1">
+              <Select
+                value={block.width || "full"}
+                onChange={(e) => update(block.id, { width: e.target.value })}
+                className="ml-auto !w-36 !py-1.5 text-xs"
+                title="How wide the block is on desktop; blocks share a row when they fit. Phones always stack."
+              >
+                <option value="full">Full width</option>
+                <option value="twothirds">⅔ width</option>
+                <option value="half">½ width</option>
+                <option value="third">⅓ width</option>
+              </Select>
+              <div className="flex items-center gap-1">
                 <IconButton icon={ChevronUp} label="Move up" disabled={idx === 0} onClick={() => move(block.id, -1)} className="disabled:opacity-30" />
                 <IconButton icon={ChevronDown} label="Move down" disabled={idx === blocks.length - 1} onClick={() => move(block.id, 1)} className="disabled:opacity-30" />
                 <IconButton icon={Trash2} label="Delete block" onClick={() => remove(block.id)} className="hover:border-red-500/40 hover:text-red-300" />

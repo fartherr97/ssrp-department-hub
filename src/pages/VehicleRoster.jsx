@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Car, Tags } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Car, Tags, Copy, Columns3, Rows3 } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
 import { canEditFleet } from "../lib/permissions.js";
 import { uid } from "../lib/roster.js";
@@ -181,9 +181,15 @@ export default function VehicleRoster({ page, user }) {
   const tiers = Array.isArray(cfg.tiers) ? cfg.tiers : [];
   const tagById = Object.fromEntries(tags.map((t) => [t.id, t]));
 
+  // "columns" (a column per rank, vehicles stacked) or "rows" (rank label on
+  // the left, vehicles flowing to the right like many department sheets).
+  const layout = cfg.layout === "rows" ? "rows" : "columns";
+  const tierWord = layout === "rows" ? "row" : "column";
+
   const [vehicleModal, setVehicleModal] = useState(null); // { tierId, vehicle }
   const [tagsOpen, setTagsOpen] = useState(false);
   const [confirm, setConfirm] = useState(null);
+  const [copyTarget, setCopyTarget] = useState(null); // tier receiving copied vehicles
   const vehicleM = useModalData(vehicleModal);
 
   // All edits patch this page's config object inside the global config.
@@ -225,6 +231,78 @@ export default function VehicleRoster({ page, user }) {
     });
     setVehicleModal(null);
   }
+  // Append copies of another tier's vehicles (fresh ids), so the next rank up
+  // doesn't have to be retyped from scratch.
+  function copyVehiclesFrom(sourceTierId) {
+    const src = tiers.find((t) => t.id === sourceTierId);
+    const target = tiers.find((t) => t.id === copyTarget);
+    if (!src || !target) return;
+    updateTier(copyTarget, {
+      vehicles: [
+        ...(target.vehicles || []),
+        ...(src.vehicles || []).map((v) => ({ ...v, id: uid("veh") })),
+      ],
+    });
+    setCopyTarget(null);
+  }
+  function addTier() {
+    setTiers([...tiers, { id: uid("tier"), name: "New Rank / Unit", vehicles: [] }]);
+  }
+
+  // Shared per-tier edit controls (reorder, add/copy vehicles, delete tier).
+  const tierControls = (tier, idx) => (
+    <div className="mt-2 flex items-center justify-center gap-1">
+      <IconButton
+        icon={layout === "rows" ? ChevronUp : ChevronLeft}
+        label={layout === "rows" ? "Move row up" : "Move column left"}
+        disabled={idx === 0}
+        onClick={() => moveTier(tier.id, -1)}
+        className="h-7 w-7 disabled:opacity-30"
+      />
+      <IconButton
+        icon={Plus}
+        label="Add vehicle"
+        onClick={() =>
+          setVehicleModal({
+            tierId: tier.id,
+            vehicle: { id: uid("veh"), name: "", code: "", tagId: "", isNew: true },
+          })
+        }
+        className="h-7 w-7"
+      />
+      <IconButton
+        icon={Copy}
+        label={`Copy vehicles from another ${tierWord}`}
+        disabled={tiers.length < 2}
+        onClick={() => setCopyTarget(tier.id)}
+        className="h-7 w-7 disabled:opacity-30"
+      />
+      <IconButton
+        icon={Trash2}
+        label={`Delete ${tierWord}`}
+        onClick={() => setConfirm({ type: "tier", tier })}
+        className="h-7 w-7 hover:border-red-500/40 hover:text-red-300"
+      />
+      <IconButton
+        icon={layout === "rows" ? ChevronDown : ChevronRight}
+        label={layout === "rows" ? "Move row down" : "Move column right"}
+        disabled={idx === tiers.length - 1}
+        onClick={() => moveTier(tier.id, 1)}
+        className="h-7 w-7 disabled:opacity-30"
+      />
+    </div>
+  );
+
+  const tierLabel = (tier) =>
+    canEdit ? (
+      <input
+        value={tier.name}
+        onChange={(e) => updateTier(tier.id, { name: e.target.value })}
+        className="w-full bg-transparent text-center text-[13px] font-bold text-white outline-none"
+      />
+    ) : (
+      <div className="text-[13px] font-bold text-white">{tier.name}</div>
+    );
 
   return (
     <div>
@@ -235,14 +313,31 @@ export default function VehicleRoster({ page, user }) {
         actions={
           canEdit && (
             <>
+              <div className="flex h-full items-stretch overflow-hidden rounded-xl border border-white/10">
+                {[
+                  ["columns", Columns3, "Columns"],
+                  ["rows", Rows3, "Rows"],
+                ].map(([value, Icon, label]) => (
+                  <button
+                    key={value}
+                    onClick={() => setCfg({ layout: value })}
+                    title={`${label} layout`}
+                    className={`flex flex-1 items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold transition ${
+                      layout === value
+                        ? "bg-[color:var(--color-primary)]/20 text-white"
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    <Icon size={14} />
+                    {label}
+                  </button>
+                ))}
+              </div>
               <Button variant="secondary" icon={Tags} onClick={() => setTagsOpen(true)}>
                 Legend
               </Button>
-              <Button
-                icon={Plus}
-                onClick={() => setTiers([...tiers, { id: uid("tier"), name: "New Rank / Unit", vehicles: [] }])}
-              >
-                Add column
+              <Button icon={Plus} onClick={addTier}>
+                Add {tierWord}
               </Button>
             </>
           )
@@ -279,34 +374,22 @@ export default function VehicleRoster({ page, user }) {
           <Car size={32} className="mx-auto mb-3 text-slate-500" />
           <div className="text-base font-semibold text-slate-200">No fleet structure yet</div>
           <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
-            Add a column per rank or unit (Recruit, Trooper… or SRT, CIU), then add the
+            Add a column or row per rank or unit (Recruit, Trooper… or SRT, CIU), then add the
             vehicles each one may use.
           </p>
           {canEdit && (
-            <Button
-              icon={Plus}
-              className="mt-4"
-              onClick={() => setTiers([{ id: uid("tier"), name: "New Rank / Unit", vehicles: [] }])}
-            >
-              Add the first column
+            <Button icon={Plus} className="mt-4" onClick={addTier}>
+              Add the first {tierWord}
             </Button>
           )}
         </Panel>
-      ) : (
+      ) : layout === "columns" ? (
         <Panel className="overflow-x-auto p-4">
           <div className="flex items-start gap-3">
             {tiers.map((tier, idx) => (
               <div key={tier.id} className="w-40 shrink-0">
                 <div className="mb-2 rounded-lg border border-white/15 bg-[color:var(--color-primary)]/12 px-2 py-2 text-center">
-                  {canEdit ? (
-                    <input
-                      value={tier.name}
-                      onChange={(e) => updateTier(tier.id, { name: e.target.value })}
-                      className="w-full bg-transparent text-center text-[13px] font-bold text-white outline-none"
-                    />
-                  ) : (
-                    <div className="text-[13px] font-bold text-white">{tier.name}</div>
-                  )}
+                  {tierLabel(tier)}
                 </div>
                 <div className="grid gap-1.5">
                   {(tier.vehicles || []).map((v, vIdx) => (
@@ -328,44 +411,45 @@ export default function VehicleRoster({ page, user }) {
                     </div>
                   )}
                 </div>
-                {canEdit && (
-                  <div className="mt-2 flex items-center justify-center gap-1">
-                    <IconButton
-                      icon={ChevronLeft}
-                      label="Move column left"
-                      disabled={idx === 0}
-                      onClick={() => moveTier(tier.id, -1)}
-                      className="h-7 w-7 disabled:opacity-30"
-                    />
-                    <IconButton
-                      icon={Plus}
-                      label="Add vehicle"
-                      onClick={() =>
-                        setVehicleModal({
-                          tierId: tier.id,
-                          vehicle: { id: uid("veh"), name: "", code: "", tagId: "", isNew: true },
-                        })
-                      }
-                      className="h-7 w-7"
-                    />
-                    <IconButton
-                      icon={Trash2}
-                      label="Delete column"
-                      onClick={() => setConfirm({ type: "tier", tier })}
-                      className="h-7 w-7 hover:border-red-500/40 hover:text-red-300"
-                    />
-                    <IconButton
-                      icon={ChevronRight}
-                      label="Move column right"
-                      disabled={idx === tiers.length - 1}
-                      onClick={() => moveTier(tier.id, 1)}
-                      className="h-7 w-7 disabled:opacity-30"
-                    />
-                  </div>
-                )}
+                {canEdit && tierControls(tier, idx)}
               </div>
             ))}
           </div>
+        </Panel>
+      ) : (
+        /* Rows layout: rank label on the left, vehicles flowing to the right. */
+        <Panel className="grid gap-3 p-4">
+          {tiers.map((tier, idx) => (
+            <div key={tier.id} className="flex flex-col gap-2 border-b border-white/5 pb-3 last:border-b-0 last:pb-0 sm:flex-row sm:items-start">
+              <div className="w-full shrink-0 sm:w-44">
+                <div className="rounded-lg border border-white/15 bg-[color:var(--color-primary)]/12 px-2 py-2 text-center">
+                  {tierLabel(tier)}
+                </div>
+                {canEdit && tierControls(tier, idx)}
+              </div>
+              <div className="flex min-w-0 flex-1 flex-wrap gap-1.5">
+                {(tier.vehicles || []).map((v, vIdx) => (
+                  <div key={v.id} className="w-36">
+                    <VehicleCard
+                      vehicle={v}
+                      tag={tagById[v.tagId]}
+                      canEdit={canEdit}
+                      isFirst={vIdx === 0}
+                      isLast={vIdx === (tier.vehicles || []).length - 1}
+                      onMove={(dir) => moveVehicle(tier.id, v.id, dir)}
+                      onEdit={() => setVehicleModal({ tierId: tier.id, vehicle: v })}
+                      onDelete={() => setConfirm({ type: "vehicle", tierId: tier.id, vehicle: v })}
+                    />
+                  </div>
+                ))}
+                {(tier.vehicles || []).length === 0 && (
+                  <div className="rounded-lg border border-dashed border-white/10 px-4 py-3 text-center text-[11px] text-slate-600">
+                    No vehicles
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
         </Panel>
       )}
 
@@ -399,9 +483,44 @@ export default function VehicleRoster({ page, user }) {
         />
       )}
       <TagsModal open={tagsOpen} onClose={() => setTagsOpen(false)} tags={tags} onChange={(next) => setCfg({ tags: next })} />
+      {/* Copy vehicles from another tier (no retyping rank-to-rank) */}
+      <Modal
+        open={Boolean(copyTarget)}
+        onClose={() => setCopyTarget(null)}
+        title={`Copy vehicles into “${tiers.find((t) => t.id === copyTarget)?.name || ""}”`}
+        size="sm"
+        footer={
+          <Button variant="secondary" onClick={() => setCopyTarget(null)}>
+            Cancel
+          </Button>
+        }
+      >
+        <p className="mb-3 text-sm text-slate-400">
+          Pick which {tierWord} to copy from. Its vehicles are added below the ones already
+          here, then adjust the differences instead of retyping everything.
+        </p>
+        <div className="grid gap-1.5">
+          {tiers
+            .filter((t) => t.id !== copyTarget)
+            .map((t) => (
+              <button
+                key={t.id}
+                onClick={() => copyVehiclesFrom(t.id)}
+                disabled={(t.vehicles || []).length === 0}
+                className="press flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-[var(--color-surface-2)] px-3 py-2 text-left text-sm font-semibold text-slate-200 transition hover:border-[color:var(--color-border-strong)] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <span className="truncate">{t.name}</span>
+                <span className="shrink-0 text-xs text-slate-500">
+                  {(t.vehicles || []).length} vehicle(s)
+                </span>
+              </button>
+            ))}
+        </div>
+      </Modal>
+
       <ConfirmDialog
         open={Boolean(confirm)}
-        title={confirm?.type === "tier" ? "Delete column?" : "Delete vehicle?"}
+        title={confirm?.type === "tier" ? `Delete ${tierWord}?` : "Delete vehicle?"}
         message={
           confirm?.type === "tier"
             ? `Delete "${confirm?.tier?.name}" and its ${confirm?.tier?.vehicles?.length || 0} vehicle(s)?`
