@@ -534,6 +534,20 @@ export default function ChainOfCommand({ page, user }) {
     if (document.fullscreenElement) document.exitFullscreen();
     else fsRef.current?.requestFullscreen?.();
   };
+  // Ctrl/Cmd + scroll (and trackpad pinch) zooms the chart, in or out of
+  // fullscreen. Native listener because React wheel handlers are passive.
+  useEffect(() => {
+    const el = panRef.current;
+    if (!el) return undefined;
+    const onWheel = (e) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      const step = e.deltaY > 0 ? -0.1 : 0.1;
+      setZoom((z) => Math.min(1.5, Math.max(0.4, +(z + step).toFixed(2))));
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  });
   const editingM = useModalData(editing);
 
   // Whether the dragged box may land on `targetId`: not itself, and never
@@ -663,14 +677,19 @@ export default function ChainOfCommand({ page, user }) {
               onClick={toggleFullscreen}
               className="h-7 w-7"
             />
+            <span className="hidden whitespace-nowrap px-1.5 text-[10px] font-semibold text-slate-500 lg:block">
+              drag to pan · Ctrl+scroll zooms
+            </span>
           </div>
 
           {/* Pannable, zoomable chart canvas */}
           <div
             ref={panRef}
             onMouseDown={(e) => {
-              // Grab-to-pan on the background only, boxes keep their drag.
-              if (e.target.closest("button, img, input")) return;
+              // Grab-to-pan: middle mouse anywhere, left mouse on the
+              // background (boxes keep their own drag behavior).
+              if (e.button !== 1 && (e.button !== 0 || e.target.closest("button, img, input"))) return;
+              e.preventDefault();
               panState.current = {
                 x: e.clientX,
                 y: e.clientY,
@@ -686,7 +705,7 @@ export default function ChainOfCommand({ page, user }) {
             }}
             onMouseUp={() => (panState.current = null)}
             onMouseLeave={() => (panState.current = null)}
-            className={`cursor-grab overflow-auto p-6 active:cursor-grabbing ${
+            className={`cursor-grab select-none overflow-auto p-6 active:cursor-grabbing ${
               isFullscreen ? "h-full max-h-none" : "max-h-[72vh]"
             }`}
           >
