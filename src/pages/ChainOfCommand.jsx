@@ -141,7 +141,7 @@ function moveNodeTo(root, dragId, targetId, mode) {
 
 // ── Rendering ────────────────────────────────────────────────────────────────
 
-function NodeCard({ node, accent, canEdit, isRoot, onEdit, dropHint, setDropHint, onDropNode }) {
+function NodeCard({ node, accent, canEdit, isRoot, onEdit, dropHint, setDropHint, onDropNode, canDropOn, setDragId }) {
   const color = node.color || accent;
   const myHint = dropHint?.targetId === node.id ? dropHint.mode : null;
 
@@ -175,10 +175,14 @@ function NodeCard({ node, accent, canEdit, isRoot, onEdit, dropHint, setDropHint
       onDragStart={(e) => {
         e.dataTransfer.effectAllowed = "move";
         e.dataTransfer.setData("text/coc-node", node.id);
+        setDragId(node.id);
       }}
-      onDragEnd={() => setDropHint(null)}
+      onDragEnd={() => {
+        setDragId(null);
+        setDropHint(null);
+      }}
       onDragOver={(e) => {
-        if (!canEdit || !hasNodeDrag(e)) return;
+        if (!canEdit || !hasNodeDrag(e) || !canDropOn(node.id)) return;
         e.preventDefault();
         const mode = zoneFor(e);
         if (myHint !== mode) setDropHint({ targetId: node.id, mode });
@@ -237,7 +241,7 @@ function MemberColumn({ node, accent }) {
   );
 }
 
-function NodeTree({ node, accent, canEdit, isRoot = true, onEdit, onAddChild, dropHint, setDropHint, onDropNode }) {
+function NodeTree({ node, accent, canEdit, isRoot = true, onEdit, onAddChild, dropHint, setDropHint, onDropNode, canDropOn, setDragId }) {
   const children = node.children || [];
   return (
     <div className="flex flex-col items-center">
@@ -257,6 +261,8 @@ function NodeTree({ node, accent, canEdit, isRoot = true, onEdit, onAddChild, dr
         dropHint={dropHint}
         setDropHint={setDropHint}
         onDropNode={onDropNode}
+        canDropOn={canDropOn}
+        setDragId={setDragId}
       />
       <MemberColumn node={node} accent={accent} />
       {(children.length > 0 || canEdit) && (
@@ -274,6 +280,8 @@ function NodeTree({ node, accent, canEdit, isRoot = true, onEdit, onAddChild, dr
                 dropHint={dropHint}
                 setDropHint={setDropHint}
                 onDropNode={onDropNode}
+                canDropOn={canDropOn}
+                setDragId={setDragId}
               />
             </div>
           ))}
@@ -287,7 +295,7 @@ function NodeTree({ node, accent, canEdit, isRoot = true, onEdit, onAddChild, dr
                 onClick={() => onAddChild(node.id)}
                 title={`Add a box under “${node.title}”, or drop a dragged box here to move it under “${node.title}”`}
                 onDragOver={(e) => {
-                  if (!hasNodeDrag(e)) return;
+                  if (!hasNodeDrag(e) || !canDropOn(node.id)) return;
                   e.preventDefault();
                   if (dropHint?.targetId !== node.id || dropHint?.mode !== "slot") {
                     setDropHint({ targetId: node.id, mode: "slot" });
@@ -417,7 +425,14 @@ export default function ChainOfCommand({ page, user }) {
   const [editing, setEditing] = useState(null); // node being edited
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [dropHint, setDropHint] = useState(null); // { targetId, mode } while dragging
+  const [dragId, setDragId] = useState(null); // box currently being dragged
   const editingM = useModalData(editing);
+
+  // Whether the dragged box may land on `targetId`: not itself, and never
+  // anywhere inside its own branch (that would orphan it). Invalid targets
+  // don't light up and the browser shows a "no drop" cursor.
+  const canDropOn = (targetId) =>
+    Boolean(dragId) && dragId !== targetId && !isDescendant(findNode(root, dragId), targetId);
 
   const setCfg = (patch) =>
     mutate((c) => ({
@@ -518,6 +533,8 @@ export default function ChainOfCommand({ page, user }) {
               dropHint={dropHint}
               setDropHint={setDropHint}
               onDropNode={handleDropNode}
+              canDropOn={canDropOn}
+              setDragId={setDragId}
             />
           </div>
         </Panel>
