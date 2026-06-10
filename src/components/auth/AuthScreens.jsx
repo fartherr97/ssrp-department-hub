@@ -38,15 +38,22 @@ function DiscordButton({ className = "" }) {
 // ─── Dev login (front-end only) ──────────────────────────────────────────────
 
 function DevLogin({ groups, onDevLogin }) {
-  const [group, setGroup] = useState(groups?.[groups.length - 1]?.id || "admin");
+  // "Regular member" previews someone in no permission group at all —
+  // they can view member pages but edit nothing.
+  const options = [
+    ...(groups || []),
+    { id: "viewer", label: "Regular member (view only)" },
+  ];
+  const [group, setGroup] = useState(groups?.[groups.length - 1]?.id || "viewer");
   return (
     <div className="mt-10 w-full max-w-sm rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-4 text-left">
       <div className="mb-2 text-xs font-bold uppercase tracking-wider text-amber-300/80">
         Developer preview
       </div>
       <p className="mb-3 text-xs text-slate-400">
-        No backend yet — preview the hub as any permission group. Replace with
-        real Discord auth when the server is wired up.
+        No backend yet — preview the hub as any permission group, or as a
+        regular member with view-only access. Replace with real Discord auth
+        when the server is wired up.
       </p>
       <div className="flex gap-2">
         <select
@@ -54,7 +61,7 @@ function DevLogin({ groups, onDevLogin }) {
           onChange={(e) => setGroup(e.target.value)}
           className="flex-1 rounded-xl border border-white/10 bg-app-input px-3 py-2 text-sm text-cad-text outline-none transition focus:border-[color:var(--color-border-strong)]"
         >
-          {groups?.map((g) => (
+          {options.map((g) => (
             <option key={g.id} value={g.id}>
               {g.label}
             </option>
