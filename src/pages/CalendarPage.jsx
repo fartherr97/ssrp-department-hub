@@ -406,6 +406,8 @@ export default function CalendarPage({ page, user }) {
           </div>
         </div>
 
+        {/* Desktop / tablet: month grid */}
+        <div className="hidden sm:block">
         {/* Weekday header */}
         <div className="grid grid-cols-7 gap-1.5">
           {WEEKDAYS.map((d) => (
@@ -466,6 +468,62 @@ export default function CalendarPage({ page, user }) {
               </div>
             );
           })}
+        </div>
+        </div>
+
+        {/* Phones: agenda list of the month's events */}
+        <div className="grid gap-2 sm:hidden">
+          {cells
+            .map((day) => {
+              if (day === null) return null;
+              const key = dateKey(view.y, view.m, day);
+              const dayEvents = eventsByDay[key] || [];
+              if (dayEvents.length === 0) return null;
+              const weekday = WEEKDAYS[new Date(view.y, view.m, day).getDay()];
+              const isToday = key === tKey;
+              return (
+                <div
+                  key={key}
+                  className={`rounded-xl border p-3 ${
+                    isToday
+                      ? "border-[color:var(--color-border-strong)] bg-[color:var(--color-primary)]/10"
+                      : "border-white/10 bg-white/[0.02]"
+                  }`}
+                >
+                  <div
+                    className={`text-[11px] font-bold uppercase tracking-wide ${
+                      isToday ? "text-[var(--color-primary)]" : "text-slate-500"
+                    }`}
+                  >
+                    {weekday} · {pad(view.m + 1)}/{pad(day)}
+                    {isToday && " · Today"}
+                  </div>
+                  <div className="mt-1.5 grid gap-1.5">
+                    {dayEvents.map((e) => (
+                      <button
+                        key={e.id}
+                        onClick={() => setDetailsId(e.id)}
+                        className="flex items-center justify-between gap-2 rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-primary)]/12 px-2.5 py-2 text-left text-sm font-semibold text-white"
+                      >
+                        <span className="min-w-0 truncate">
+                          {e._continued && <span className="mr-1 text-[var(--color-primary)]">↳</span>}
+                          {e.title}
+                        </span>
+                        {(e.startTime || e.time) && !e._continued && (
+                          <span className="shrink-0 text-xs text-[var(--color-primary)]">
+                            {e.startTime || e.time}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })
+            .filter(Boolean)}
+          {cells.every((day) => day === null || (eventsByDay[dateKey(view.y, view.m, day)] || []).length === 0) && (
+            <p className="py-6 text-center text-sm text-slate-500">No events this month.</p>
+          )}
         </div>
       </Panel>
 

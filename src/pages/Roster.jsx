@@ -519,7 +519,7 @@ function RankTitlesModal({ open, onClose, subId }) {
             key={rt.id}
             className="grid gap-2 rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-3"
           >
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid gap-2 sm:grid-cols-2">
               <Field label="Rank name">
                 <Input
                   value={rt.name}
@@ -534,7 +534,7 @@ function RankTitlesModal({ open, onClose, subId }) {
                 />
               </Field>
             </div>
-            <div className="grid grid-cols-[1fr_1fr_auto_auto_auto] items-end gap-2">
+            <div className="grid items-end gap-2 sm:grid-cols-[1fr_1fr_auto]">
               <Field label="Callsign format" hint="# auto-numbers, e.g. 91##">
                 <Input
                   value={rt.callsignFormat || ""}
@@ -553,6 +553,7 @@ function RankTitlesModal({ open, onClose, subId }) {
                   }
                 />
               </Field>
+              <div className="mb-0.5 flex items-center justify-end gap-1">
               <IconButton
               icon={ChevronUp}
               label="Move up"
@@ -573,6 +574,7 @@ function RankTitlesModal({ open, onClose, subId }) {
               onClick={() => mutate(R.deleteRank(config, subId, rt.id))}
               className="hover:border-red-500/40 hover:text-red-300"
             />
+            </div>
             </div>
           </div>
         ))}
@@ -1477,7 +1479,7 @@ export default function Roster({ user }) {
             ) : (
               <StatPills total={totalMembers} statusField={statusField} counts={statusCounts} />
             )}
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <div className="relative">
                 <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                 <Input

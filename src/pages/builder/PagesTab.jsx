@@ -308,9 +308,9 @@ function NavGroups() {
           return (
             <div
               key={g}
-              className="flex items-center gap-3 rounded-xl border border-white/10 bg-[var(--color-surface-2)] px-3 py-2"
+              className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-white/10 bg-[var(--color-surface-2)] px-3 py-2"
             >
-              <span className="flex-1 truncate text-sm font-semibold text-white">{g}</span>
+              <span className="min-w-[120px] flex-1 truncate text-sm font-semibold text-white">{g}</span>
               {!used && (
                 <span
                   className="shrink-0 rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold text-amber-300"
@@ -470,7 +470,7 @@ export default function PagesTab() {
                     )}
                   </div>
                 </div>
-                <Badge>{page.locked ? "system" : page.type}</Badge>
+                <Badge className="hidden sm:inline-flex">{page.locked ? "system" : page.type}</Badge>
                 <div className="flex items-center gap-1">
                   <IconButton icon={ChevronUp} label="Move up" disabled={idx === 0} onClick={() => movePage(page.id, -1)} className="disabled:opacity-30" />
                   <IconButton icon={ChevronDown} label="Move down" disabled={idx === config.pages.length - 1} onClick={() => movePage(page.id, 1)} className="disabled:opacity-30" />
