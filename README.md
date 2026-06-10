@@ -63,6 +63,9 @@ exposes `mutate()` so any edit auto-saves (debounced) through `api.saveConfig`.
 | `access`  | `AccessRoles.jsx` | Groups, capabilities, and members      |
 | `audit`   | `AuditLog.jsx`    | Who changed what, and when             |
 | `builder` | `BuilderPortal`   | Site configuration portal (locked)     |
+| `fleet`   | `VehicleRoster.jsx` | Vehicle fleet structure per rank/unit |
+| `uniforms`| `UniformRoster.jsx` | Uniform class structure cards         |
+| `calendar`| `CalendarPage.jsx`  | Month calendar with events + attendance |
 
 Add a new page type by creating a component and registering it in
 `PAGE_COMPONENTS` in `src/App.jsx`.

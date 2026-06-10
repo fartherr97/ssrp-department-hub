@@ -77,10 +77,12 @@ const GLOSSARY = [
     ],
   },
   {
-    section: "Calendar & vehicle roster",
+    section: "Calendar, vehicle & uniform rosters",
     terms: [
       { term: "Vehicle roster (fleet)", def: "A page type listing which vehicles each rank or unit may use, columns of ranks/units with vehicle cards (name + spawn code), a colored legend (Slicktop, Ghosted, Unmarked…), and a notes box. Added under Pages & Menu; edited on the page itself." },
       { term: "Legend tag", def: "The colored labels on a vehicle roster (e.g. Ghosted = green). Each vehicle can carry one tag, which colors its card border." },
+      { term: "Uniform roster", def: "A page type replacing the uniform class structure sheets: a card per uniform (Class A, Class B, vest options, pins…) with a reference photo, a table of component numbers and textures, and rules notes. Added under Pages & Menu; edited on the page itself." },
+      { term: "Component (uniform)", def: "One clothing slot on a uniform card, its category (Upperbody, Hats & Helmets…), the item number, and the texture to use." },
       { term: "Department calendar", def: "A page type showing a month grid of events. It always opens on the current month, and past months move into the Archive automatically. Added under Pages & Menu." },
       { term: "Calendar event", def: "An entry on the calendar, title, date, time, details. People with the “Manage calendar” capability (Command and up by default) add and edit them; anyone signed in can open one and tap “I'll attend”." },
       { term: "Attendance", def: "The list of members who marked themselves attending an event. The count shows on the event in the calendar and in the archive." },
