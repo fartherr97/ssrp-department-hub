@@ -1,17 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { ClipboardList, Search, Trash2 } from "lucide-react";
+import { ClipboardList, Search } from "lucide-react";
 import * as audit from "../lib/audit.js";
-import { useConfig } from "../lib/configContext.jsx";
-import { isAdmin } from "../lib/permissions.js";
 import {
   Panel,
   PageHeader,
   Badge,
   Input,
   Select,
-  Button,
   EmptyState,
-  ConfirmDialog,
 } from "../components/common/index.jsx";
 
 // Category → label + accent color for the badge.
@@ -31,13 +27,10 @@ function relTime(ts) {
   return `${Math.floor(s / 86400)}d ago`;
 }
 
-export default function AuditLog({ user }) {
-  const { config } = useConfig();
-  const admin = isAdmin(user, config);
+export default function AuditLog() {
   const [log, setLog] = useState([]);
   const [query, setQuery] = useState("");
   const [cat, setCat] = useState("all");
-  const [confirmClear, setConfirmClear] = useState(false);
 
   useEffect(() => {
     const load = () => audit.getLog().then((l) => setLog(Array.isArray(l) ? l : []));
@@ -65,13 +58,6 @@ export default function AuditLog({ user }) {
         kicker="Administration"
         title="Audit Log"
         subtitle="Who changed what, and when — roster and configuration activity."
-        actions={
-          admin && log.length > 0 ? (
-            <Button variant="danger" icon={Trash2} onClick={() => setConfirmClear(true)}>
-              Clear log
-            </Button>
-          ) : null
-        }
       />
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -137,18 +123,6 @@ export default function AuditLog({ user }) {
           </div>
         </Panel>
       )}
-
-      <ConfirmDialog
-        open={confirmClear}
-        title="Clear audit log?"
-        message="Permanently delete all audit entries? This can't be undone."
-        confirmLabel="Clear log"
-        onCancel={() => setConfirmClear(false)}
-        onConfirm={async () => {
-          await audit.clearLog();
-          setConfirmClear(false);
-        }}
-      />
     </div>
   );
 }
