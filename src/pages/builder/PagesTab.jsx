@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useState } from "react";
 import { Plus, Pencil, Trash2, ChevronUp, ChevronDown, Lock, GripVertical } from "lucide-react";
 import { useConfig } from "../../lib/configContext.jsx";
 import { getIcon, ICON_NAMES } from "../../lib/icons.js";
+import { pageSlug, isGeneratedPageId } from "../../lib/navigation.js";
 import { uid } from "../../lib/roster.js";
 import {
   Panel,
@@ -434,12 +435,21 @@ export default function PagesTab() {
 
   function savePage(draft) {
     const { isNew, ...clean } = draft;
-    mutate((cfg) => ({
-      ...cfg,
-      pages: isNew
-        ? [...cfg.pages, clean]
-        : cfg.pages.map((p) => (p.id === clean.id ? clean : p)),
-    }));
+    mutate((cfg) => {
+      // Page ids are the URL path, so derive a readable slug from the label
+      // (new pages always; older random "page-xxxx" ids upgrade on save).
+      const page = { ...clean };
+      if (isNew || isGeneratedPageId(page.id)) {
+        const taken = cfg.pages.filter((p) => p.id !== clean.id).map((p) => p.id);
+        page.id = pageSlug(page.label, taken);
+      }
+      return {
+        ...cfg,
+        pages: isNew
+          ? [...cfg.pages, page]
+          : cfg.pages.map((p) => (p.id === clean.id ? page : p)),
+      };
+    });
     setEditing(null);
   }
 

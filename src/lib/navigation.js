@@ -42,6 +42,33 @@ export function getPagePath(pageId, config) {
   return pageId === first ? "/" : `/${encodeURIComponent(pageId)}`;
 }
 
+/*
+ * Page ids double as URL paths, so new pages get a readable slug from their
+ * label ("Vehicle Roster" → "vehicle-roster") instead of a random id.
+ * Conflicts get a numeric suffix (training, training-2, …).
+ */
+export function pageSlug(label, takenIds = []) {
+  const base =
+    String(label || "")
+      .toLowerCase()
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "") // strip accents
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40)
+      .replace(/-+$/g, "") || "page";
+  let slug = base;
+  let n = 2;
+  while (takenIds.includes(slug)) slug = `${base}-${n++}`;
+  return slug;
+}
+
+// Matches the random ids uid("page") used to generate, so older pages can be
+// upgraded to a readable slug the next time they're saved.
+export function isGeneratedPageId(id) {
+  return /^page-(?:[0-9a-f]{8}|[0-9a-z]+-[0-9a-z]+)$/i.test(id || "");
+}
+
 // ── Sub-page routing (second URL segment) ────────────────────────────────────
 // Pages with internal tabs (Builder tabs, roster subdivisions) expose them as
 // /pageId/subId so every view is directly linkable.

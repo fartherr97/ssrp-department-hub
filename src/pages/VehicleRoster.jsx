@@ -147,7 +147,11 @@ function VehicleCard({ vehicle, tag, canEdit, onEdit, onDelete, onMove, isFirst,
     >
       <div className="text-[13px] font-bold leading-tight text-white">{vehicle.name}</div>
       {vehicle.code && (
-        <div className="mt-0.5 truncate font-mono text-[10px] uppercase tracking-wide text-slate-400">
+        // Spawn codes shown exactly as typed (no uppercasing), in a legible chip.
+        <div
+          className="mx-auto mt-1 max-w-full truncate rounded-md bg-black/30 px-1.5 py-0.5 font-mono text-[11px] font-semibold tracking-wide text-slate-200"
+          title={vehicle.code}
+        >
           {vehicle.code}
         </div>
       )}
