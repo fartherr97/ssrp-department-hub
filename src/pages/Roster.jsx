@@ -22,6 +22,7 @@ import {
   RotateCcw,
   UserX,
   Wrench,
+  GraduationCap,
 } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
 import { canEditSubdivision, canEditRosterStructure } from "../lib/permissions.js";
@@ -888,12 +889,235 @@ function TerminationsBody({ onReinstated }) {
   );
 }
 
+// ─── FTO / Cadet program controller ──────────────────────────────────────────
+// TPD-style cadet pipeline: hire applicants straight into the cadet rank,
+// track who's in the program, and process final evals: pass promotes them
+// (rank + callsign + promotion date + probation in one shot), fail terminates
+// them to the archive (or just set their status back manually).
+
+function FTOBody({ initialSubId, onToast }) {
+  const { config, mutate } = useConfig();
+  const subdivisions = config.roster.subdivisions || [];
+  const [subSel, setSubSel] = useState(initialSubId || subdivisions[0]?.id);
+  const sub = subdivisions.find((x) => x.id === subSel) || subdivisions[0];
+  const ranks = sub?.ranks || [];
+  const autoCadet = ranks.find((r) => /cadet|recruit|trainee/i.test(r.name))?.id || "";
+  const [cadetRankSel, setCadetRankSel] = useState("");
+  const cadetRank = cadetRankSel || autoCadet;
+
+  const [passing, setPassing] = useState(null); // member mid "pass final eval"
+  const [passRank, setPassRank] = useState("");
+  const [passProb, setPassProb] = useState("");
+  const [confirmFail, setConfirmFail] = useState(null);
+  const [hireName, setHireName] = useState("");
+  const [hireDiscord, setHireDiscord] = useState("");
+  const [hireCat, setHireCat] = useState("");
+
+  const cadets = [];
+  for (const cat of sub?.categories || []) {
+    for (const m of cat.members) {
+      if (cadetRank && m.rank === cadetRank) cadets.push({ ...m, catName: cat.name });
+    }
+  }
+  const csId = R.callsignFieldId(config);
+
+  function passEval() {
+    const target = passing;
+    mutate((cfg) =>
+      R.applyPromotion(cfg, sub.id, [target.id], { rankId: passRank, probationUntil: passProb })
+    );
+    const rankName = ranks.find((r) => r.id === passRank)?.name || "their new rank";
+    onToast?.(`${target.name} passed final eval, promoted to ${rankName}`);
+    setPassing(null);
+    setPassRank("");
+    setPassProb("");
+  }
+
+  function hire() {
+    const catId = hireCat || sub?.categories?.[0]?.id;
+    if (!sub || !catId || !hireName.trim()) return;
+    const name = hireName.trim();
+    mutate((cfg) => {
+      const today = new Date().toISOString().slice(0, 10);
+      const fields = {};
+      const hireF = R.hireDateFieldId(cfg);
+      if (hireF) fields[hireF] = today;
+      const promoF = R.promotionDateFieldId(cfg);
+      if (promoF) fields[promoF] = today;
+      const cs = cadetRank ? R.nextCallsignFor(cfg, sub.id, cadetRank) : null;
+      const csF = R.callsignFieldId(cfg);
+      if (cs && csF) fields[csF] = cs;
+      const statusF = R.statusFieldId(cfg);
+      const statusOpts =
+        (cfg.roster.memberFields || []).find((f) => f.id === statusF)?.options || [];
+      const active = statusOpts.find((o) => /active/i.test(o));
+      if (statusF && active) fields[statusF] = active;
+      return R.addMember(cfg, sub.id, catId, {
+        name,
+        discordId: hireDiscord.trim(),
+        rank: cadetRank,
+        fields,
+      });
+    });
+    onToast?.(`${name} hired into the cadet program`);
+    setHireName("");
+    setHireDiscord("");
+  }
+
+  return (
+    <div className="grid gap-4">
+      <div className="grid gap-3 sm:grid-cols-2">
+        {subdivisions.length > 1 && (
+          <Field label="Subdivision">
+            <Select value={sub?.id || ""} onChange={(e) => setSubSel(e.target.value)}>
+              {subdivisions.map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
+        <Field label="Cadet rank" hint="Which rank counts as the cadet program.">
+          <Select value={cadetRank} onChange={(e) => setCadetRankSel(e.target.value)}>
+            <option value="">Choose rank…</option>
+            {ranks.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      </div>
+
+      {/* Hire applicant */}
+      <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+        <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.5px] text-cad-muted">
+          Hire applicant into the program
+        </div>
+        <div className="grid items-end gap-2 sm:grid-cols-[1fr_1fr_1fr_auto]">
+          <Field label="Name">
+            <Input value={hireName} onChange={(e) => setHireName(e.target.value)} placeholder="J. Doe" />
+          </Field>
+          <Field label="Discord ID">
+            <Input
+              value={hireDiscord}
+              onChange={(e) => setHireDiscord(e.target.value)}
+              placeholder="000000000000000000"
+            />
+          </Field>
+          <Field label="Category">
+            <Select value={hireCat || sub?.categories?.[0]?.id || ""} onChange={(e) => setHireCat(e.target.value)}>
+              {(sub?.categories || []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Button icon={UserPlus} disabled={!hireName.trim() || !cadetRank} onClick={hire}>
+            Hire
+          </Button>
+        </div>
+        <p className="mt-2 text-xs text-slate-500">
+          Hired as {ranks.find((r) => r.id === cadetRank)?.name || "the cadet rank"}, with
+          today's hire date, an auto callsign (if the rank has a format), and Active status.
+        </p>
+      </div>
+
+      {/* Cadet list */}
+      <div>
+        <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.5px] text-cad-muted">
+          In the program ({cadets.length})
+        </div>
+        {!cadetRank ? (
+          <p className="text-sm text-slate-500">Pick which rank is the cadet rank above.</p>
+        ) : cadets.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-white/10 p-4 text-center text-sm text-slate-500">
+            Nobody currently holds that rank.
+          </p>
+        ) : (
+          <div className="grid gap-2">
+            {cadets.map((m) => (
+              <div key={m.id} className="rounded-xl border border-white/10 bg-[var(--color-surface-2)] px-3 py-2.5">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-semibold text-white">{m.name}</div>
+                    <div className="truncate text-xs text-slate-500">
+                      {m.catName}
+                      {csId && m.fields?.[csId] ? ` · ${m.fields[csId]}` : ""}
+                    </div>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    className="!py-1.5 text-xs"
+                    onClick={() => {
+                      setPassing(passing?.id === m.id ? null : m);
+                      setPassRank("");
+                      setPassProb("");
+                    }}
+                  >
+                    Pass final eval
+                  </Button>
+                  <Button
+                    variant="danger"
+                    className="!py-1.5 text-xs"
+                    onClick={() => setConfirmFail(m)}
+                  >
+                    Fail
+                  </Button>
+                </div>
+                {passing?.id === m.id && (
+                  <div className="mt-2 grid items-end gap-2 rounded-lg border border-white/10 bg-white/[0.02] p-2 sm:grid-cols-[1fr_1fr_auto]">
+                    <Field label="Promote to">
+                      <Select value={passRank} onChange={(e) => setPassRank(e.target.value)}>
+                        <option value="">Choose rank…</option>
+                        {ranks
+                          .filter((r) => r.id !== cadetRank)
+                          .map((r) => (
+                            <option key={r.id} value={r.id}>
+                              {r.name}
+                            </option>
+                          ))}
+                      </Select>
+                    </Field>
+                    <Field label="Probation until" hint="Optional.">
+                      <Input type="date" value={passProb} onChange={(e) => setPassProb(e.target.value)} />
+                    </Field>
+                    <Button disabled={!passRank} onClick={passEval}>
+                      Confirm
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <ConfirmDialog
+        open={Boolean(confirmFail)}
+        title="Fail final evaluation?"
+        message={`Terminate "${confirmFail?.name}" and archive them to the Termination Roster (reinstatable with Overturn)? To return them to an earlier stage instead, cancel and change their status/assignment.`}
+        confirmLabel="Fail & terminate"
+        onCancel={() => setConfirmFail(null)}
+        onConfirm={() => {
+          mutate((cfg) => R.terminateMember(cfg, confirmFail.id));
+          onToast?.(`${confirmFail.name} failed final eval, terminated`);
+          setConfirmFail(null);
+        }}
+      />
+    </div>
+  );
+}
+
 // ─── Roster Controller, one tabbed modal for all roster management ──────────
 
 const CONTROLLER_TABS = [
   { id: "ranks", label: "Ranks", icon: Award },
   { id: "columns", label: "Columns", icon: Columns3 },
   { id: "stats", label: "Statistics", icon: BarChart3 },
+  { id: "fto", label: "FTO / Cadets", icon: GraduationCap },
   { id: "terminations", label: "Terminations", icon: Archive },
 ];
 
@@ -964,6 +1188,7 @@ function RosterControllerModal({ open, onClose, initialTab = "ranks", initialSub
           <StatsEditor subId={statsSubId} />
         </div>
       )}
+      {tab === "fto" && <FTOBody initialSubId={initialSubId} onToast={onToast} />}
       {tab === "terminations" && <TerminationsBody onReinstated={onToast} />}
     </Modal>
   );
@@ -1472,7 +1697,9 @@ export default function Roster({ user, page }) {
     setMemberModal({ subId: forSubId, categoryId, member });
   }
   function saveMember(draft, targetCategory) {
-    const { subId: mSub, categoryId, member: orig } = memberModal;
+    const ctx = memberModal || memberM.data;
+    if (!ctx) return;
+    const { subId: mSub, categoryId, member: orig } = ctx;
     const { isNew, ...clean } = draft;
     const catChanged = Boolean(targetCategory && targetCategory !== categoryId);
     mutate((cfg) => {
@@ -1535,7 +1762,10 @@ export default function Roster({ user, page }) {
     setCategoryModal({ ...category, subId: forSubId });
   }
   function saveCategory(draft) {
-    const targetSub = categoryModal.subId;
+    // The draft carries subId (set when the modal opened), never read it from
+    // modal state, which can be stale/null during close animations.
+    const targetSub = draft.subId;
+    if (!targetSub) return;
     const { isNew, ...clean } = draft;
     const patch = { name: clean.name, color: clean.color, insigniaUrl: clean.insigniaUrl || "" };
     mutate((cfg) =>

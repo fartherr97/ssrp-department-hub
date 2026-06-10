@@ -602,21 +602,38 @@ export function EmptyState({ icon: Icon, title, subtitle, action }) {
 
 // ─── Modal ───────────────────────────────────────────────────────────────────
 
+// Body scroll lock shared by every modal. A plain save/restore corrupts when
+// modals overlap (whichever closes last "restores" the other's lock and the
+// page stays frozen), so we count open modals and only unlock at zero.
+let modalLocks = 0;
+function lockBodyScroll() {
+  if (modalLocks++ === 0) document.body.style.overflow = "hidden";
+}
+function unlockBodyScroll() {
+  modalLocks = Math.max(0, modalLocks - 1);
+  if (modalLocks === 0) document.body.style.overflow = "";
+}
+
 export function Modal({ open, onClose, title, children, footer, size = "md" }) {
   // Stay mounted briefly after close so the out-animation can play.
   const mounted = useMounted(open, 160);
 
+  // Keep the latest onClose in a ref so the effect doesn't tear down and
+  // re-attach listeners every time the parent re-renders (which happens on
+  // every autosave tick while a modal is open).
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     if (!open) return;
-    const onKey = (e) => e.key === "Escape" && onClose?.();
+    const onKey = (e) => e.key === "Escape" && onCloseRef.current?.();
     document.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    lockBodyScroll();
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
+      unlockBodyScroll();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!mounted) return null;
   const widths = { sm: "max-w-md", md: "max-w-lg", lg: "max-w-2xl", xl: "max-w-4xl" };

@@ -78,6 +78,7 @@ const GLOSSARY = [
       { term: "Overturn", def: "Reinstates a terminated member from the Termination Roster, restoring their name, rank, fields, and subdivision memberships." },
       { term: "LOA automation", def: "Setting someone\u2019s status to LOA stores their return date and prior status, and writes a roster note automatically. Taking them off LOA cleans both up." },
       { term: "Bulk actions", def: "Tick member checkboxes and the bar at the bottom can promote/demote (with optional probation), set activity status, grant or revoke certifications, and set or clear probation for everyone selected at once." },
+      { term: "FTO / Cadets tab", def: "In the Roster Controller (Manage): hire applicants straight into your cadet rank (auto hire date, callsign, Active status), see everyone in the program, and process final evals, pass promotes them with callsign and optional probation in one click, fail terminates them to the archive." },
       { term: "Hire automation", def: "Adding a member auto-fills their hire/entry date with today and assigns the next free callsign for their rank\u2019s format. Date of Promotion defaults to today too." },
       { term: "Callsign format", def: "An optional pattern on a rank, like “91##”, where # digits auto-number. When the promotion tool assigns that rank, each member gets the next free callsign (9100, 9101…). Set it in the Ranks editor." },
     ],
