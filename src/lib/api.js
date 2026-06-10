@@ -1,15 +1,15 @@
 /*
  * ─────────────────────────────────────────────────────────────────────────────
- * DATA LAYER — the single swap-point between the front-end and the backend.
+ * DATA LAYER, the single swap-point between the front-end and the backend.
  * ─────────────────────────────────────────────────────────────────────────────
  *
  * Today every call is served by a localStorage-backed MOCK so the whole hub —
- * Builder Portal, roster editing, dev login — works with no server.
+ * Builder Portal, roster editing, dev login, works with no server.
  *
  * When Steve builds the backend (Express + passport-discord + MariaDB), flip
  * USE_BACKEND to true (or set VITE_USE_BACKEND=true) and implement the REST
  * contract documented in README.md. The function signatures below ARE the
- * contract — the rest of the app only ever imports from this file.
+ * contract, the rest of the app only ever imports from this file.
  */
 
 import { cloneDefaultConfig, CONFIG_VERSION } from "../config/defaultConfig.js";
@@ -180,7 +180,7 @@ export async function saveConfig(config) {
 // Records of who changed what, newest first. The backend stores these in a
 // table FOREVER (no pruning, no delete endpoint) and exposes GET/POST
 // /api/audit. Only the localStorage mock caps entries (AUDIT_LIMIT) to stay
-// inside browser storage quota — that limit must NOT carry over to MariaDB.
+// inside browser storage quota, that limit must NOT carry over to MariaDB.
 
 export async function getAuditLog() {
   if (USE_BACKEND) return http("/audit");

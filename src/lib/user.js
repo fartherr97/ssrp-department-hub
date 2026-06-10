@@ -21,7 +21,7 @@ export function userDisplayName(user) {
 
 export function userRoleLabel(user, config) {
   if (!user) return "";
-  // Not in any permission group — a regular view-only member.
+  // Not in any permission group, a regular view-only member.
   if (!config?.groups?.some((g) => g.id === user.group)) return "Member";
   return groupLabel(config, user.group);
 }

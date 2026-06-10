@@ -18,7 +18,7 @@ import {
 } from "../components/common/index.jsx";
 
 /*
- * Vehicle roster ("fleet") page — which vehicles each rank / unit may use,
+ * Vehicle roster ("fleet") page, which vehicles each rank / unit may use,
  * matching the spreadsheet fleet structures departments already keep:
  * columns of tiers (Recruit … Department Heads, or units like SRT/CIU), each
  * holding vehicle cards (display name + spawn code), with a color-coded
@@ -90,7 +90,7 @@ function TagsModal({ open, onClose, tags, onChange }) {
     >
       <div className="grid gap-3">
         <p className="text-sm text-slate-400">
-          Tags color-code vehicles — e.g. Slicktop, Ghosted, Unmarked. They show as the
+          Tags color-code vehicles, e.g. Slicktop, Ghosted, Unmarked. They show as the
           legend at the top of the page.
         </p>
         {tags.map((t) => (
@@ -176,7 +176,7 @@ export default function VehicleRoster({ page, user }) {
   const canEdit = canEditFleet(user, config);
   const cfg = page?.config || {};
   // Defensive: pages converted from other types (or hand-imported configs) may
-  // carry a config without fleet fields — never assume the arrays exist.
+  // carry a config without fleet fields, never assume the arrays exist.
   const tags = Array.isArray(cfg.tags) && cfg.tags.length ? cfg.tags : DEFAULT_TAGS;
   const tiers = Array.isArray(cfg.tiers) ? cfg.tiers : [];
   const tagById = Object.fromEntries(tags.map((t) => [t.id, t]));
@@ -254,7 +254,7 @@ export default function VehicleRoster({ page, user }) {
         <div className="mb-4 flex flex-wrap items-center gap-2">
           {canEdit && (
             <span className="w-full text-xs text-slate-500">
-              Tags outline a vehicle's card in the legend color — edit a vehicle (pencil) to
+              Tags outline a vehicle's card in the legend color, edit a vehicle (pencil) to
               assign one, and use the Legend button to rename or recolor the tags.
             </span>
           )}

@@ -26,7 +26,7 @@ const COLOR_FIELDS = [
   { key: "surface2", label: "Surface 2" },
 ];
 
-// One-click full palettes — each sets the accent AND the whole surface stack so
+// One-click full palettes, each sets the accent AND the whole surface stack so
 // the department reads distinctly (not just a re-accented navy).
 const PRESETS = [
   {
@@ -35,19 +35,19 @@ const PRESETS = [
     colors: { primary: "#3d82f0", hover: "#5a97f5", bg: "#101d31", surface1: "#13233b", surface2: "#192f4d", bodyBg: "#0b1424" },
   },
   {
-    // Florida Highway Patrol — black & tan.
+    // Florida Highway Patrol, black & tan.
     id: "fhp",
     label: "FHP",
     colors: { primary: "#d2b48c", hover: "#e6d0a8", bg: "#15140f", surface1: "#1d1b15", surface2: "#2a261c", bodyBg: "#0a0908" },
   },
   {
-    // Tampa Police — deep blue.
+    // Tampa Police, deep blue.
     id: "tpd",
     label: "TPD",
     colors: { primary: "#2e69f1", hover: "#5586f4", bg: "#0b1430", surface1: "#101c40", surface2: "#1a2c58", bodyBg: "#060a16" },
   },
   {
-    // Hillsborough County Sheriff — green.
+    // Hillsborough County Sheriff, green.
     id: "hcso",
     label: "HCSO",
     colors: { primary: "#1f8b4c", hover: "#2aa55c", bg: "#0c1d14", surface1: "#10261a", surface2: "#173827", bodyBg: "#07130c" },
@@ -87,7 +87,7 @@ export default function BrandingTab() {
   return (
     <div className="grid gap-6">
       <TabIntro>
-        This tab controls how your hub <strong className="text-white">looks</strong> — your
+        This tab controls how your hub <strong className="text-white">looks</strong>, your
         department's name, logo, colors, and the login screen people see before signing in.
         Changes apply instantly across the whole site, so feel free to experiment.
       </TabIntro>
@@ -145,7 +145,7 @@ export default function BrandingTab() {
       <Panel className="p-5">
         <SectionHeader
           title="Login screen"
-          subtitle="The signed-out landing page — header, headline, footer, and community links."
+          subtitle="The signed-out landing page, header, headline, footer, and community links."
         />
         <div className="grid gap-4">
           <Field label="Headline" hint="The large title under the logo.">
@@ -240,7 +240,7 @@ export default function BrandingTab() {
       <Panel className="p-5">
         <SectionHeader
           title="Theme colors"
-          subtitle="The easiest way: click a preset below for an instant full look. Or fine-tune any color with the swatch pickers — the site updates live as you go."
+          subtitle="The easiest way: click a preset below for an instant full look. Or fine-tune any color with the swatch pickers, the site updates live as you go."
         />
         <div className="mb-5">
           <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.5px] text-cad-muted">

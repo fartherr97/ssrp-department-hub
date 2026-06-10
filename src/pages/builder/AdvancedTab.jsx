@@ -58,14 +58,14 @@ export default function AdvancedTab() {
 
       <TabIntro>
         Think of this tab as your <strong className="text-white">safety net</strong>. Download
-        a backup before making big changes — if anything goes wrong, you can restore it here
+        a backup before making big changes, if anything goes wrong, you can restore it here
         and everything comes back exactly as it was.
       </TabIntro>
 
       <Panel className="p-5">
         <SectionHeader
           title="Download a backup"
-          subtitle="Saves your entire setup — branding, pages, roster, everything — as a single file on your computer. Also handy for copying a setup to another department."
+          subtitle="Saves your entire setup, branding, pages, roster, everything, as a single file on your computer. Also handy for copying a setup to another department."
         />
         <Button icon={Download} onClick={exportConfig}>
           Download backup
@@ -90,7 +90,7 @@ export default function AdvancedTab() {
 
         <details className="mt-4 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
           <summary className="cursor-pointer select-none text-xs font-bold uppercase tracking-[0.4px] text-cad-muted">
-            Advanced — paste backup text instead
+            Advanced, paste backup text instead
           </summary>
           <div className="mt-3">
             <Textarea

@@ -1,5 +1,5 @@
 /*
- * Permission helpers — capability + hierarchy based.
+ * Permission helpers, capability + hierarchy based.
  *
  * Each group in config.groups carries capability flags and a member list:
  *   { id, label, level, manageSite, manageAccess, editRoster, editSubdivisions,
@@ -41,7 +41,7 @@ export function canManageAccess(user, config) {
   return hasCapability(user, config, "manageAccess");
 }
 
-// Kept for existing call sites — "admin" now means "can manage the site config".
+// Kept for existing call sites, "admin" now means "can manage the site config".
 export function isAdmin(user, config) {
   return canManageSite(user, config);
 }
@@ -59,7 +59,7 @@ export function isManagerOfAny(user, config) {
   return (config?.groups || []).some((g) => isManagerOf(user, config, g));
 }
 
-// Change a group's capabilities / delete it — needs manageAccess AND the group
+// Change a group's capabilities / delete it, needs manageAccess AND the group
 // must be at or below the user's own level (no editing groups above your own).
 export function canAdministerGroup(user, config, group) {
   if (!group) return false;
@@ -67,7 +67,7 @@ export function canAdministerGroup(user, config, group) {
   return canManageAccess(user, config) && (group.level ?? 0) <= userLevel(user, config);
 }
 
-// Add/remove a group's members — admins of it, or a manager of it.
+// Add/remove a group's members, admins of it, or a manager of it.
 export function canManageGroupMembers(user, config, group) {
   return canAdministerGroup(user, config, group) || isManagerOf(user, config, group);
 }
@@ -77,12 +77,12 @@ export function canOpenBuilder(user, config) {
   return canManageSite(user, config) || canManageAccess(user, config) || isManagerOfAny(user, config);
 }
 
-// Calendar entries (add/edit/delete + archiving) — typically Command and up.
+// Calendar entries (add/edit/delete + archiving), typically Command and up.
 export function canManageCalendar(user, config) {
   return hasCapability(user, config, "manageCalendar") || canManageSite(user, config);
 }
 
-// Vehicle roster (fleet) pages — main-roster editors and site managers.
+// Vehicle roster (fleet) pages, main-roster editors and site managers.
 export function canEditFleet(user, config) {
   return hasCapability(user, config, "editRoster") || canManageSite(user, config);
 }
@@ -98,7 +98,7 @@ export function canEditAnyRoster(user, config) {
   return hasCapability(user, config, "editRoster") || hasCapability(user, config, "editSubdivisions");
 }
 
-// Structural roster edits (add/remove subdivisions, shared columns) — main-roster
+// Structural roster edits (add/remove subdivisions, shared columns), main-roster
 // editors and site managers only.
 export function canEditRosterStructure(user, config) {
   return hasCapability(user, config, "editRoster") || canManageSite(user, config);
@@ -109,7 +109,7 @@ export function canAccessPage(user, page, config) {
   if (page.type === "builder") return canManageSite(user, config);
   if (page.type === "access") return canManageAccess(user, config) || isManagerOfAny(user, config);
   if (page.type === "audit") {
-    // Oversight tool — visible to staff (anyone who can edit or manage).
+    // Oversight tool, visible to staff (anyone who can edit or manage).
     return (
       canManageSite(user, config) ||
       canManageAccess(user, config) ||

@@ -63,7 +63,7 @@ export function updateSubdivision(config, subId, patch) {
 }
 
 export function deleteSubdivision(config, subId) {
-  // Never allow deleting the last subdivision — the roster must have one tab.
+  // Never allow deleting the last subdivision, the roster must have one tab.
   if (config.roster.subdivisions.length <= 1) return config;
   return setSubdivisions(
     config,
@@ -205,7 +205,7 @@ export function moveMember(config, subId, fromCatId, memberId, toCatId, toIndex 
 }
 
 // ─── Promotion automation ────────────────────────────────────────────────────
-// "Time in grade" (a `tenure` column) is computed from a date column — usually
+// "Time in grade" (a `tenure` column) is computed from a date column, usually
 // Date of Promotion. Changing someone's rank or category stamps that date to
 // today, which resets their time in grade automatically.
 
@@ -228,11 +228,15 @@ export function callsignFieldId(config) {
   return fields.find((f) => f.type === "text" && /call\s?sign/i.test(`${f.label} ${f.id}`))?.id || null;
 }
 
-// Days since the member's tenure source date; null when not set/invalid.
+// Days since an auto column's source date; null when not set/invalid. Used by
+// both auto column types: `tenure` (Time in Grade, counts from Date of
+// Promotion) and `service` (Days in Service, counts from the hire/entry date
+// and is never reset by promotions).
 export function tenureDays(member, field, fields) {
+  const auto = field.type === "service" ? /hire|entry|join|start/i : /promot/i;
   const srcId =
     field.sourceFieldId ||
-    fields.find((f) => f.type === "date" && /promot/i.test(`${f.label} ${f.id}`))?.id;
+    fields.find((f) => f.type === "date" && auto.test(`${f.label} ${f.id}`))?.id;
   const raw = srcId ? member.fields?.[srcId] : null;
   if (!raw) return null;
   const d = new Date(raw);
@@ -256,7 +260,7 @@ export function tenureResetsOn(config, kind) {
   return v === "both" || v === kind;
 }
 
-// Like touchPromotionDate, but for *category* moves — respects the tenure
+// Like touchPromotionDate, but for *category* moves, respects the tenure
 // column's "resets when" setting.
 export function touchPromotionDateOnCategoryChange(config, subId, catId, memberId) {
   if (!tenureResetsOn(config, "category")) return config;
@@ -321,7 +325,7 @@ function makeCallsignGenerator(format, used) {
 /*
  * The mass promotion/demotion tool: assign `rankId` to every member in
  * `memberIds` (wherever they sit in the subdivision), stamp their promotion
- * date to today, and — if the target rank has a callsignFormat — hand each one
+ * date to today, and, if the target rank has a callsignFormat, hand each one
  * the next free callsign.
  */
 export function applyPromotion(config, subId, memberIds, { rankId }) {

@@ -57,7 +57,7 @@ export default function AuditLog() {
       <PageHeader
         kicker="Administration"
         title="Audit Log"
-        subtitle="Who changed what, and when — roster and configuration activity."
+        subtitle="Who changed what, and when, roster and configuration activity."
       />
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

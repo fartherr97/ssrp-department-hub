@@ -46,7 +46,7 @@ function brandingDetail(prev, next) {
   const labels = keys.map((k) =>
     k === "colors" ? "theme colors" : k.replace(/([A-Z])/g, " $1").toLowerCase()
   );
-  return ` — ${labels.slice(0, 3).join(", ")}`;
+  return `, ${labels.slice(0, 3).join(", ")}`;
 }
 
 function summarizeRoster(prev, next) {

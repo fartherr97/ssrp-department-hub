@@ -17,16 +17,16 @@ function rgba(hex, alpha) {
 }
 
 /*
- * Selectable UI fonts. `google` is a Google Fonts css2 family spec — loaded on
+ * Selectable UI fonts. `google` is a Google Fonts css2 family spec, loaded on
  * demand via a <link> tag; "default" uses the bundled system stack only.
  */
 export const FONTS = [
   { id: "default", label: "Ubuntu (default)", family: `"Ubuntu", "Segoe UI", "Tahoma", "Arial", system-ui, sans-serif` },
-  { id: "inter", label: "Inter — clean & modern", family: `"Inter", "Segoe UI", system-ui, sans-serif`, google: "Inter:wght@400;500;600;700;800" },
-  { id: "roboto", label: "Roboto — neutral", family: `"Roboto", "Segoe UI", system-ui, sans-serif`, google: "Roboto:wght@400;500;700;900" },
-  { id: "source-sans", label: "Source Sans — friendly", family: `"Source Sans 3", "Segoe UI", system-ui, sans-serif`, google: "Source+Sans+3:wght@400;600;700;900" },
-  { id: "rajdhani", label: "Rajdhani — tactical", family: `"Rajdhani", "Segoe UI", system-ui, sans-serif`, google: "Rajdhani:wght@400;500;600;700" },
-  { id: "oswald", label: "Oswald — bold display", family: `"Oswald", "Segoe UI", system-ui, sans-serif`, google: "Oswald:wght@400;500;600;700" },
+  { id: "inter", label: "Inter, clean & modern", family: `"Inter", "Segoe UI", system-ui, sans-serif`, google: "Inter:wght@400;500;600;700;800" },
+  { id: "roboto", label: "Roboto, neutral", family: `"Roboto", "Segoe UI", system-ui, sans-serif`, google: "Roboto:wght@400;500;700;900" },
+  { id: "source-sans", label: "Source Sans, friendly", family: `"Source Sans 3", "Segoe UI", system-ui, sans-serif`, google: "Source+Sans+3:wght@400;600;700;900" },
+  { id: "rajdhani", label: "Rajdhani, tactical", family: `"Rajdhani", "Segoe UI", system-ui, sans-serif`, google: "Rajdhani:wght@400;500;600;700" },
+  { id: "oswald", label: "Oswald, bold display", family: `"Oswald", "Segoe UI", system-ui, sans-serif`, google: "Oswald:wght@400;500;600;700" },
 ];
 
 export function applyFont(fontId) {

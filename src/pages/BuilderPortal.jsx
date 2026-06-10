@@ -11,7 +11,7 @@ import RosterTab from "./builder/RosterTab.jsx";
 import AdvancedTab from "./builder/AdvancedTab.jsx";
 import KeyGuideTab from "./builder/KeyGuideTab.jsx";
 
-// All Builder tabs are site configuration — they require the manageSite
+// All Builder tabs are site configuration, they require the manageSite
 // capability. Access & Roles lives on its own page under Administration.
 const TABS = [
   { id: "start", label: "Start Here", desc: "Guide & setup checklist", icon: Compass, Component: StartHereTab },
@@ -55,7 +55,7 @@ export default function BuilderPortal({ user, page }) {
       <PageHeader
         kicker="Administration"
         title="Builder Portal"
-        subtitle="Customize your department hub — new here? Open the Start Here tab. Every change saves automatically."
+        subtitle="Customize your department hub, new here? Open the Start Here tab. Every change saves automatically."
         actions={
           <>
           <Button

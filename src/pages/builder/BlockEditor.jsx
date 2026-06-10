@@ -212,7 +212,7 @@ const EDITORS = {
 
 /*
  * Edits a page's `config.blocks` array. `value` is the blocks array; `onChange`
- * receives the next array. Pure/controlled — the parent persists via mutate.
+ * receives the next array. Pure/controlled, the parent persists via mutate.
  */
 export default function BlockEditor({ value = [], onChange }) {
   const blocks = value;
@@ -234,7 +234,7 @@ export default function BlockEditor({ value = [], onChange }) {
     <div className="grid gap-3">
       {blocks.length === 0 && (
         <p className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-3 text-sm text-slate-400">
-          This page is empty. Blocks are the building pieces of a page — pick one below to
+          This page is empty. Blocks are the building pieces of a page, pick one below to
           get started. Hover any button to see what it adds.
         </p>
       )}

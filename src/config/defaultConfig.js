@@ -29,7 +29,7 @@ export const defaultConfig = {
     footerText: "© 2026 Sunshine State RP. All rights reserved.",
     footerNote: "Department Hub v1.0", // small right-aligned note in the login footer bar
     colors: {
-      // SSRP CAD palette — dark navy / slate with brand blue accent.
+      // SSRP CAD palette, dark navy / slate with brand blue accent.
       primary: "#3d82f0",
       hover: "#5a97f5",
       bg: "#101d31",

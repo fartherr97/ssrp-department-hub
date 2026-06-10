@@ -1,5 +1,5 @@
 /*
- * Starter templates — full configs a Department Head can apply from the
+ * Starter templates, full configs a Department Head can apply from the
  * Builder's Start Here tab to begin from something real instead of the blank
  * boilerplate. Each builds on the default config and swaps in a themed
  * palette, rank structure, subdivisions, and a starter SOPs page. Names are
@@ -95,7 +95,7 @@ export const TEMPLATES = [
       applyCommon(cfg, {
         name: "Police Department",
         organization: "Law Enforcement",
-        headline: "Serving the city — personnel, procedures, and operations in one place.",
+        headline: "Serving the city, personnel, procedures, and operations in one place.",
         colors: { primary: "#2e69f1", hover: "#5586f4", bg: "#0b1430", surface1: "#101c40", surface2: "#1a2c58", bodyBg: "#060a16" },
       });
       cfg.roster.subdivisions = [
@@ -161,7 +161,7 @@ export const TEMPLATES = [
       applyCommon(cfg, {
         name: "Emergency Medical Services",
         organization: "Emergency Medicine",
-        headline: "Pre-hospital care — crews, certifications, and protocols.",
+        headline: "Pre-hospital care, crews, certifications, and protocols.",
         colors: { primary: "#14b8a6", hover: "#2dd4bf", bg: "#0c1f1b", surface1: "#0f2722", surface2: "#15362f", bodyBg: "#071512" },
       });
       cfg.roster.subdivisions = [

@@ -12,7 +12,7 @@ import { Check, ChevronDown, X, Upload } from "lucide-react";
 
 // ─── Brand ───────────────────────────────────────────────────────────────────
 
-// The CAD brand accent — a fixed orange used to highlight a token of the brand
+// The CAD brand accent, a fixed orange used to highlight a token of the brand
 // name (e.g. the "RP" in "Sunshine State RP"), matching the SSRP CAD look.
 export const BRAND_ACCENT_COLOR = "#ff8822";
 
@@ -154,7 +154,7 @@ export function Textarea({ className = "", rows = 4, ...rest }) {
 }
 
 /*
- * Select — a custom, animated, portaled dropdown that's a drop-in replacement
+ * Select, a custom, animated, portaled dropdown that's a drop-in replacement
  * for a native <select> (CAD style). Reads <option> children, calls
  * onChange({ target: { value } }) so existing handlers need no edits, and is
  * keyboard-navigable with outside-click / Escape to dismiss.
@@ -422,7 +422,7 @@ export function ColorInput({ value, onChange, className = "" }) {
 }
 
 /*
- * CommaListInput — edits a list of strings as comma-separated text. Unlike a
+ * CommaListInput, edits a list of strings as comma-separated text. Unlike a
  * naive controlled input that re-joins the parsed list on every keystroke
  * (which eats the comma you just typed), this keeps the raw text while you
  * type and only tidies the formatting on blur. Resyncs if the list changes
@@ -457,7 +457,7 @@ export function CommaListInput({ value = [], onChange, placeholder, className = 
 }
 
 /*
- * MediaInput — a URL field with an Upload button, for people who don't have
+ * MediaInput, a URL field with an Upload button, for people who don't have
  * image hosting. Uploaded images are downscaled and stored inline (data URL)
  * in the config; pasting a normal https:// URL still works exactly as before.
  * kind="video" accepts small video files; bigger ones should be linked

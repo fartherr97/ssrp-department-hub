@@ -58,7 +58,7 @@ class ViewErrorBoundary extends Component {
             {String(this.state.error?.message || this.state.error)}
           </p>
           <p className="mt-2 text-sm text-slate-400">
-            Your data is safe — try again, or use Undo in the Builder/Roster if a recent
+            Your data is safe, try again, or use Undo in the Builder/Roster if a recent
             change caused this.
           </p>
           <button
@@ -109,7 +109,7 @@ export default function App() {
 
   useEffect(() => {
     if (!config || !activePageId) return;
-    // Normalize the URL's *page* segment only — pages with internal tabs
+    // Normalize the URL's *page* segment only, pages with internal tabs
     // manage the second segment themselves (e.g. /builder/branding).
     const seg = decodeURIComponent(
       window.location.pathname.replace(/^\/+/, "").split("/")[0] || ""

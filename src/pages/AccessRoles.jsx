@@ -23,7 +23,7 @@ import {
 } from "../components/common/index.jsx";
 
 const CAPS = [
-  { key: "manageSite", title: "Manage site", desc: "Open the Builder Portal — branding, pages, roster schema, advanced." },
+  { key: "manageSite", title: "Manage site", desc: "Open the Builder Portal, branding, pages, roster schema, advanced." },
   { key: "manageAccess", title: "Manage access & roles", desc: "Create groups and assign people, within their own level." },
   { key: "editRoster", title: "Edit the main roster", desc: "Edit the main department roster (also unlocks vehicle roster pages)." },
   { key: "editSubdivisions", title: "Edit subdivision rosters", desc: "Edit the non-main subdivision rosters." },
@@ -71,7 +71,7 @@ function GroupMembers({ group, update, canEdit, canSetRole }) {
   return (
     <div>
       <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.5px] text-cad-muted">
-        Members — {members.length}
+        Members, {members.length}
       </div>
       <div className="grid gap-2">
         {members.map((m) => (
@@ -170,7 +170,7 @@ function GroupCard({ group, user }) {
         />
         <div
           className="flex items-center gap-1.5"
-          title="Level — you can only manage groups at or below your own"
+          title="Level, you can only manage groups at or below your own"
         >
           <span className="text-[10px] font-bold uppercase tracking-wide text-cad-muted">Lvl</span>
           <Input

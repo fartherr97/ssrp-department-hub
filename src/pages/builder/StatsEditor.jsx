@@ -18,7 +18,7 @@ export const STAT_MODES = [
 ];
 
 /*
- * The Department Statistics editor — shared between the Builder's Roster Setup
+ * The Department Statistics editor, shared between the Builder's Roster Setup
  * tab and the gear button on the Roster page itself, so anyone with roster
  * structure access can choose what the stats panel displays.
  */
@@ -76,7 +76,7 @@ export default function StatsEditor() {
 
       <div className="grid gap-2">
         {items.length === 0 && (
-          <p className="text-sm text-slate-500">No metrics yet — add your first one below.</p>
+          <p className="text-sm text-slate-500">No metrics yet, add your first one below.</p>
         )}
         {items.map((it, idx) => (
           <div

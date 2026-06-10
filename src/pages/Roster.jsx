@@ -104,12 +104,16 @@ function formatDate(value) {
 // Renders one member field cell by type: checkbox (✓), cert (CERTIFIED/N/A),
 // colored status pill, auto time-in-grade, formatted date, or plain text.
 function FieldValue({ field, value, statusFieldId, accent }) {
-  if (field.type === "tenure") {
+  if (field.type === "tenure" || field.type === "service") {
     if (value === null || value === undefined) return <span className="text-slate-600">—</span>;
     return (
       <span
         className="whitespace-nowrap font-semibold tabular-nums text-slate-200"
-        title="Days since last promotion — updates automatically"
+        title={
+          field.type === "service"
+            ? "Days since hire, updates automatically"
+            : "Days since last promotion, updates automatically"
+        }
       >
         {value}
       </span>
@@ -356,7 +360,7 @@ function MemberModal({ open, onClose, fields, categories, rankTitles, categoryId
         </div>
 
         {fields.map((f) => {
-          if (f.type === "tenure") {
+          if (f.type === "tenure" || f.type === "service") {
             return (
               <div
                 key={f.id}
@@ -501,7 +505,7 @@ function RankTitlesModal({ open, onClose, subId }) {
     <Modal
       open={open}
       onClose={onClose}
-      title={`Ranks — ${sub?.name || ""}`}
+      title={`Ranks, ${sub?.name || ""}`}
       footer={
         <Button variant="secondary" onClick={onClose}>
           Done
@@ -666,6 +670,7 @@ function ColumnsModal({ open, onClose }) {
                 <option value="checkbox">Checkbox</option>
                 <option value="cert">Certification</option>
                 <option value="tenure">Time in grade (auto)</option>
+                <option value="service">Days in service (auto)</option>
               </Select>
             </Field>
             <IconButton
@@ -687,11 +692,15 @@ function ColumnsModal({ open, onClose }) {
                 </Field>
               </div>
             )}
-            {f.type === "tenure" && (
+            {(f.type === "tenure" || f.type === "service") && (
               <div className="col-span-3 grid gap-3">
                 <Field
                   label="Counts days since"
-                  hint="Shows days since this date column — promotions reset it automatically."
+                  hint={
+                    f.type === "service"
+                      ? "Shows days since this date column, e.g. the member's hire date. Never reset automatically."
+                      : "Shows days since this date column, promotions reset it automatically."
+                  }
                 >
                   <Select
                     value={f.sourceFieldId || ""}
@@ -699,7 +708,11 @@ function ColumnsModal({ open, onClose }) {
                       mutate(R.updateMemberField(config, f.id, { sourceFieldId: e.target.value }))
                     }
                   >
-                    <option value="">Auto-detect (date column named “…promotion…”)</option>
+                    <option value="">
+                      {f.type === "service"
+                        ? "Auto-detect (date column named hire / entry / join)"
+                        : "Auto-detect (date column named “…promotion…”)"}
+                    </option>
                     {fields
                       .filter((d) => d.type === "date")
                       .map((d) => (
@@ -709,6 +722,7 @@ function ColumnsModal({ open, onClose }) {
                       ))}
                   </Select>
                 </Field>
+                {f.type === "tenure" && (
                 <Field
                   label="Resets when"
                   hint="What stamps the date to today, restarting the count."
@@ -725,6 +739,7 @@ function ColumnsModal({ open, onClose }) {
                     <option value="never">Never (manual date edits only)</option>
                   </Select>
                 </Field>
+                )}
               </div>
             )}
           </div>
@@ -921,7 +936,11 @@ function MemberRow({ member, category, fields, statusFieldId, accent, rankById, 
         >
           <FieldValue
             field={f}
-            value={f.type === "tenure" ? R.tenureDays(member, f, fields) : member.fields?.[f.id]}
+            value={
+              f.type === "tenure" || f.type === "service"
+                ? R.tenureDays(member, f, fields)
+                : member.fields?.[f.id]
+            }
             statusFieldId={statusFieldId}
             accent={accent}
           />
@@ -1027,7 +1046,7 @@ function SubRoster({
                 onDragOver={(e) => {
                   if (!canEdit) return;
                   e.preventDefault();
-                  // Hovering the band itself appends to the end — no row line.
+                  // Hovering the band itself appends to the end, no row line.
                   setDropTarget(null);
                 }}
               >
@@ -1099,7 +1118,7 @@ function SubRoster({
                   }}
                 >
                   <td colSpan={colCount} className="px-3 py-3 text-sm text-slate-500">
-                    No members{canEdit ? " — add one or drag a member here." : "."}
+                    No members{canEdit ? ", add one or drag a member here." : "."}
                   </td>
                 </tr>
               ) : (
@@ -1240,7 +1259,7 @@ export default function Roster({ user, page }) {
     const catChanged = Boolean(targetCategory && targetCategory !== categoryId);
     mutate((cfg) => {
       // Promotion automation: a rank or category change stamps the promotion
-      // date to today (resetting time in grade) — unless the date was edited by
+      // date to today (resetting time in grade), unless the date was edited by
       // hand in this same save. New members default it to today when blank.
       const promoId = R.promotionDateFieldId(cfg);
       let fields = clean.fields || {};
@@ -1378,7 +1397,7 @@ export default function Roster({ user, page }) {
     mutate((cfg) => R.applyPromotion(cfg, selSubId, [...selected], { rankId: promoRank }));
     show(
       `${selected.size} member${selected.size === 1 ? "" : "s"} set to ${rank?.name || "new rank"}${
-        rank?.callsignFormat ? " — callsigns & promotion dates updated" : " — promotion dates updated"
+        rank?.callsignFormat ? ", callsigns & promotion dates updated" : ", promotion dates updated"
       }`
     );
     setSelected(new Set());
@@ -1555,7 +1574,7 @@ export default function Roster({ user, page }) {
         </>
       ) : (
         <>
-          {/* Grid layout — every subdivision side-by-side */}
+          {/* Grid layout, every subdivision side-by-side */}
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               {canEditStructure && (
@@ -1674,7 +1693,7 @@ export default function Roster({ user, page }) {
 
                   {cats.length === 0 ? (
                     <div className="px-4 py-6 text-sm text-slate-500">
-                      No categories yet{canEditCard ? " — use + to add one." : "."}
+                      No categories yet{canEditCard ? ", use + to add one." : "."}
                     </div>
                   ) : (
                     <SubRoster sub={s} accent={sAccent} compact canEdit={canEditCard} {...subRosterProps} />
@@ -1688,7 +1707,7 @@ export default function Roster({ user, page }) {
 
       <Toast message={toast} />
 
-      {/* Promotion / demotion bar — appears when members are selected */}
+      {/* Promotion / demotion bar, appears when members are selected */}
       {selected.size > 0 && selSub && canEditSubdivision(user, config, selSub) && (
         <div className="fixed bottom-6 left-1/2 z-[90] w-[min(94vw,640px)] -translate-x-1/2">
           <Panel className="flex flex-wrap items-center gap-2 p-3 shadow-2xl shadow-black/60">

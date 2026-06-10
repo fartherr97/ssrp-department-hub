@@ -6,7 +6,7 @@ import { TEMPLATES } from "../../config/templates.js";
 import { Panel, SectionHeader, Button, ConfirmDialog } from "../../components/common/index.jsx";
 
 /*
- * The Builder's landing tab — a plain-English guide for Department Heads with
+ * The Builder's landing tab, a plain-English guide for Department Heads with
  * no technical background. It explains what the Builder does, walks through a
  * setup checklist (auto-detected from the config), and points out the things
  * that are managed elsewhere (roster members, access groups).
@@ -80,7 +80,7 @@ const TAB_GUIDE = [
   {
     icon: Users,
     title: "Roster Setup",
-    body: "The structure of your roster — subdivisions, member columns, and the stats box. The members themselves are added on the Roster page, not here.",
+    body: "The structure of your roster, subdivisions, member columns, and the stats box. The members themselves are added on the Roster page, not here.",
   },
   {
     icon: Database,
@@ -93,7 +93,7 @@ const GOOD_TO_KNOW = [
   {
     icon: Save,
     title: "Everything saves by itself",
-    body: "There is no Save button. Every change is stored automatically — watch for the green “All changes saved” badge at the top. Made a mistake? The Undo button next to it reverts your last change.",
+    body: "There is no Save button. Every change is stored automatically, watch for the green “All changes saved” badge at the top. Made a mistake? The Undo button next to it reverts your last change.",
   },
   {
     icon: Paintbrush,
@@ -123,15 +123,15 @@ export default function StartHereTab({ goTo }) {
       <Panel className="p-5">
         <SectionHeader
           title="Welcome to the Builder"
-          subtitle="This is where you make the hub your own — no technical knowledge needed."
+          subtitle="This is where you make the hub your own, no technical knowledge needed."
         />
         <p className="text-sm leading-relaxed text-slate-300">
-          Everything your members see — the name, the colors, the pages, the roster — is
+          Everything your members see, the name, the colors, the pages, the roster, is
           controlled from the tabs on the left. Work through the checklist below in order
           and you'll have a fully branded department hub in a few minutes. You can't break
           anything: every step can be changed again later, and you can download a backup at
           any time from <span className="font-semibold text-white">Backup &amp; Restore</span>.
-          Run into a word you don't know — like “hero kicker”? Look it up in the{" "}
+          Run into a word you don't know, like “hero kicker”? Look it up in the{" "}
           <button
             type="button"
             onClick={() => goTo?.("guide")}
@@ -146,7 +146,7 @@ export default function StartHereTab({ goTo }) {
       <Panel className="p-5">
         <SectionHeader
           title="Starter templates"
-          subtitle="Optional head start: apply a themed setup — colors, ranks, subdivisions, and a starter SOPs page — then make it yours."
+          subtitle="Optional head start: apply a themed setup, colors, ranks, subdivisions, and a starter SOPs page, then make it yours."
         />
         <div className="grid gap-3 sm:grid-cols-3">
           {TEMPLATES.map((t) => (
@@ -187,7 +187,7 @@ export default function StartHereTab({ goTo }) {
       <Panel className="p-5">
         <SectionHeader
           title="Setup checklist"
-          subtitle={`${doneCount} of ${items.length} steps done — finished steps are detected automatically.`}
+          subtitle={`${doneCount} of ${items.length} steps done, finished steps are detected automatically.`}
         />
         <div className="mb-4 h-2 overflow-hidden rounded-full bg-white/5">
           <div

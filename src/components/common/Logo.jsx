@@ -2,7 +2,7 @@ import { initials } from "../../lib/user.js";
 
 /*
  * Department logo. Renders the configured logo image if present, otherwise a
- * themed monogram built from the department's short name — so a brand-new hub
+ * themed monogram built from the department's short name, so a brand-new hub
  * still looks intentional before anyone uploads a logo.
  */
 export default function Logo({ branding, size = 40, className = "" }) {

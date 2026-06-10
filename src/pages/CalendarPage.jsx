@@ -83,7 +83,7 @@ function EventModal({ open, onClose, event, onSave }) {
               onChange={(e) => setDraft({ ...draft, startTime: e.target.value })}
             />
           </Field>
-          <Field label="End date" hint="Optional — only for multi-day events.">
+          <Field label="End date" hint="Optional, only for multi-day events.">
             <Input
               type="date"
               value={draft.endDate || ""}
@@ -98,14 +98,14 @@ function EventModal({ open, onClose, event, onSave }) {
             />
           </Field>
         </div>
-        <Field label="Location" hint="Optional — e.g. Main Briefing Room, TS Channel 2.">
+        <Field label="Location" hint="Optional, e.g. Main Briefing Room, TS Channel 2.">
           <Input
             value={draft.location || ""}
             placeholder="Where it happens"
             onChange={(e) => setDraft({ ...draft, location: e.target.value })}
           />
         </Field>
-        <Field label="Details" hint="Optional — what to bring, agenda, etc.">
+        <Field label="Details" hint="Optional, what to bring, agenda, etc.">
           <Textarea rows={3} value={draft.description || ""} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
         </Field>
       </div>
@@ -154,7 +154,7 @@ function EventDetails({ open, event, user, canManage, onClose, onEdit, onDelete,
             {(event.startTime || event.time) && ` · ${event.startTime || event.time}`}
             {(event.endDate || event.endTime) && (
               <>
-                {" — "}
+                {", "}
                 {formatEventDate(event.endDate || event.date)}
                 {event.endTime && ` · ${event.endTime}`}
               </>
@@ -175,7 +175,7 @@ function EventDetails({ open, event, user, canManage, onClose, onEdit, onDelete,
             Attending ({attendees.length})
           </div>
           {attendees.length === 0 ? (
-            <p className="text-sm text-slate-500">No one yet — be the first.</p>
+            <p className="text-sm text-slate-500">No one yet, be the first.</p>
           ) : (
             <div className="flex flex-wrap gap-1.5">
               {attendees.map((a) => (
@@ -225,7 +225,7 @@ function ArchiveModal({ open, onClose, events }) {
     >
       {groups.length === 0 ? (
         <p className="text-sm text-slate-500">
-          Nothing here yet — events automatically land in the archive once their month is over.
+          Nothing here yet, events automatically land in the archive once their month is over.
         </p>
       ) : (
         <div className="grid gap-4">
@@ -265,7 +265,7 @@ export default function CalendarPage({ page, user }) {
   const canManage = canManageCalendar(user, config);
   const events = Array.isArray(page?.config?.events) ? page.config.events : [];
 
-  // Always opens on the current month — the rollover is automatic.
+  // Always opens on the current month, the rollover is automatic.
   const now = new Date();
   const [view, setView] = useState({ y: now.getFullYear(), m: now.getMonth() });
   const [eventModal, setEventModal] = useState(null);
@@ -455,7 +455,7 @@ export default function CalendarPage({ page, user }) {
                       className={`truncate rounded-md border border-[color:var(--color-border)] px-1.5 py-1 text-left text-[11px] font-semibold text-white hover:bg-[color:var(--color-primary)]/25 ${
                         e._continued ? "bg-[color:var(--color-primary)]/8 opacity-80" : "bg-[color:var(--color-primary)]/15"
                       }`}
-                      title={`${e.title}${(e.startTime || e.time) ? ` — ${e.startTime || e.time}` : ""}${e.location ? ` @ ${e.location}` : ""}`}
+                      title={`${e.title}${(e.startTime || e.time) ? `, ${e.startTime || e.time}` : ""}${e.location ? ` @ ${e.location}` : ""}`}
                     >
                       {e._continued ? (
                         <span className="mr-1 text-[var(--color-primary)]">↳</span>

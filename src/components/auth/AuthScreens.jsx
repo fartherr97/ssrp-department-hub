@@ -51,7 +51,7 @@ function DevLogin({ groups, onDevLogin }) {
         Developer preview
       </div>
       <p className="mb-3 text-xs text-slate-400">
-        No backend yet — preview the hub as any permission group, or as a
+        No backend yet, preview the hub as any permission group, or as a
         regular member with view-only access. Replace with real Discord auth
         when the server is wired up.
       </p>
@@ -159,7 +159,7 @@ export function LoginScreen({ config, onDevLogin }) {
             </p>
           )}
 
-          {/* Connect Discord — centered */}
+          {/* Connect Discord, centered */}
           <DiscordButton className="mt-8" />
           <div className="mt-3 text-[11px] text-[var(--color-text-muted)]">
             Connect with Discord to access the system

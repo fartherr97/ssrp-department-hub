@@ -22,6 +22,7 @@ const FIELD_TYPES = [
   { value: "checkbox", label: "Checkbox" },
   { value: "cert", label: "Certification" },
   { value: "tenure", label: "Time in grade (auto)" },
+  { value: "service", label: "Days in service (auto)" },
 ];
 
 import StatsEditor from "./StatsEditor.jsx";
@@ -37,7 +38,7 @@ function SubdivisionAppearance({ sub }) {
   return (
     <details className="mt-2 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
       <summary className="cursor-pointer select-none text-xs font-bold uppercase tracking-[0.4px] text-cad-muted">
-        Appearance — accent & banner
+        Appearance, accent & banner
       </summary>
       <div className="mt-3 grid gap-3">
         <div className="grid gap-3 sm:grid-cols-2">
@@ -119,17 +120,25 @@ function ColumnEditor({ field }) {
         className="mb-0.5 hover:border-red-500/40 hover:text-red-300"
       />
 
-      {field.type === "tenure" && (
+      {(field.type === "tenure" || field.type === "service") && (
         <div className="grid gap-3 sm:col-span-3">
           <Field
             label="Counts days since"
-            hint="Shows days since this date column; the count restarts when the date is stamped to today (see “Resets when”)."
+            hint={
+              field.type === "service"
+                ? "Shows days since this date column, e.g. the member's hire date. Never reset automatically, the count just grows each day."
+                : "Shows days since this date column; the count restarts when the date is stamped to today (see “Resets when”)."
+            }
           >
             <Select
               value={field.sourceFieldId || ""}
               onChange={(e) => update({ sourceFieldId: e.target.value })}
             >
-              <option value="">Auto-detect (date column named “…promotion…”)</option>
+              <option value="">
+                {field.type === "service"
+                  ? "Auto-detect (date column named hire / entry / join)"
+                  : "Auto-detect (date column named “…promotion…”)"}
+              </option>
               {(config.roster.memberFields || [])
                 .filter((d) => d.type === "date")
                 .map((d) => (
@@ -139,17 +148,19 @@ function ColumnEditor({ field }) {
                 ))}
             </Select>
           </Field>
-          <Field label="Resets when" hint="What stamps the date to today, restarting the count.">
-            <Select
-              value={field.resetOn || "category"}
-              onChange={(e) => update({ resetOn: e.target.value })}
-            >
-              <option value="category">Moved to a new category</option>
-              <option value="rank">Rank changes</option>
-              <option value="both">Rank or category changes</option>
-              <option value="never">Never (manual date edits only)</option>
-            </Select>
-          </Field>
+          {field.type === "tenure" && (
+            <Field label="Resets when" hint="What stamps the date to today, restarting the count.">
+              <Select
+                value={field.resetOn || "category"}
+                onChange={(e) => update({ resetOn: e.target.value })}
+              >
+                <option value="category">Moved to a new category</option>
+                <option value="rank">Rank changes</option>
+                <option value="both">Rank or category changes</option>
+                <option value="never">Never (manual date edits only)</option>
+              </Select>
+            </Field>
+          )}
         </div>
       )}
 
@@ -214,7 +225,7 @@ export default function RosterTab() {
         This tab shapes the <strong className="text-white">structure</strong> of your roster:
         the subdivisions (e.g. Patrol, K9), the columns every member has, and the stats box.
         The people themselves are added on the{" "}
-        <strong className="text-white">Roster page</strong> — go there to add ranks, members,
+        <strong className="text-white">Roster page</strong>, go there to add ranks, members,
         and move people around.
       </TabIntro>
 
