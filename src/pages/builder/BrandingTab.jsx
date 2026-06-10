@@ -145,7 +145,7 @@ export default function BrandingTab() {
       <Panel className="p-5">
         <SectionHeader
           title="Login screen"
-          subtitle="The signed-out landing page, header, headline, footer, and community links."
+          subtitle="The signed-out landing page, headline, subtext, and community links."
         />
         <div className="grid gap-4">
           <Field label="Headline" hint="The large title under the logo.">
@@ -161,20 +161,10 @@ export default function BrandingTab() {
               onChange={(e) => setBrand({ loginSubtext: e.target.value })}
             />
           </Field>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Footer text" hint="Copyright line on the left of the footer bar.">
-              <Input
-                value={b.footerText}
-                onChange={(e) => setBrand({ footerText: e.target.value })}
-              />
-            </Field>
-            <Field label="Footer note" hint="Small text on the right (e.g. a version).">
-              <Input
-                value={b.footerNote || ""}
-                onChange={(e) => setBrand({ footerNote: e.target.value })}
-              />
-            </Field>
-          </div>
+          <p className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-xs text-slate-400">
+            The footer bar at the bottom of the login screen always shows the Sunshine
+            State RP network branding, it isn't editable per department.
+          </p>
 
           {/* Community links ("Connect With Us") */}
           <div>

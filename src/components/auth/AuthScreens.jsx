@@ -4,6 +4,10 @@ import Logo from "../common/Logo.jsx";
 import { Button, BrandName } from "../common/index.jsx";
 import { getIcon } from "../../lib/icons.js";
 
+// The SSRP network logo shown in the fixed login footer (every department hub
+// carries the same footer).
+const SSRP_FOOTER_LOGO = "https://cdn.ssrp.us/images/cdn.ssrp";
+
 // ─── Loading ─────────────────────────────────────────────────────────────────
 
 export function LoadingScreen({ branding }) {
@@ -171,20 +175,23 @@ export function LoginScreen({ config, onDevLogin }) {
         </div>
       </main>
 
-      {/* ── Footer bar ── */}
+      {/* ── Footer bar: fixed SSRP network branding, not department-editable ── */}
       <footer className="relative z-10 w-full shrink-0 border-t border-white/10 bg-app-toolbar/80 backdrop-blur-md">
         <div className="flex items-center gap-4 px-4 py-2.5 sm:px-6">
           <div className="flex items-center gap-2.5">
-            <Logo branding={branding} size={20} className="opacity-70" />
+            <img
+              src={SSRP_FOOTER_LOGO}
+              alt="SSRP"
+              className="h-5 w-5 object-contain opacity-80"
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+              }}
+            />
             <span className="text-[11px] text-slate-500">
-              <BrandName text={branding.footerText || ""} accent={branding.brandAccent} />
+              © {new Date().getFullYear()} <BrandName text="Sunshine State RP" accent="RP" />
+              . All rights reserved.
             </span>
           </div>
-          {branding.footerNote && (
-            <div className="ml-auto hidden text-[10.5px] font-medium text-slate-600 md:block">
-              {branding.footerNote}
-            </div>
-          )}
         </div>
       </footer>
     </div>

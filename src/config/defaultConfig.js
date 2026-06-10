@@ -26,8 +26,8 @@ export const defaultConfig = {
     loginHeadline: "Sunshine State Roleplay",
     loginSubtext:
       "Centralized access for personnel, resources, and internal operations.",
-    footerText: "© 2026 Sunshine State RP. All rights reserved.",
-    footerNote: "Department Hub v1.0", // small right-aligned note in the login footer bar
+    // The login footer is fixed SSRP network branding (see AuthScreens.jsx),
+    // deliberately not part of the per-department config.
     colors: {
       // SSRP CAD palette, dark navy / slate with brand blue accent.
       primary: "#3d82f0",
