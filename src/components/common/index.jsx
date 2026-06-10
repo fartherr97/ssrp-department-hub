@@ -589,22 +589,6 @@ export function Badge({ children, color, className = "" }) {
   );
 }
 
-export function Stat({ label, value, icon: Icon }) {
-  return (
-    <Panel className="flex items-center gap-3 p-4">
-      {Icon && (
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[color:var(--color-primary)]/12 text-[var(--color-primary)]">
-          <Icon size={18} />
-        </div>
-      )}
-      <div>
-        <div className="text-xs uppercase tracking-wider text-slate-400">{label}</div>
-        <div className="text-2xl font-black text-white">{value}</div>
-      </div>
-    </Panel>
-  );
-}
-
 export function EmptyState({ icon: Icon, title, subtitle, action }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-6 py-12 text-center">

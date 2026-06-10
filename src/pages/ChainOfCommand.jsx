@@ -130,20 +130,25 @@ function moveNodeTo(root, dragId, targetId, mode) {
   const stripped = prune(root);
   if (!moved) return root;
 
+  let result;
   if (mode === "child") {
-    return mapTree(stripped, (n) =>
+    result = mapTree(stripped, (n) =>
       n.id === targetId ? { ...n, children: [...(n.children || []), moved] } : n
     );
+  } else {
+    // before/after: insert among the target's siblings.
+    result = mapTree(stripped, (n) => {
+      const kids = n.children || [];
+      const i = kids.findIndex((c) => c.id === targetId);
+      if (i === -1) return n;
+      const next = [...kids];
+      next.splice(mode === "before" ? i : i + 1, 0, moved);
+      return { ...n, children: next };
+    });
   }
-  // before/after: insert among the target's siblings (no-op if target is root).
-  return mapTree(stripped, (n) => {
-    const kids = n.children || [];
-    const i = kids.findIndex((c) => c.id === targetId);
-    if (i === -1) return n;
-    const next = [...kids];
-    next.splice(mode === "before" ? i : i + 1, 0, moved);
-    return { ...n, children: next };
-  });
+  // Safety net: if the insertion point didn't exist (e.g. before/after the
+  // root), abort rather than silently deleting the detached branch.
+  return findNode(result, dragId) ? result : root;
 }
 
 // ── Rendering ────────────────────────────────────────────────────────────────

@@ -14,8 +14,9 @@
  * Within a group you may also be a "manager", which lets you add/remove its
  * members even without manageAccess.
  *
- * Every page is viewable by any signed-in member except the Builder Portal,
- * which requires a management capability.
+ * Pages: admin pages (builder/access/audit) have fixed capability rules; any
+ * other page is viewable by all signed-in members unless it opts into group
+ * restrictions (page.restricted + access list).
  */
 
 export function userGroup(config, user) {
@@ -39,11 +40,6 @@ export function canManageSite(user, config) {
 
 export function canManageAccess(user, config) {
   return hasCapability(user, config, "manageAccess");
-}
-
-// Kept for existing call sites, "admin" now means "can manage the site config".
-export function isAdmin(user, config) {
-  return canManageSite(user, config);
 }
 
 export function userLevel(user, config) {

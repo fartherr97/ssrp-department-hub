@@ -14,9 +14,6 @@ export function setActor(user) {
     ? { name: user.username || user.name || "Unknown", discordId: user.id || "", group: user.group || "" }
     : null;
 }
-export function getActor() {
-  return currentActor;
-}
 
 const j = (v) => JSON.stringify(v);
 const byId = (arr) => new Map((arr || []).map((x) => [x.id, x]));
@@ -152,7 +149,8 @@ function summarizeGroups(prev, next) {
     const mRemoved = [...pm.keys()].filter((x) => !nm.has(x));
     if (mAdded.length) return { category: "access", action: `Assigned ${nm.get(mAdded[0]).name || "someone"} to "${n.label}"` };
     if (mRemoved.length) return { category: "access", action: `Removed ${pm.get(mRemoved[0]).name || "someone"} from "${n.label}"` };
-    if (p.isAdmin !== n.isAdmin || p.canEditRoster !== n.canEditRoster) {
+    const caps = ["manageSite", "manageAccess", "editRoster", "editSubdivisions", "manageCalendar"];
+    if (caps.some((c) => p[c] !== n[c]) || p.level !== n.level) {
       return { category: "access", action: `Changed "${n.label}" permissions` };
     }
     if (p.label !== n.label) return { category: "access", action: `Renamed a group to "${n.label}"` };

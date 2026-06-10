@@ -80,7 +80,7 @@ function ImageBlock({ block }) {
 }
 
 // Pull the video id out of any common YouTube link shape.
-export function youTubeId(url) {
+function youTubeId(url) {
   const m = /(?:youtube\.com\/(?:watch\?.*?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([\w-]{6,})/.exec(url || "");
   return m ? m[1] : null;
 }

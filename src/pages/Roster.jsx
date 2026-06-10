@@ -44,6 +44,10 @@ import useToast from "../hooks/useToast.js";
 import * as R from "../lib/roster.js";
 import StatsEditor from "./builder/StatsEditor.jsx";
 
+// True when the active drag is a roster member (ignore files/text drags).
+const hasMemberDrag = (e) =>
+  Array.from(e.dataTransfer?.types || []).includes("text/roster-member");
+
 // Pick the field used for the status summary pills + status badges: a select
 // field literally about "status", else the first select field.
 function findStatusField(fields) {
@@ -918,7 +922,7 @@ function MemberRow({ member, category, fields, statusFieldId, accent, rankById, 
       onDragStart={(e) => canEdit && onDragStart(e, category.id, member.id)}
       onDragEnd={() => canEdit && onDragEnd()}
       onDragOver={(e) => {
-        if (!canEdit) return;
+        if (!canEdit || !hasMemberDrag(e)) return;
         e.preventDefault();
         if (!isDropTarget) setDropTarget({ catId: category.id, memberId: member.id });
       }}
@@ -1071,7 +1075,7 @@ function SubRoster({
             <tbody
               key={cat.id}
               onDragOver={(e) => {
-                if (!canEdit) return;
+                if (!canEdit || !hasMemberDrag(e)) return;
                 e.preventDefault();
                 setDragOverCat(cat.id);
               }}
@@ -1086,7 +1090,7 @@ function SubRoster({
               {/* Colored category band header */}
               <tr
                 onDragOver={(e) => {
-                  if (!canEdit) return;
+                  if (!canEdit || !hasMemberDrag(e)) return;
                   e.preventDefault();
                   // Hovering the band itself appends to the end, no row line.
                   setDropTarget(null);
@@ -1154,7 +1158,7 @@ function SubRoster({
               {members.length === 0 ? (
                 <tr
                   onDragOver={(e) => {
-                    if (!canEdit) return;
+                    if (!canEdit || !hasMemberDrag(e)) return;
                     e.preventDefault();
                     setDropTarget(null);
                   }}
@@ -1375,7 +1379,7 @@ export default function Roster({ user, page }) {
   // ── Drag and drop (within a subdivision) ──
   function onDragStart(e, fromCatId, memberId) {
     e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", JSON.stringify({ fromCatId, memberId }));
+    e.dataTransfer.setData("text/roster-member", JSON.stringify({ fromCatId, memberId }));
   }
   function onDragEnd() {
     setDragOverCat(null);
@@ -1386,7 +1390,7 @@ export default function Roster({ user, page }) {
     setDragOverCat(null);
     setDropTarget(null);
     try {
-      const { fromCatId, memberId } = JSON.parse(e.dataTransfer.getData("text/plain"));
+      const { fromCatId, memberId } = JSON.parse(e.dataTransfer.getData("text/roster-member"));
       if (fromCatId !== toCatId) {
         // Category change resets time in grade (if the tenure column opts in).
         mutate((cfg) =>
@@ -1408,7 +1412,7 @@ export default function Roster({ user, page }) {
     setDragOverCat(null);
     setDropTarget(null);
     try {
-      const { fromCatId, memberId } = JSON.parse(e.dataTransfer.getData("text/plain"));
+      const { fromCatId, memberId } = JSON.parse(e.dataTransfer.getData("text/roster-member"));
       if (memberId === beforeMemberId) return;
       mutate((cfg) => {
         let next = R.moveMemberBefore(cfg, toSubId, fromCatId, memberId, toCatId, beforeMemberId);

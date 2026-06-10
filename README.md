@@ -65,6 +65,7 @@ exposes `mutate()` so any edit auto-saves (debounced) through `api.saveConfig`.
 | `builder` | `BuilderPortal`   | Site configuration portal (locked)     |
 | `fleet`   | `VehicleRoster.jsx` | Vehicle fleet structure per rank/unit |
 | `uniforms`| `UniformRoster.jsx` | Uniform class structure cards         |
+| `chain`   | `ChainOfCommand.jsx`| Org-chart builder (drag, zoom, logos) |
 | `calendar`| `CalendarPage.jsx`  | Month calendar with events + attendance |
 
 Add a new page type by creating a component and registering it in

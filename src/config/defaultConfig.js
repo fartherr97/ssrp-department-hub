@@ -56,9 +56,9 @@ export const defaultConfig = {
   },
 
   /*
-   * Permission groups, ordered low → high by `level`. Pages declare which
-   * groups may view them. A user belongs to exactly one primary group (their
-   * highest matching Discord role); `admin` always sees everything.
+   * Permission groups, ordered low → high by `level`. A user belongs to one
+   * primary group (their highest matching Discord role / explicit member
+   * assignment); capabilities gate what each group can edit.
    */
   groups: [
     // Each group carries capability flags + an explicit member list. A member's
@@ -84,7 +84,6 @@ export const defaultConfig = {
       navGroup: "Main",
       icon: "Home",
       type: "home",
-      access: ["member", "supervisor", "command", "admin"],
       config: {
         heroKicker: "Welcome",
         heroTitle: "Welcome to the Department Hub",
@@ -115,7 +114,6 @@ export const defaultConfig = {
       navGroup: "Main",
       icon: "Users",
       type: "roster",
-      access: ["member", "supervisor", "command", "admin"],
     },
     {
       id: "resources",
@@ -123,7 +121,6 @@ export const defaultConfig = {
       navGroup: "Resources",
       icon: "BookOpen",
       type: "content",
-      access: ["member", "supervisor", "command", "admin"],
       config: {
         heroTitle: "Resources",
         heroSubtitle: "Documents, guides, and references for the department.",
@@ -167,7 +164,7 @@ export const defaultConfig = {
     layout: "tabs",
 
     // Custom columns shown for every member, across all subdivisions.
-    // Types: text | select | date | checkbox | cert
+    // Types: text | select | date | checkbox | cert | tenure | service
     //  - select  may set `pill: true` + `optionColors` to render colored status pills
     //  - checkbox renders a ✓ tick; cert renders a CERTIFIED / N/A pill
     memberFields: [
