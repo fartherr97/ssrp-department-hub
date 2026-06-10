@@ -59,7 +59,12 @@ export function PageHeader({ kicker, title, subtitle, actions }) {
           </p>
         )}
       </div>
-      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+      {actions && (
+        // Phones: equal-size button grid; larger screens: a normal button row.
+        <div className="grid shrink-0 grid-cols-2 items-stretch gap-2 sm:flex sm:items-center">
+          {actions}
+        </div>
+      )}
     </div>
   );
 }
