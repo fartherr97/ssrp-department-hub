@@ -45,6 +45,11 @@ function ViewLoading() {
  * lazy chunk load) shows a recoverable message instead of white-screening the
  * whole hub. Keyed by page id, so navigating away resets it.
  */
+const isStaleChunkError = (error) =>
+  /failed to fetch dynamically imported module|importing a module script failed|error loading dynamically imported module/i.test(
+    String(error?.message || error)
+  );
+
 class ViewErrorBoundary extends Component {
   state = { error: null };
   static getDerivedStateFromError(error) {
@@ -52,9 +57,37 @@ class ViewErrorBoundary extends Component {
   }
   componentDidCatch(error, info) {
     console.error("Page render error:", error, info);
+    // Stale deploy: the old build's lazy chunks are gone, reload once to pick
+    // up the new build (cooldown prevents a loop if the deploy is broken).
+    if (isStaleChunkError(error)) {
+      const last = Number(sessionStorage.getItem("chunk-reload-at") || 0);
+      if (Date.now() - last > 10_000) {
+        sessionStorage.setItem("chunk-reload-at", String(Date.now()));
+        window.location.reload();
+      }
+    }
   }
   render() {
     if (this.state.error) {
+      const stale = isStaleChunkError(this.state.error);
+      if (stale) {
+        return (
+          <Panel className="p-8 text-center">
+            <div className="text-base font-semibold text-white">
+              The site was just updated
+            </div>
+            <p className="mt-2 text-sm text-slate-400">
+              A new version was deployed while this tab was open. Reload to get it.
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="btn-glossy mt-4 inline-flex items-center justify-center rounded-xl bg-[linear-gradient(90deg,var(--color-primary),var(--color-hover))] px-4 py-2 text-sm font-semibold text-white"
+            >
+              Reload page
+            </button>
+          </Panel>
+        );
+      }
       return (
         <Panel className="p-8 text-center">
           <div className="text-base font-semibold text-white">This page hit an error</div>
