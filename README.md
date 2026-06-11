@@ -67,6 +67,7 @@ exposes `mutate()` so any edit auto-saves (debounced) through `api.saveConfig`.
 | `uniforms`| `UniformRoster.jsx` | Uniform class structure cards         |
 | `chain`   | `ChainOfCommand.jsx`| Org-chart builder (drag, zoom, logos) |
 | `calendar`| `CalendarPage.jsx`  | Month calendar with events + attendance |
+| `adminlog`| `AdminLog.jsx`      | Logbooks (hires/DAs/FTO/booth) + live stats |
 
 Add a new page type by creating a component and registering it in
 `PAGE_COMPONENTS` in `src/App.jsx`.

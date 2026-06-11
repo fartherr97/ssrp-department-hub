@@ -120,6 +120,7 @@ function migrateConfig(saved) {
           editSubdivisions: g.editSubdivisions ?? editor,
           // Calendar management defaults to roster editors (Command and up).
           manageCalendar: g.manageCalendar ?? (admin || editor),
+          manageLogs: g.manageLogs ?? (admin || editor),
           members: (g.members || []).map((m) => ({ role: m.role || "member", ...m })),
         };
       });

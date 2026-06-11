@@ -4,6 +4,7 @@ import { useConfig } from "../../lib/configContext.jsx";
 import { getIcon, ICON_NAMES } from "../../lib/icons.js";
 import { pageSlug, isGeneratedPageId } from "../../lib/navigation.js";
 import { uid } from "../../lib/roster.js";
+import { defaultLogBooks } from "../AdminLog.jsx";
 import {
   Panel,
   SectionHeader,
@@ -173,6 +174,8 @@ function PageModal({ open, onClose, config, page, onSave }) {
                     ? { outfits: [], notes: "" }
                     : type === "chain"
                     ? { root: null, notes: "" }
+                    : type === "adminlog"
+                    ? { books: defaultLogBooks(), entries: [] }
                     : type === "calendar"
                     ? { events: [] }
                     : { heroTitle: draft.label || "New Page", blocks: [] };
@@ -183,12 +186,13 @@ function PageModal({ open, onClose, config, page, onSave }) {
               <option value="fleet">Vehicle roster (fleet structure)</option>
               <option value="uniforms">Uniform roster (class structure)</option>
               <option value="chain">Chain of command (org chart)</option>
+              <option value="adminlog">Administrative log (logbooks + stats)</option>
               <option value="calendar">Department calendar</option>
             </Select>
           </Field>
         )}
 
-        {["fleet", "calendar", "uniforms", "chain"].includes(draft.type) && (
+        {["fleet", "calendar", "uniforms", "chain", "adminlog"].includes(draft.type) && (
           <p className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm text-slate-400">
             {draft.type === "fleet"
               ? "Vehicle roster pages are built on the page itself: add a column per rank or unit, then the vehicles each may use. Editing requires the “Edit main roster” capability."
@@ -196,6 +200,8 @@ function PageModal({ open, onClose, config, page, onSave }) {
               ? "Uniform roster pages are built on the page itself: a card per uniform with a reference photo and its component numbers/textures. Editing requires the “Edit main roster” capability."
               : draft.type === "chain"
               ? "Chain of command pages are built on the page itself: start with the top position, then click boxes to add the ranks below them. Editing requires the “Edit main roster” capability."
+              : draft.type === "adminlog"
+              ? "Comes preset with Admin Log, FTO, Interview, and Booth logbooks (fully editable). Logging requires the “Write administrative logs” capability; restrict who can VIEW it below."
               : "Calendar events are added on the page itself. Adding/editing events requires the “Manage calendar” capability (Command and up by default); anyone can mark attendance."}
           </p>
         )}
@@ -211,7 +217,7 @@ function PageModal({ open, onClose, config, page, onSave }) {
         </Field>
 
         {/* Any custom page type can be restricted to chosen groups. */}
-        {["content", "home", "fleet", "uniforms", "chain", "calendar"].includes(draft.type) && (
+        {["content", "home", "fleet", "uniforms", "chain", "calendar", "adminlog"].includes(draft.type) && (
           <Field label="Who can see this page">
             <div className="grid gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-3">
               <label className="flex items-center gap-2 text-sm text-slate-300">

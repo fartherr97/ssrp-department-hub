@@ -51,6 +51,11 @@ export const CAPABILITIES = [
     title: "Manage calendar",
     desc: "Add, edit, and delete department calendar events. Anyone signed in can mark attendance.",
   },
+  {
+    key: "manageLogs",
+    title: "Write administrative logs",
+    desc: "Add entries to administrative log pages (admin log, FTO, interview, booth). They can edit/delete their own entries; editing anyone's requires Manage access or Manage site.",
+  },
 ];
 
 export function userGroup(config, user) {
@@ -110,6 +115,11 @@ export function canOpenBuilder(user, config) {
 // Calendar entries (add/edit/delete + archiving), typically Command and up.
 export function canManageCalendar(user, config) {
   return hasCapability(user, config, "manageCalendar") || canManageSite(user, config);
+}
+
+// Administrative log pages: writing entries.
+export function canWriteLogs(user, config) {
+  return hasCapability(user, config, "manageLogs") || canManageSite(user, config);
 }
 
 // Vehicle roster (fleet) pages, main-roster editors and site managers.
