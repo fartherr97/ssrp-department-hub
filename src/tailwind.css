@@ -231,6 +231,14 @@ body::-webkit-scrollbar-thumb {
   from { opacity: 1; }
   to { opacity: 0; }
 }
+@keyframes mobileNavIn {
+  from { opacity: 0; transform: translateY(-12px) scale(0.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes mobileNavOut {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(-10px) scale(0.99); }
+}
 @keyframes sheetIn {
   from { opacity: 0; transform: translateY(100%); }
   to { opacity: 1; transform: translateY(0); }
@@ -261,6 +269,8 @@ body::-webkit-scrollbar-thumb {
 .anim-modal-in { animation: modalIn 0.26s var(--ease-out) both; }
 .anim-modal-out { animation: modalOut 0.16s var(--ease-soft) both; }
 .anim-overlay-out { animation: overlayOut 0.18s ease-out both; }
+.anim-mobilenav-in { animation: mobileNavIn 0.22s var(--ease-out) both; }
+.anim-mobilenav-out { animation: mobileNavOut 0.16s var(--ease-soft) both; }
 .anim-sheet-in { animation: sheetIn 0.3s var(--ease-out) both; } /* mobile bottom sheets */
 .stagger-item {
   animation: staggerIn 0.34s var(--ease-out) both;

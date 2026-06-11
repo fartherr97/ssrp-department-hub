@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ChevronDown, LogOut, Menu, X } from "lucide-react";
 import Logo from "../components/common/Logo.jsx";
-import { BrandName } from "../components/common/index.jsx";
+import { BrandName, useMounted } from "../components/common/index.jsx";
 import { getIcon } from "../lib/icons.js";
 import { buildNav } from "../lib/navigation.js";
 import { userAvatar, userDisplayName, userRoleLabel } from "../lib/user.js";
@@ -156,9 +156,13 @@ function TopNav({ nav, activePage, dropdownGroups, openGroup, setOpenGroup, onNa
 
 // ─── Mobile dropdown panel ───────────────────────────────────────────────────
 
-function MobileNav({ nav, activePage, onNavigate }) {
+function MobileNav({ nav, activePage, onNavigate, open }) {
   return (
-    <div className="hub-panel anim-dropdown-in absolute left-3 right-3 top-full z-50 mt-2 max-h-[70vh] space-y-4 overflow-y-auto rounded-2xl p-4 lg:hidden">
+    <div
+      className={`hub-panel absolute left-3 right-3 top-full z-50 mt-2 max-h-[70vh] space-y-4 overflow-y-auto rounded-2xl p-4 lg:hidden ${
+        open ? "anim-mobilenav-in" : "anim-mobilenav-out pointer-events-none"
+      }`}
+    >
       {nav.map((group) => (
         <section key={group.name}>
           <div className="hub-nav-group mb-1.5 px-2 text-[11px] font-black uppercase tracking-[0.2em]">
@@ -194,6 +198,8 @@ export default function DashboardLayout({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState(null);
   const [accountOpen, setAccountOpen] = useState(false);
+  // Keep the mobile nav mounted briefly after close so its exit animation plays.
+  const mobileNavMounted = useMounted(mobileOpen, 180);
   const nav = buildNav(config, user);
   const branding = config?.branding || {};
   const dropdownGroups = config?.dropdownGroups || [];
@@ -291,8 +297,13 @@ export default function DashboardLayout({
             />
           </div>
 
-          {mobileOpen && (
-            <MobileNav nav={nav} activePage={activePage} onNavigate={navigate} />
+          {mobileNavMounted && (
+            <MobileNav
+              nav={nav}
+              activePage={activePage}
+              onNavigate={navigate}
+              open={mobileOpen}
+            />
           )}
         </div>
       </header>
@@ -302,7 +313,7 @@ export default function DashboardLayout({
         <button
           aria-label="Close menu"
           onClick={closeAll}
-          className="fixed inset-0 z-[60] cursor-default bg-black/40 lg:bg-transparent"
+          className="anim-fade-in fixed inset-0 z-[60] cursor-default bg-black/40 lg:bg-transparent"
         />
       )}
 

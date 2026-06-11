@@ -163,7 +163,7 @@ export function Textarea({ className = "", rows = 4, ...rest }) {
 // Keep the menu mounted briefly after close so the out-animation can play. The
 // in/out keyframe is driven off `open` directly (no rAF toggle) to avoid a
 // one-frame flicker of the closing animation when the menu first opens.
-function useMounted(isOpen, duration = 140) {
+export function useMounted(isOpen, duration = 140) {
   const [mounted, setMounted] = useState(isOpen);
   useEffect(() => {
     if (isOpen) {
