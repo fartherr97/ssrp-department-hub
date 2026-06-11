@@ -106,6 +106,93 @@ export function defaultLogBooks() {
   ];
 }
 
+/*
+ * One-click demo data so departments can see the logbooks and statistics in
+ * action before wiring up their own. Entries are generated against the page's
+ * CURRENT books (matched by name) in proper snapshot form, then behave exactly
+ * like real entries, edit or delete them freely.
+ */
+export function sampleEntries(books) {
+  const cast = [
+    { name: "M. Keller", discordId: "183319766168109056" },
+    { name: "R. Ortiz", discordId: "205177225488760834" },
+    { name: "T. Nguyen", discordId: "133195859598980307" },
+    { name: "B. Harrison", discordId: "130965851945212320" },
+    { name: "C. Walsh", discordId: "542353843653181441" },
+    { name: "J. Brown", discordId: "100408908981916065" },
+    { name: "A. Vega", discordId: "740369820775874721" },
+  ];
+  const loggers = [
+    { name: "Capt. J. Welch", discordId: "961651847736770770" },
+    { name: "Lt. A. Farson", discordId: "118605768592222225" },
+    { name: "Sgt. D. Brooks", discordId: "101923837228617778" },
+  ];
+  const findBook = (re) => books.find((b) => re.test(b.name)) || books[0];
+  const daysAgo = (n) => {
+    const d = new Date();
+    d.setDate(d.getDate() - n);
+    return d.toISOString().slice(0, 10);
+  };
+  const snap = (book, fill) =>
+    (book?.fields || []).map((f) => ({
+      label: f.label,
+      type: f.type,
+      ...(f.type === "select" ? { options: f.options || [] } : {}),
+      value: fill[f.label] ?? (f.type === "checkbox" ? false : ""),
+    }));
+
+  const rows = [];
+  const push = (book, type, subject, logger, days, fill = {}) => {
+    if (!book) return;
+    rows.push({
+      id: uid("entry"),
+      bookId: book.id,
+      bookName: book.name,
+      type,
+      date: daysAgo(days),
+      at: new Date(Date.now() - days * 86400000).toISOString(),
+      by: logger,
+      subject,
+      values: snap(book, fill),
+    });
+  };
+
+  const admin = findBook(/admin/i);
+  const fto = findBook(/fto/i);
+  const interview = findBook(/interview/i);
+  const booth = findBook(/booth/i);
+  const [keller, ortiz, nguyen, harrison, walsh, brown, vega] = cast;
+  const [welch, farson, brooks] = loggers;
+  const notes = (t) => ({ Notes: t, "Result / Notes": t });
+
+  push(admin, "Hired, Open Interview", keller, welch, 42, notes("Hired at booth, strong interview."));
+  push(admin, "Hired, Application", ortiz, farson, 38, notes("Application #214 approved."));
+  push(admin, "Hired, Open Interview", nguyen, brooks, 31, notes("Walk-up interview, passed."));
+  push(admin, "Transfer In", harrison, welch, 27, notes("Transfer from HCSO, rank matched at Officer."));
+  push(admin, "Verbal DA / Coaching", ortiz, brooks, 21, notes("Coached on radio discipline during pursuit."));
+  push(admin, "Non-Verbal DA", brown, farson, 17, notes("Written warning, missed two mandatory meetings."));
+  push(admin, "Strike", brown, welch, 9, notes("Strike 1 of 3, unprofessional conduct on scene."));
+  push(admin, "Transfer Out", vega, farson, 7, notes("Transferred to FHP on good terms."));
+  push(admin, "Resignation", walsh, brooks, 3, notes("Resigned, school commitments. Eligible for rehire."));
+
+  push(fto, "Academy Training", keller, brooks, 40, notes("Completed academy classroom, 9/10 on exam."));
+  push(fto, "Field Training, Phase 1", keller, brooks, 35, notes("Phase 1 ride-along complete, solid traffic stops."));
+  push(fto, "Field Training, Phase 2", keller, farson, 29, notes("Phase 2 complete, ready for final eval."));
+  push(fto, "Final Evaluation", keller, welch, 25, notes("PASSED. Promoted to Officer, probation 30 days."));
+  push(fto, "Academy Training", nguyen, brooks, 24, notes("Academy day 1, needs radio code review."));
+  push(fto, "Field Training, Phase 1", nguyen, farson, 15, notes("Phase 1 in progress, good instincts."));
+
+  push(interview, "Interview Conducted", harrison, welch, 27, notes("Transfer interview, experienced."));
+  push(interview, "Interview Passed", keller, welch, 42, notes("Confident answers, recommended hire."));
+  push(interview, "Interview Failed", { name: "P. Donnelly", discordId: "" }, brooks, 12, notes("Failed scenario questions, may retry in 14 days."));
+
+  push(booth, "Open Interview Booth", welch, welch, 42, { "Duration (minutes)": "90", "Hires from booth": "2", Notes: "Busy night, 5 interviews." });
+  push(booth, "Open Interview Booth", brooks, brooks, 19, { "Duration (minutes)": "60", "Hires from booth": "1", Notes: "" });
+  push(booth, "Open Interview Booth", farson, farson, 5, { "Duration (minutes)": "120", "Hires from booth": "3", Notes: "Joint booth with recruitment drive." });
+
+  return rows.sort((a, b) => (a.at < b.at ? 1 : -1));
+}
+
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
 function formatDate(value) {
@@ -635,6 +722,18 @@ export default function AdminLog({ page, user }) {
         }
         actions={
           <>
+            {canModerate && entries.length === 0 && books.length > 0 && (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setEntries(sampleEntries(books));
+                  show("Sample data loaded, edit or delete it freely");
+                }}
+                title="Fill the logbooks with realistic demo entries to explore, they behave like real entries"
+              >
+                Load sample data
+              </Button>
+            )}
             {canModerate && (
               <Button variant="secondary" icon={Settings2} onClick={() => setBooksOpen(true)}>
                 Manage logbooks
