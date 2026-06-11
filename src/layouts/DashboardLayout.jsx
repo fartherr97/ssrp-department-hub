@@ -10,6 +10,8 @@ import { userAvatar, userDisplayName, userRoleLabel } from "../lib/user.js";
 
 function AccountMenu({ user, config, open, setOpen, onLogout }) {
   const role = userRoleLabel(user, config);
+  // Keep the menu mounted briefly after close so its exit animation plays.
+  const mounted = useMounted(open, 140);
   return (
     <div className="relative">
       <button
@@ -36,8 +38,12 @@ function AccountMenu({ user, config, open, setOpen, onLogout }) {
         <ChevronDown size={15} className={`text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
-      {open && (
-        <div className="hub-menu hub-menu-floating anim-dropdown-in absolute right-0 top-full z-50 mt-2 min-w-[230px] p-2">
+      {mounted && (
+        <div
+          className={`hub-menu hub-menu-floating absolute right-0 top-full z-50 mt-2 min-w-[230px] p-2 ${
+            open ? "anim-dropdown-in" : "anim-dropdown-out pointer-events-none"
+          }`}
+        >
           <div className="px-3 py-2">
             <div className="truncate text-sm font-semibold text-white">{userDisplayName(user)}</div>
             <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-primary)]">
