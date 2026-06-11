@@ -638,7 +638,19 @@ export function Modal({ open, onClose, title, children, footer, size = "md" }) {
   if (!mounted) return null;
   const widths = { sm: "max-w-md", md: "max-w-lg", lg: "max-w-2xl", xl: "max-w-4xl" };
 
-  return (
+  /*
+   * Portaled to <body>: modals render inside page trees whose ancestors can
+   * carry transforms (e.g. the page-fade transition), and a transformed
+   * ancestor turns position:fixed into "fixed to that ancestor". iOS Safari
+   * in particular leaves modals mispositioned with dead hit-zones ("frozen").
+   * Escaping to the body (or the fullscreen element, so charts in fullscreen
+   * can still open dialogs) makes fixed mean the viewport again, always.
+   */
+  const portalTarget =
+    typeof document !== "undefined" ? document.fullscreenElement || document.body : null;
+  if (!portalTarget) return null;
+
+  return createPortal(
     <div
       className={`fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto p-4 sm:items-center ${
         open ? "" : "pointer-events-none"
@@ -673,7 +685,8 @@ export function Modal({ open, onClose, title, children, footer, size = "md" }) {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    portalTarget
   );
 }
 
@@ -721,9 +734,11 @@ export function ConfirmDialog({ open, title, message, confirmLabel = "Confirm", 
 // ─── Toast ───────────────────────────────────────────────────────────────────
 
 export function Toast({ message }) {
-  if (!message) return null;
+  if (!message || typeof document === "undefined") return null;
   const isSuccess = message.type !== "error";
-  return (
+  // Portaled for the same reason as Modal: transformed page ancestors must
+  // never capture its fixed positioning.
+  return createPortal(
     <div
       className={`animate-pageFade fixed left-1/2 top-6 z-[120] -translate-x-1/2 rounded-2xl border px-5 py-3 text-sm font-bold shadow-xl backdrop-blur ${
         isSuccess
@@ -732,6 +747,7 @@ export function Toast({ message }) {
       }`}
     >
       {message.text}
-    </div>
+    </div>,
+    document.fullscreenElement || document.body
   );
 }
