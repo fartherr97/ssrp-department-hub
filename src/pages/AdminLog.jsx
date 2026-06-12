@@ -200,6 +200,100 @@ function formatDate(value) {
   return m ? `${m[2]}/${m[3]}/${m[1]}` : value || "—";
 }
 
+// ─── Entry type colors (consistent, meaning-aware) ──────────────────────────
+
+const TYPE_PALETTE = ["#3b82f6", "#22c55e", "#f59e0b", "#a855f7", "#14b8a6", "#ec4899", "#f97316", "#ef4444"];
+
+function typeColor(type = "") {
+  const t = type.toLowerCase();
+  if (/pass|hire|accept|approved/.test(t)) return "#22c55e"; // good news, green
+  if (/fail|resign|strike|terminat/.test(t)) return "#ef4444"; // bad news, red
+  if (/transfer in/.test(t)) return "#3b82f6";
+  if (/transfer out/.test(t)) return "#f97316";
+  if (/\bda\b|coach|warn|probation/.test(t)) return "#f59e0b"; // discipline, amber
+  if (/booth/.test(t)) return "#14b8a6";
+  if (/interview/.test(t)) return "#a855f7";
+  if (/academy|training|eval/.test(t)) return "#3b82f6";
+  let h = 0;
+  for (const c of t) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return TYPE_PALETTE[h % TYPE_PALETTE.length];
+}
+
+function TypePill({ type }) {
+  const color = typeColor(type);
+  return (
+    <span
+      className="inline-flex max-w-full items-center truncate rounded-full border px-2.5 py-0.5 text-[11px] font-bold"
+      style={{
+        color,
+        borderColor: `color-mix(in srgb, ${color} 45%, transparent)`,
+        backgroundColor: `color-mix(in srgb, ${color} 14%, transparent)`,
+      }}
+    >
+      {type}
+    </span>
+  );
+}
+
+// One log entry, laid out like a Discord log embed: type + date up top, the
+// subject big and bold, then clean "Label: value" lines, then the footer.
+function EntryCard({ entry: e, canEdit, onEdit, onDelete }) {
+  const color = typeColor(e.type);
+  const vals = (e.values || []).filter((v) => v.value);
+  return (
+    <Panel className="overflow-hidden" style={{ borderLeft: `3px solid ${color}` }}>
+      <div className="px-4 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <TypePill type={e.type} />
+          <span className="shrink-0 font-mono text-xs text-slate-500">
+            {formatDate(e.date || (e.at || "").slice(0, 10))}
+          </span>
+        </div>
+        <div className="mt-2 text-base font-bold leading-tight text-white">
+          {e.subject?.name || "—"}
+        </div>
+        {e.subject?.discordId && (
+          <div className="mt-0.5 font-mono text-[11px] text-slate-500">{e.subject.discordId}</div>
+        )}
+        {vals.length > 0 && (
+          <div
+            className="mt-2.5 grid gap-1 border-l-2 pl-3 text-sm"
+            style={{ borderColor: `color-mix(in srgb, ${color} 35%, transparent)` }}
+          >
+            {vals.map((v, i) => (
+              <div key={i} className="min-w-0 leading-relaxed">
+                <span className="font-semibold" style={{ color }}>
+                  {v.label}:
+                </span>{" "}
+                <span className="whitespace-pre-line text-slate-200">
+                  {v.type === "checkbox" ? "Yes" : v.type === "date" ? formatDate(v.value) : String(v.value)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="mt-3 flex items-center justify-between gap-2 border-t border-white/5 pt-2">
+          <span className="min-w-0 truncate text-xs text-slate-500">
+            Logged by {e.by?.name || "Unknown"}
+            {e.editedAt && <span title={`Edited by ${e.editedBy}`}> · edited</span>}
+          </span>
+          {canEdit && (
+            <span className="flex shrink-0 items-center gap-1">
+              <IconButton icon={Pencil} label="Edit entry" onClick={onEdit} className="h-7 w-7" />
+              <IconButton
+                icon={Trash2}
+                label="Delete entry"
+                onClick={onDelete}
+                className="h-7 w-7 hover:border-red-500/40 hover:text-red-300"
+              />
+            </span>
+          )}
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
 // ─── Entry modal (new entries use the book's CURRENT schema; edits render the
 //     entry's SNAPSHOT so old records stay editable even after schema changes) ─
 
@@ -510,6 +604,78 @@ function countBy(list, keyFn) {
   return [...map.entries()].sort((a, b) => b[1] - a[1]);
 }
 
+function groupBy(list, keyFn) {
+  const map = new Map();
+  for (const item of list) {
+    const k = keyFn(item);
+    if (!map.has(k)) map.set(k, []);
+    map.get(k).push(item);
+  }
+  return [...map.entries()];
+}
+
+// A big-number stat box, the same look as the roster statistics panel.
+function StatBox({ label, value, color }) {
+  return (
+    <Panel className="p-4" style={{ borderLeft: `3px solid ${color || "var(--color-primary)"}` }}>
+      <div className="truncate text-[10px] font-bold uppercase tracking-[0.12em] text-cad-muted">
+        {label}
+      </div>
+      <div className="mt-0.5 text-3xl font-black tabular-nums" style={{ color: color || "var(--color-primary)" }}>
+        {value}
+      </div>
+    </Panel>
+  );
+}
+
+// Horizontal bars per entry type, the longest bar is the most common type.
+function TypeBars({ list }) {
+  const counts = countBy(list, (e) => e.type);
+  const max = counts[0]?.[1] || 1;
+  return (
+    <div className="grid gap-2.5">
+      {counts.map(([type, n]) => {
+        const color = typeColor(type);
+        return (
+          <div key={type}>
+            <div className="mb-1 flex items-center justify-between gap-3 text-sm">
+              <span className="min-w-0 truncate font-medium text-slate-200">{type}</span>
+              <span className="shrink-0 font-bold tabular-nums" style={{ color }}>
+                {n}
+              </span>
+            </div>
+            <div className="h-2.5 overflow-hidden rounded-full bg-white/[0.06]">
+              <div
+                className="h-full rounded-full transition-all"
+                style={{
+                  width: `${Math.max(6, (n / max) * 100)}%`,
+                  background: `linear-gradient(90deg, color-mix(in srgb, ${color} 70%, transparent), ${color})`,
+                }}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function BookBreakdown({ entries }) {
+  return (
+    <div className="grid items-start gap-4 lg:grid-cols-2">
+      {groupBy(entries, (e) => e.bookName).map(([book, list]) => (
+        <Panel key={book} className="p-4">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <span className="text-sm font-bold text-white">{book}</span>
+            <Badge>{list.length}</Badge>
+          </div>
+          <TypeBars list={list} />
+        </Panel>
+      ))}
+    </div>
+  );
+}
+
 function StatsView({ entries }) {
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
@@ -526,28 +692,11 @@ function StatsView({ entries }) {
     };
   }, [entries, q]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const byBook = useMemo(() => {
-    const map = new Map();
-    for (const e of entries) {
-      if (!map.has(e.bookName)) map.set(e.bookName, []);
-      map.get(e.bookName).push(e);
-    }
-    return [...map.entries()];
+  const books = useMemo(() => groupBy(entries, (e) => e.bookName), [entries]);
+  const last30 = useMemo(() => {
+    const cutoff = Date.now() - 30 * 86400000;
+    return entries.filter((e) => new Date(e.at || e.date).getTime() >= cutoff).length;
   }, [entries]);
-
-  const CountGrid = ({ list }) => (
-    <div className="grid gap-1.5 sm:grid-cols-2">
-      {countBy(list, (e) => `${e.bookName}: ${e.type}`).map(([label, n]) => (
-        <div
-          key={label}
-          className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-1.5 text-sm"
-        >
-          <span className="truncate text-slate-300">{label}</span>
-          <span className="shrink-0 font-bold text-[var(--color-primary)]">{n}</span>
-        </div>
-      ))}
-    </div>
-  );
 
   return (
     <div className="grid gap-4">
@@ -563,45 +712,46 @@ function StatsView({ entries }) {
 
       {q ? (
         <>
-          <Panel className="p-4">
-            <div className="mb-3 text-sm font-bold text-white">
-              About them <span className="font-normal text-slate-500">(as the subject), {asSubject.length} entr{asSubject.length === 1 ? "y" : "ies"}</span>
+          <div className="grid grid-cols-2 gap-3">
+            <StatBox label="Entries about them" value={asSubject.length} color="#3b82f6" />
+            <StatBox label="Logged by them" value={asLogger.length} color="#22c55e" />
+          </div>
+          <div>
+            <div className="mb-2 text-sm font-bold text-white">
+              About them <span className="font-normal text-slate-500">, as the subject</span>
             </div>
-            {asSubject.length ? <CountGrid list={asSubject} /> : <p className="text-sm text-slate-500">Nothing logged about a matching member.</p>}
-          </Panel>
-          <Panel className="p-4">
-            <div className="mb-3 text-sm font-bold text-white">
-              Logged by them <span className="font-normal text-slate-500">(their activity), {asLogger.length} entr{asLogger.length === 1 ? "y" : "ies"}</span>
+            {asSubject.length ? (
+              <BookBreakdown entries={asSubject} />
+            ) : (
+              <p className="text-sm text-slate-500">Nothing logged about a matching member.</p>
+            )}
+          </div>
+          <div>
+            <div className="mb-2 text-sm font-bold text-white">
+              Their activity <span className="font-normal text-slate-500">, entries they logged</span>
             </div>
-            {asLogger.length ? <CountGrid list={asLogger} /> : <p className="text-sm text-slate-500">No entries logged by a matching member.</p>}
-          </Panel>
+            {asLogger.length ? (
+              <BookBreakdown entries={asLogger} />
+            ) : (
+              <p className="text-sm text-slate-500">No entries logged by a matching member.</p>
+            )}
+          </div>
         </>
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Panel className="p-4">
-              <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-cad-muted">All entries</div>
-              <div className="mt-0.5 text-2xl font-black text-[var(--color-primary)]">{entries.length}</div>
-            </Panel>
-            {byBook.slice(0, 3).map(([name, list]) => (
-              <Panel key={name} className="p-4">
-                <div className="truncate text-[10px] font-bold uppercase tracking-[0.12em] text-cad-muted">{name}</div>
-                <div className="mt-0.5 text-2xl font-black text-white">{list.length}</div>
-              </Panel>
+            <StatBox label="All entries" value={entries.length} />
+            <StatBox label="Last 30 days" value={last30} color="#22c55e" />
+            {books.slice(0, 2).map(([name, list]) => (
+              <StatBox key={name} label={name} value={list.length} color="#a855f7" />
             ))}
           </div>
-          {byBook.map(([name, list]) => (
-            <Panel key={name} className="p-4">
-              <div className="mb-3 text-sm font-bold text-white">
-                {name} <span className="font-normal text-slate-500">, {list.length} entr{list.length === 1 ? "y" : "ies"}</span>
-              </div>
-              <CountGrid list={list} />
-            </Panel>
-          ))}
-          {entries.length === 0 && (
+          {entries.length === 0 ? (
             <p className="rounded-xl border border-dashed border-white/10 p-8 text-center text-sm text-slate-500">
               Statistics appear here as entries are logged.
             </p>
+          ) : (
+            <BookBreakdown entries={entries} />
           )}
         </>
       )}
@@ -801,56 +951,18 @@ export default function AdminLog({ page, user }) {
               {q ? "Nothing matches the search." : "Nothing logged here yet."}
             </Panel>
           ) : (
-            <div className="grid gap-2">
+            <div className="grid gap-2.5 lg:grid-cols-2">
               {visible.slice(0, limit).map((e) => (
-                <Panel key={e.id} className="px-4 py-3">
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                    <span className="whitespace-nowrap font-mono text-xs text-slate-500">
-                      {formatDate(e.date || (e.at || "").slice(0, 10))}
-                    </span>
-                    <Badge>{e.type}</Badge>
-                    <span className="min-w-0 truncate text-sm font-semibold text-white">
-                      {e.subject?.name || "—"}
-                      {e.subject?.discordId && (
-                        <span className="ml-2 font-mono text-[11px] font-normal text-slate-500">
-                          {e.subject.discordId}
-                        </span>
-                      )}
-                    </span>
-                    <span className="ml-auto whitespace-nowrap text-xs text-slate-500">
-                      by {e.by?.name || "Unknown"}
-                      {e.editedAt && <span title={`Edited by ${e.editedBy}`}> · edited</span>}
-                    </span>
-                    {canEditEntry(e) && (
-                      <span className="flex shrink-0 items-center gap-1">
-                        <IconButton icon={Pencil} label="Edit entry" onClick={() => setEntryModal(e)} className="h-7 w-7" />
-                        <IconButton
-                          icon={Trash2}
-                          label="Delete entry"
-                          onClick={() => setConfirmDel(e)}
-                          className="h-7 w-7 hover:border-red-500/40 hover:text-red-300"
-                        />
-                      </span>
-                    )}
-                  </div>
-                  {(e.values || []).some((v) => v.value) && (
-                    <div className="mt-1.5 grid gap-0.5 text-xs text-slate-400">
-                      {(e.values || [])
-                        .filter((v) => v.value)
-                        .map((v, i) => (
-                          <div key={i} className="min-w-0">
-                            <span className="font-semibold text-slate-500">{v.label}:</span>{" "}
-                            <span className="whitespace-pre-line">
-                              {v.type === "checkbox" ? "Yes" : v.type === "date" ? formatDate(v.value) : String(v.value)}
-                            </span>
-                          </div>
-                        ))}
-                    </div>
-                  )}
-                </Panel>
+                <EntryCard
+                  key={e.id}
+                  entry={e}
+                  canEdit={canEditEntry(e)}
+                  onEdit={() => setEntryModal(e)}
+                  onDelete={() => setConfirmDel(e)}
+                />
               ))}
               {visible.length > limit && (
-                <Button variant="secondary" className="justify-self-center" onClick={() => setLimit((l) => l + PAGE_SIZE)}>
+                <Button variant="secondary" className="col-span-full justify-self-center" onClick={() => setLimit((l) => l + PAGE_SIZE)}>
                   Show {Math.min(PAGE_SIZE, visible.length - limit)} more
                 </Button>
               )}
