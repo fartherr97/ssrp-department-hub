@@ -8,10 +8,11 @@ configured from an in-app **Builder Portal**, no code changes required.
 Built with the same stack as the SSRP Staff Hub: **Vite + React + Tailwind**,
 styled with theme CSS variables, designed around **Discord auth** + **MariaDB**.
 
-> **Front-end only.** Every data call goes through a single module
-> (`src/lib/api.js`) that is currently backed by `localStorage`, so the whole
-> app — Builder Portal, roster editing, dev login — works with no server. When
-> the backend is built, flip one flag and implement the documented REST contract.
+> **Works with or without a backend.** Every data call goes through a single
+> module (`src/lib/api.js`). Out of the box it's backed by `localStorage`, so the
+> whole app — Builder Portal, roster editing, dev login — runs with no server.
+> An Express + MariaDB backend implementing the documented contract now lives in
+> [`server/`](server/README.md); set `VITE_USE_BACKEND=true` to use it.
 
 ---
 
@@ -106,17 +107,24 @@ custom columns, and drag-to-move members between ranks.
 
 ---
 
-## Wiring up the backend (for Steve)
+## The backend
 
-The front-end never calls `fetch` directly except inside **`src/lib/api.js`**.
-That file is the entire contract. To switch from the localStorage mock to a
-real backend:
+A reference Express + MariaDB server lives in **[`server/`](server/README.md)**
+and implements the entire contract below. It runs as a single service (serves
+the built `dist/` *and* the API), uses passport-discord for auth, and reuses the
+front-end's own pure modules (`permissions.js`, `roster.js`, `defaultConfig.js`)
+so client and server rules can't drift. See [`server/README.md`](server/README.md)
+for local setup and a step-by-step **Railway** deploy (app + MySQL).
 
-1. Set `VITE_USE_BACKEND=true` (e.g. in `.env`), or flip `USE_BACKEND` in
-   `src/lib/api.js`.
-2. Point `vite.config.js`'s proxy at the API server (already `/api` + `/auth`).
-3. Implement these endpoints. All JSON responses use `{ ok: true, data }` or
-   `{ ok: false, error }`.
+The front-end never calls `fetch` directly except inside **`src/lib/api.js`** —
+that file is the entire contract. To use the backend instead of the localStorage
+mock:
+
+1. Set `VITE_USE_BACKEND=true` (build-time, e.g. in `.env`), or flip
+   `USE_BACKEND` in `src/lib/api.js`.
+2. `vite.config.js`'s dev proxy already forwards `/api` + `/auth` to the server.
+3. The endpoints below are implemented in `server/`. All JSON responses use
+   `{ ok: true, data }` or `{ ok: false, error }`.
 
 ### Config
 

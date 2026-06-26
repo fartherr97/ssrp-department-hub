@@ -3,15 +3,28 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Modular, fully configurable department hub boilerplate. Front-end only; backend (MariaDB + Discord auth) wired separately.",
+  "description": "Modular, fully configurable department hub. Vite + React front-end with an Express + MariaDB backend (Discord auth).",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview --host 0.0.0.0",
+    "start": "node server/index.js",
+    "server": "node --watch server/index.js"
   },
   "dependencies": {
+    "dotenv": "latest",
+    "express": "latest",
+    "express-mysql-session": "latest",
+    "express-session": "latest",
     "framer-motion": "latest",
+    "helmet": "latest",
     "lucide-react": "latest",
+    "mysql2": "latest",
+    "passport": "latest",
+    "passport-discord": "latest",
     "react": "latest",
     "react-dom": "latest"
   },
