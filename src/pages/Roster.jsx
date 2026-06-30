@@ -903,7 +903,7 @@ function TerminationsBody({ onReinstated }) {
 // (rank + callsign + promotion date + probation in one shot), fail terminates
 // them to the archive (or just set their status back manually).
 
-function FTOBody({ initialSubId, onToast }) {
+function FTOBody({ initialSubId, user, onToast }) {
   const { config, mutate } = useConfig();
   const subdivisions = config.roster.subdivisions || [];
   const [subSel, setSubSel] = useState(initialSubId || subdivisions[0]?.id);
@@ -912,6 +912,22 @@ function FTOBody({ initialSubId, onToast }) {
   const autoCadet = ranks.find((r) => /cadet|recruit|trainee/i.test(r.name))?.id || "";
   const [cadetRankSel, setCadetRankSel] = useState("");
   const cadetRank = cadetRankSel || autoCadet;
+
+  // Ranks this person may promote cadets into (ceiling-limited for training
+  // supervisors, all ranks for full editors), excluding the cadet rank itself.
+  const promoteOptions = (user ? assignableRanks(user, config, sub) : ranks).filter(
+    (r) => r.id !== cadetRank
+  );
+  // Default graduation rank: the rank just above cadet in roster order, clamped
+  // to what this person is allowed to assign.
+  const cadetIdx = ranks.findIndex((r) => r.id === cadetRank);
+  const aboveCadet = cadetIdx > 0 ? ranks[cadetIdx - 1] : null;
+  const gradDefault =
+    aboveCadet && promoteOptions.some((r) => r.id === aboveCadet.id)
+      ? aboveCadet.id
+      : promoteOptions[promoteOptions.length - 1]?.id || "";
+  const [gradRankSel, setGradRankSel] = useState("");
+  const gradRank = promoteOptions.some((r) => r.id === gradRankSel) ? gradRankSel : gradDefault;
 
   const [passing, setPassing] = useState(null); // member mid "pass final eval"
   const [passRank, setPassRank] = useState("");
@@ -939,6 +955,15 @@ function FTOBody({ initialSubId, onToast }) {
     setPassing(null);
     setPassRank("");
     setPassProb("");
+  }
+
+  // One-click "Passed Training": promote the cadet straight to the graduation
+  // rank with an auto callsign and today's promotion date, no extra prompts.
+  function quickPass(m) {
+    if (!gradRank || !promoteOptions.some((r) => r.id === gradRank)) return;
+    mutate((cfg) => R.applyPromotion(cfg, sub.id, [m.id], { rankId: gradRank }));
+    const rankName = ranks.find((r) => r.id === gradRank)?.name || "their new rank";
+    onToast?.(`${m.name} passed training, promoted to ${rankName} with a new callsign`);
   }
 
   function hire() {
@@ -990,6 +1015,16 @@ function FTOBody({ initialSubId, onToast }) {
           <Select value={cadetRank} onChange={(e) => setCadetRankSel(e.target.value)}>
             <option value="">Choose rank…</option>
             {ranks.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Graduation rank" hint="One-click 'Passed training' promotes to this rank.">
+          <Select value={gradRank} onChange={(e) => setGradRankSel(e.target.value)}>
+            <option value="">Choose rank…</option>
+            {promoteOptions.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
               </option>
@@ -1057,6 +1092,14 @@ function FTOBody({ initialSubId, onToast }) {
                     </div>
                   </div>
                   <Button
+                    className="!py-1.5 text-xs"
+                    disabled={!gradRank}
+                    title={gradRank ? "Promote to the graduation rank with an auto callsign" : "Set a graduation rank above"}
+                    onClick={() => quickPass(m)}
+                  >
+                    Passed training
+                  </Button>
+                  <Button
                     variant="secondary"
                     className="!py-1.5 text-xs"
                     onClick={() => {
@@ -1065,7 +1108,7 @@ function FTOBody({ initialSubId, onToast }) {
                       setPassProb("");
                     }}
                   >
-                    Pass final eval
+                    Options
                   </Button>
                   <Button
                     variant="danger"
@@ -1080,13 +1123,11 @@ function FTOBody({ initialSubId, onToast }) {
                     <Field label="Promote to">
                       <Select value={passRank} onChange={(e) => setPassRank(e.target.value)}>
                         <option value="">Choose rank…</option>
-                        {ranks
-                          .filter((r) => r.id !== cadetRank)
-                          .map((r) => (
-                            <option key={r.id} value={r.id}>
-                              {r.name}
-                            </option>
-                          ))}
+                        {promoteOptions.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.name}
+                          </option>
+                        ))}
                       </Select>
                     </Field>
                     <Field label="Probation until" hint="Optional.">
@@ -1129,12 +1170,16 @@ const CONTROLLER_TABS = [
   { id: "terminations", label: "Terminations", icon: Archive },
 ];
 
-function RosterControllerModal({ open, onClose, initialTab = "ranks", initialSubId, statsSubId, onToast }) {
+function RosterControllerModal({ open, onClose, initialTab = "ranks", initialSubId, statsSubId, allowedTabs, user, onToast }) {
   const { config } = useConfig();
   const [tab, setTab] = useState(initialTab);
   const subdivisions = config.roster.subdivisions || [];
   const [subId, setSubId] = useState(initialSubId || subdivisions[0]?.id);
   const sub = subdivisions.find((x) => x.id === subId) || subdivisions[0];
+  // Limited (training) editors only get the FTO/Cadets tab.
+  const tabs = allowedTabs
+    ? CONTROLLER_TABS.filter((t) => allowedTabs.includes(t.id))
+    : CONTROLLER_TABS;
 
   return (
     <Modal
@@ -1149,7 +1194,7 @@ function RosterControllerModal({ open, onClose, initialTab = "ranks", initialSub
       }
     >
       <div className="mb-4 flex gap-1.5 overflow-x-auto rounded-xl border border-white/10 bg-white/[0.02] p-1">
-        {CONTROLLER_TABS.map((t) => {
+        {tabs.map((t) => {
           const Icon = t.icon;
           const active = tab === t.id;
           return (
@@ -1196,7 +1241,7 @@ function RosterControllerModal({ open, onClose, initialTab = "ranks", initialSub
           <StatsEditor subId={statsSubId} />
         </div>
       )}
-      {tab === "fto" && <FTOBody initialSubId={initialSubId} onToast={onToast} />}
+      {tab === "fto" && <FTOBody initialSubId={initialSubId} user={user} onToast={onToast} />}
       {tab === "terminations" && <TerminationsBody onReinstated={onToast} />}
     </Modal>
   );
@@ -2001,6 +2046,16 @@ export default function Roster({ user, page }) {
                   Manage
                 </Button>
               )}
+              {!canEditStructure && limitedActive && (
+                <Button
+                  variant="secondary"
+                  icon={GraduationCap}
+                  onClick={() => setController({ tab: "fto", subId, allowedTabs: ["fto"] })}
+                  title="Hire applicants and pass cadets through training"
+                >
+                  Cadets
+                </Button>
+              )}
               {layout === "tabs" && subId && canEditActive && (
                 <Button icon={Plus} onClick={() => openAddCategory(subId)}>
                   Add category
@@ -2380,6 +2435,8 @@ export default function Roster({ user, page }) {
           initialTab={controllerM.data.tab}
           initialSubId={controllerM.data.subId || subId}
           statsSubId={layout === "tabs" ? subId : null}
+          allowedTabs={controllerM.data.allowedTabs}
+          user={user}
           onToast={show}
         />
       )}
