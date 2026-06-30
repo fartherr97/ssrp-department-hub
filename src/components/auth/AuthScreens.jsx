@@ -52,6 +52,27 @@ function DevLogin({ groups, onDevLogin }) {
     null
   );
   const [group, setGroup] = useState(topGroup?.id || "viewer");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function enter() {
+    setError("");
+    setBusy(true);
+    try {
+      await onDevLogin(group);
+    } catch (err) {
+      // Most common: the backend has dev login disabled (NODE_ENV=production
+      // without DEV_LOGIN_ENABLED=true), so the request 403s.
+      setError(
+        /disabled/i.test(String(err?.message))
+          ? "Dev login is turned off on the server. Set DEV_LOGIN_ENABLED=true (or use Discord)."
+          : `Couldn't sign in: ${err?.message || "request failed"}`
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="mt-10 w-full max-w-sm rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-4 text-left">
       <div className="mb-2 text-xs font-bold uppercase tracking-wider text-amber-300/80">
@@ -74,10 +95,11 @@ function DevLogin({ groups, onDevLogin }) {
             </option>
           ))}
         </select>
-        <Button icon={LogIn} onClick={() => onDevLogin(group)}>
+        <Button icon={LogIn} onClick={enter} disabled={busy}>
           Enter
         </Button>
       </div>
+      {error && <p className="mt-2 text-xs text-red-300">{error}</p>}
     </div>
   );
 }
