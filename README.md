@@ -69,6 +69,7 @@ exposes `mutate()` so any edit auto-saves (debounced) through `api.saveConfig`.
 | `chain`   | `ChainOfCommand.jsx`| Org-chart builder (drag, zoom, logos) |
 | `calendar`| `CalendarPage.jsx`  | Month calendar with events + attendance |
 | `adminlog`| `AdminLog.jsx`      | Logbooks (hires/DAs/FTO/booth) + live stats |
+| `activity`| `ActivityFeed.jsx`  | Member-facing changelog (roster/calendar/pages) |
 
 Add a new page type by creating a component and registering it in
 `PAGE_COMPONENTS` in `src/App.jsx`.

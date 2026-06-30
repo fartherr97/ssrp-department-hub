@@ -117,7 +117,34 @@ function summarizeRoster(prev, next) {
   return { category: "roster", action: "Updated the roster" };
 }
 
+// Detect calendar event add/edit/remove so the activity feed reads naturally,
+// instead of a generic "Edited page". Events live in a calendar page's config.
+function summarizeCalendar(prev, next) {
+  for (const np of (next || []).filter((p) => p.type === "calendar")) {
+    const pp = (prev || []).find((p) => p.id === np.id);
+    if (!pp) continue;
+    const pe = byId(pp.config?.events || []);
+    const ne = byId(np.config?.events || []);
+    const added = [...ne.keys()].filter((id) => !pe.has(id));
+    const removed = [...pe.keys()].filter((id) => !ne.has(id));
+    const title = (e) => `"${e?.title || "Untitled"}"`;
+    if (added.length === 1 && !removed.length)
+      return { category: "calendar", action: `Added event ${title(ne.get(added[0]))}` };
+    if (removed.length === 1 && !added.length)
+      return { category: "calendar", action: `Removed event ${title(pe.get(removed[0]))}` };
+    if (added.length || removed.length)
+      return { category: "calendar", action: `Calendar events changed (+${added.length} / −${removed.length})` };
+    for (const [id, ev] of ne) {
+      const old = pe.get(id);
+      if (old && j(old) !== j(ev)) return { category: "calendar", action: `Updated event ${title(ev)}` };
+    }
+  }
+  return null;
+}
+
 function summarizePages(prev, next) {
+  const cal = summarizeCalendar(prev, next);
+  if (cal) return cal;
   const pp = byId(prev);
   const np = byId(next);
   const added = [...np.keys()].filter((id) => !pp.has(id));

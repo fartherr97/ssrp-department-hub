@@ -178,6 +178,8 @@ function PageModal({ open, onClose, config, page, onSave }) {
                     ? { books: defaultLogBooks(), entries: [] }
                     : type === "calendar"
                     ? { events: [] }
+                    : type === "activity"
+                    ? { categories: ["roster", "calendar", "pages"] }
                     : { heroTitle: draft.label || "New Page", blocks: [] };
                 setDraft({ ...draft, type, config: base });
               }}
@@ -188,13 +190,16 @@ function PageModal({ open, onClose, config, page, onSave }) {
               <option value="chain">Chain of command (org chart)</option>
               <option value="adminlog">Administrative log (logbooks + stats)</option>
               <option value="calendar">Department calendar</option>
+              <option value="activity">Activity feed (recent changes)</option>
             </Select>
           </Field>
         )}
 
-        {["fleet", "calendar", "uniforms", "chain", "adminlog"].includes(draft.type) && (
+        {["fleet", "calendar", "uniforms", "chain", "adminlog", "activity"].includes(draft.type) && (
           <p className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm text-slate-400">
-            {draft.type === "fleet"
+            {draft.type === "activity"
+              ? "A read-only feed of recent department changes (roster moves, calendar events, new pages), drawn from the audit log so members don't have to re-check pages. Viewable by anyone you allow below."
+              : draft.type === "fleet"
               ? "Vehicle roster pages are built on the page itself: add a column per rank or unit, then the vehicles each may use. Editing requires the “Edit main roster” capability."
               : draft.type === "uniforms"
               ? "Uniform roster pages are built on the page itself: a card per uniform with a reference photo and its component numbers/textures. Editing requires the “Edit main roster” capability."
@@ -217,7 +222,7 @@ function PageModal({ open, onClose, config, page, onSave }) {
         </Field>
 
         {/* Any custom page type can be restricted to chosen groups. */}
-        {["content", "home", "fleet", "uniforms", "chain", "calendar", "adminlog"].includes(draft.type) && (
+        {["content", "home", "fleet", "uniforms", "chain", "calendar", "adminlog", "activity"].includes(draft.type) && (
           <Field label="Who can see this page">
             <div className="grid gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-3">
               <label className="flex items-center gap-2 text-sm text-slate-300">
