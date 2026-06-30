@@ -273,9 +273,14 @@ export function Select({
       }
     };
     document.addEventListener("mousedown", onDown);
+    // iOS Safari doesn't reliably fire mousedown on taps outside interactive
+    // elements, which left the menu open and swallowing taps. touchstart closes
+    // it on the first tap anywhere outside.
+    document.addEventListener("touchstart", onDown, { passive: true });
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("touchstart", onDown);
       document.removeEventListener("keydown", onKey);
     };
   }, [open]);
@@ -359,7 +364,7 @@ export function Select({
             ref={menuRef}
             role="listbox"
             className={`fixed z-[4000] overflow-y-auto rounded-xl border border-white/[0.14] bg-app-card p-1 shadow-2xl shadow-black/60 ${
-              open ? "anim-dropdown-in" : "anim-dropdown-out"
+              open ? "anim-dropdown-in" : "anim-dropdown-out pointer-events-none"
             }`}
             style={{
               left: rect.left,
