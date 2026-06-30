@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
 import { canWriteLogs, canManageAccess, canManageSite } from "../lib/permissions.js";
-import { uid } from "../lib/roster.js";
+import { uid, probationDaysForType, applyAutoProbation } from "../lib/roster.js";
 import { userDisplayName } from "../lib/user.js";
 import useToast from "../hooks/useToast.js";
 import {
@@ -823,8 +823,23 @@ export default function AdminLog({ page, user }) {
         at: new Date().toISOString(),
         by: { name: userDisplayName(user), discordId: user?.id || "" },
       };
-      setEntries([entry, ...entries]);
-      show("Entry logged");
+      // Auto-probation: if this entry type matches a configured disciplinary rule
+      // and names a member by Discord ID, set their probation in the same save.
+      const days = probationDaysForType(config, entry.type);
+      const did = entry.subject?.discordId;
+      mutate((c) => {
+        let next = {
+          ...c,
+          pages: c.pages.map((p) =>
+            p.id === page.id
+              ? { ...p, config: { ...(p.config || {}), entries: [entry, ...entries] } }
+              : p
+          ),
+        };
+        if (days > 0 && did) next = applyAutoProbation(next, did, days);
+        return next;
+      });
+      show(days > 0 && did ? `Entry logged, ${days}-day probation set` : "Entry logged");
     } else {
       setEntries(
         entries.map((e) =>

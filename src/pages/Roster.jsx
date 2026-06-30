@@ -121,7 +121,17 @@ function formatDate(value) {
 
 // Renders one member field cell by type: checkbox (✓), cert (CERTIFIED/N/A),
 // colored status pill, auto time-in-grade, formatted date, or plain text.
-function FieldValue({ field, value, statusFieldId, accent }) {
+function FieldValue({ field, value, statusFieldId, probationFieldId, accent }) {
+  // Probation date: show a red "until …" pill while active; a passed date is
+  // treated as expired and renders blank, so probation "comes off" on its own.
+  if (field.type === "date" && probationFieldId && field.id === probationFieldId) {
+    if (!R.isProbationActive(value)) return <span className="text-slate-600">—</span>;
+    return (
+      <span className="inline-flex items-center whitespace-nowrap rounded-md border border-red-500/30 bg-red-500/15 px-2 py-0.5 text-[11px] font-bold text-red-300">
+        until {formatDate(value)}
+      </span>
+    );
+  }
   if (field.type === "tenure" || field.type === "service") {
     if (value === null || value === undefined) return <span className="text-slate-600">—</span>;
     return (
@@ -1355,7 +1365,7 @@ function StatPills({ total, statusField, counts }) {
 
 // ─── Member table row ────────────────────────────────────────────────────────
 
-function MemberRow({ member, category, fields, statusFieldId, accent, rankById, canEdit, rowEditable = canEdit, selectable = rowEditable, onEdit, onDelete, onDragStart, onDragEnd, onRowDrop, dropTarget, setDropTarget, selected, onToggleSelect }) {
+function MemberRow({ member, category, fields, statusFieldId, probationFieldId, accent, rankById, canEdit, rowEditable = canEdit, selectable = rowEditable, onEdit, onDelete, onDragStart, onDragEnd, onRowDrop, dropTarget, setDropTarget, selected, onToggleSelect }) {
   const rt = rankById[member.rank];
   const isDropTarget =
     dropTarget && dropTarget.catId === category.id && dropTarget.memberId === member.id;
@@ -1431,6 +1441,7 @@ function MemberRow({ member, category, fields, statusFieldId, accent, rankById, 
                 : member.fields?.[f.id]
             }
             statusFieldId={statusFieldId}
+            probationFieldId={probationFieldId}
             accent={accent}
           />
         </td>
@@ -1460,6 +1471,7 @@ function SubRoster({
   sub,
   fields,
   statusField,
+  probationFieldId,
   accent,
   canEdit,
   canEditStructure = canEdit,
@@ -1630,6 +1642,7 @@ function SubRoster({
                     category={cat}
                     fields={fields}
                     statusFieldId={statusField?.id}
+                    probationFieldId={probationFieldId}
                     accent={accent}
                     rankById={rankById}
                     canEdit={canEdit}
@@ -1968,6 +1981,7 @@ export default function Roster({ user, page }) {
   const subRosterProps = {
     fields,
     statusField,
+    probationFieldId: probationId,
     matches,
     filtering,
     dragOverCat,

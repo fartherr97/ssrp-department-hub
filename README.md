@@ -199,6 +199,33 @@ rank change runs through the same promotion pipeline as the UI (promotion-date
 stamping per the Time in Grade setting, callsign auto-assignment from the
 rank's callsign format). Members are matched by `member.discordId`.
 
+### Disciplinary auto-probation (external Records portal → roster)
+
+Departments configure rules in Builder → Roster Setup that map a disciplinary
+log type to a probation length (e.g. *Strike → 14 days*, stored at
+`config.discipline.autoProbation`). When a disciplinary entry is filed **inside
+the hub's own admin-log page**, probation is applied automatically. If strikes
+instead come from an **external SSRP Records portal**, have it (or the bot) call
+the backend, which reuses the same pure helpers:
+
+```js
+import { probationDaysForType, applyAutoProbation } from ".../src/lib/roster.js";
+const days = probationDaysForType(config, entryType);     // 0 if no rule matches
+if (days) {
+  const next = applyAutoProbation(config, discordId, days); // sets probation col
+  // if next !== config → save it + append an audit entry
+}
+```
+
+Suggested endpoint (authenticated like the rank sync, not a user session):
+
+| Method | Path                  | Body                              | Effect                         |
+| ------ | --------------------- | --------------------------------- | ------------------------------ |
+| `POST` | `/api/records/strike` | `{ discordId, type }`             | Apply the matching probation   |
+
+Probation is a plain date column, the hub renders a passed date as inactive, so
+it "comes off" the member's profile automatically with no cleanup job.
+
 ### Security checklist (backend)
 
 - **Re-check every capability server-side** (`src/lib/permissions.js` is the

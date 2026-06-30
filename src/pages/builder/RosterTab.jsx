@@ -211,6 +211,77 @@ const LAYOUTS = [
   { value: "grid", label: "Side-by-side", hint: "All subdivisions in a grid" },
 ];
 
+// ─── Auto-probation from disciplinary logs ───────────────────────────────────
+
+function DisciplineSection() {
+  const { config, mutate } = useConfig();
+  const rules = config.discipline?.autoProbation || [];
+  const hasProbationCol = !!R.probationFieldId(config);
+
+  const setRules = (next) =>
+    mutate((cfg) => ({ ...cfg, discipline: { ...(cfg.discipline || {}), autoProbation: next } }));
+  const add = () => setRules([...rules, { id: R.uid("dp"), match: "", days: 14 }]);
+  const update = (id, patch) =>
+    setRules(rules.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  const remove = (id) => setRules(rules.filter((r) => r.id !== id));
+
+  return (
+    <Panel className="p-5">
+      <SectionHeader
+        title="Auto-probation from disciplinary logs"
+        subtitle="When a matching entry is filed in an administrative log (e.g. the Records portal) for a member, set their probation automatically. It clears itself when the date passes."
+        actions={
+          <Button icon={Plus} onClick={add}>
+            Add rule
+          </Button>
+        }
+      />
+      {!hasProbationCol && (
+        <p className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+          Add a date column named “Probation” under Member columns above for this to have
+          somewhere to write to.
+        </p>
+      )}
+      <div className="grid gap-2">
+        {rules.map((r) => (
+          <div
+            key={r.id}
+            className="grid items-end gap-2 rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-3 sm:grid-cols-[1fr_auto_auto]"
+          >
+            <Field label="When the log type contains" hint="e.g. Strike, Non-Verbal DA">
+              <Input
+                value={r.match}
+                onChange={(e) => update(r.id, { match: e.target.value })}
+                placeholder="Strike"
+              />
+            </Field>
+            <Field label="Probation (days)">
+              <Input
+                type="number"
+                min="1"
+                value={r.days}
+                onChange={(e) => update(r.id, { days: Number(e.target.value) || 0 })}
+                className="w-28"
+              />
+            </Field>
+            <IconButton
+              icon={Trash2}
+              label="Delete rule"
+              onClick={() => remove(r.id)}
+              className="mb-1 hover:border-red-500/40 hover:text-red-300"
+            />
+          </div>
+        ))}
+        {rules.length === 0 && (
+          <p className="text-sm text-slate-500">
+            No rules yet. Add one to auto-place members on probation when a strike or DA is logged.
+          </p>
+        )}
+      </div>
+    </Panel>
+  );
+}
+
 export default function RosterTab() {
   const { config, mutate } = useConfig();
   const fields = config.roster.memberFields || [];
@@ -339,6 +410,8 @@ export default function RosterTab() {
           {fields.length === 0 && <p className="text-sm text-slate-500">No custom columns yet.</p>}
         </div>
       </Panel>
+
+      <DisciplineSection />
 
       <Panel className="p-5">
         <SectionHeader

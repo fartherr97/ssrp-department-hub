@@ -397,6 +397,58 @@ export function notesFieldId(config) {
 
 export const isLoaValue = (v) => /loa|leave/i.test(String(v || ""));
 
+// ── Disciplinary auto-probation ─────────────────────────────────────────────
+// config.discipline.autoProbation = [{ id, match, days }]. When a disciplinary
+// log entry whose `type` contains `match` (case-insensitive) is filed for a
+// member (matched by discordId), their probation column is set to today + days.
+// A passed probation date is treated as inactive at render time, so it "comes
+// off" the profile automatically with no cleanup job.
+
+export function probationDaysForType(config, type) {
+  const rules = config?.discipline?.autoProbation || [];
+  const t = String(type || "").toLowerCase();
+  let best = 0;
+  for (const r of rules) {
+    const m = String(r.match || "").trim().toLowerCase();
+    const days = Number(r.days) || 0;
+    if (m && days > 0 && t.includes(m)) best = Math.max(best, days);
+  }
+  return best;
+}
+
+function addDaysISO(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + (Number(days) || 0));
+  return d.toISOString().slice(0, 10);
+}
+
+// Set probation on whichever member matches discordId (across all subdivisions).
+export function applyAutoProbation(config, discordId, days) {
+  const probId = probationFieldId(config);
+  if (!probId || !discordId || !(Number(days) > 0)) return config;
+  const until = addDaysISO(days);
+  let touched = false;
+  const subdivisions = (config.roster?.subdivisions || []).map((s) => ({
+    ...s,
+    categories: (s.categories || []).map((c) => ({
+      ...c,
+      members: (c.members || []).map((m) => {
+        if (String(m.discordId || "") !== String(discordId)) return m;
+        touched = true;
+        return { ...m, fields: { ...(m.fields || {}), [probId]: until } };
+      }),
+    })),
+  }));
+  if (!touched) return config;
+  return { ...config, roster: { ...config.roster, subdivisions } };
+}
+
+// Is a probation date still active (today or later)? Past dates auto-expire.
+export function isProbationActive(value) {
+  if (!value) return false;
+  return String(value).slice(0, 10) >= new Date().toISOString().slice(0, 10);
+}
+
 // The next free callsign for a rank's format (or null), used when hiring.
 export function nextCallsignFor(config, subId, rankId) {
   const csId = callsignFieldId(config);
