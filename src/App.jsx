@@ -21,6 +21,7 @@ const UniformRoster = lazy(() => import("./pages/UniformRoster.jsx"));
 const ChainOfCommand = lazy(() => import("./pages/ChainOfCommand.jsx"));
 const AdminLog = lazy(() => import("./pages/AdminLog.jsx"));
 const ActivityFeed = lazy(() => import("./pages/ActivityFeed.jsx"));
+const DutyHours = lazy(() => import("./pages/DutyHours.jsx"));
 
 // Map a page's `type` to the component that renders it.
 const PAGE_COMPONENTS = {
@@ -36,6 +37,7 @@ const PAGE_COMPONENTS = {
   chain: ChainOfCommand,
   adminlog: AdminLog,
   activity: ActivityFeed,
+  hours: DutyHours,
 };
 
 function ViewLoading() {

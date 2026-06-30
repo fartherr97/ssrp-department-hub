@@ -227,6 +227,49 @@ export async function pushVersion(version) {
   return version;
 }
 
+// ─── DUTY HOURS ──────────────────────────────────────────────────────────────
+// On-duty hours come from an external Duty Hub. The backend fetches/caches them
+// and serves GET /api/hours; the mock synthesizes plausible numbers for the
+// current roster so the display works with no server. Shape:
+//   { updatedAt, source, members: [{ discordId, name, weekHours, monthHours }] }
+
+function hashNum(s) {
+  let h = 0;
+  for (const c of String(s || "")) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return h;
+}
+
+export async function getDutyHours() {
+  if (USE_BACKEND) {
+    try {
+      return await http("/hours");
+    } catch {
+      return { updatedAt: null, source: "backend", members: [] };
+    }
+  }
+  const config = migrateConfig(readJSON(CONFIG_KEY, null));
+  const members = [];
+  for (const sub of config.roster?.subdivisions || [])
+    for (const cat of sub.categories || [])
+      for (const m of cat.members || []) members.push(m);
+  return {
+    updatedAt: new Date().toISOString(),
+    source: "mock",
+    members: members.map((m) => {
+      const seed = hashNum(m.discordId || m.id || m.name);
+      const weekHours = seed % 21; // 0–20h this week
+      const monthHours = weekHours * 3 + (seed % 13);
+      return {
+        discordId: m.discordId || "",
+        memberId: m.id,
+        name: m.name,
+        weekHours,
+        monthHours,
+      };
+    }),
+  };
+}
+
 // ─── AUTH / SESSION ──────────────────────────────────────────────────────────
 
 // Returns the current user, or null if signed out.

@@ -70,6 +70,7 @@ exposes `mutate()` so any edit auto-saves (debounced) through `api.saveConfig`.
 | `calendar`| `CalendarPage.jsx`  | Month calendar with events + attendance |
 | `adminlog`| `AdminLog.jsx`      | Logbooks (hires/DAs/FTO/booth) + live stats |
 | `activity`| `ActivityFeed.jsx`  | Member-facing changelog (roster/calendar/pages) |
+| `hours`   | `DutyHours.jsx`     | Duty-hours leaderboard + table (from the Duty Hub) |
 
 Add a new page type by creating a component and registering it in
 `PAGE_COMPONENTS` in `src/App.jsx`.
@@ -147,6 +148,22 @@ version can be restored (Google-Sheets style). Restoring is just a `PUT
 stored snapshot can never escalate privileges on restore. The mock keeps the
 most recent few (snapshots are large); the backend keeps them in
 `config_versions` (prune to taste).
+
+### Duty hours (external Duty Hub → leaderboard)
+
+The duty-hours page reads `GET /api/hours`:
+
+```jsonc
+{ "updatedAt": "…", "source": "duty-hub",
+  "members": [{ "discordId": "…", "name": "…", "weekHours": 12, "monthHours": 48 }] }
+```
+
+The real hours live in the external **Duty Hub**. Feed them in either by having a
+bot/cron `POST /api/hours { members: [...] }` (shared-secret auth, cached in the
+`duty_hours` table), or by replacing the `GET` body with a live fetch+cache from
+the Duty Hub API. The front-end joins these to roster members by `discordId` for
+rank + callsign and counts strikes from the admin logs, so the endpoint only
+needs the raw hours.
 
 ### Auth (Discord via passport-discord)
 

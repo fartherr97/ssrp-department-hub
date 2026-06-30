@@ -26,6 +26,7 @@ import { configRouter } from "./routes/config.js";
 import { auditRouter } from "./routes/audit.js";
 import { rosterRouter } from "./routes/roster.js";
 import { versionsRouter } from "./routes/versions.js";
+import { hoursRouter } from "./routes/hours.js";
 import { tenantMiddleware } from "./tenant.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -40,8 +41,8 @@ const distDir = path.resolve(__dirname, "..", "dist");
  */
 function sameOriginGuard(req, res, next) {
   if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") return next();
-  // Bot sync authenticates with a secret header, not a cookie — exempt it.
-  if (req.path === "/roster/sync") return next();
+  // Bot/feed endpoints authenticate with a secret header, not a cookie — exempt.
+  if (req.path === "/roster/sync" || req.path === "/hours") return next();
   const origin = req.get("origin") || req.get("referer") || "";
   const host = req.get("host") || "";
   if (origin && host) {
@@ -137,6 +138,7 @@ async function main() {
   api.use(auditRouter());
   api.use(rosterRouter());
   api.use(versionsRouter());
+  api.use(hoursRouter());
   app.use("/api", api);
 
   app.get("/api/health", (_req, res) => res.json({ ok: true, data: "up" }));
