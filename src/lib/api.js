@@ -212,8 +212,18 @@ export async function getSession() {
   return readJSON(SESSION_KEY, null);
 }
 
-// Front-end-only dev login: impersonate a permission group to preview the hub.
+// Dev login: impersonate a permission group to preview the hub without Discord.
+// With the backend on, this creates a REAL server session (so it persists across
+// refresh and the API recognizes you) via POST /auth/dev-login — which the server
+// refuses unless DEV_LOGIN_ENABLED is set (always off in production). Without the
+// backend it's a pure front-end mock in localStorage.
 export async function devLogin(group) {
+  if (USE_BACKEND) {
+    return http("/../auth/dev-login", {
+      method: "POST",
+      body: JSON.stringify({ group }),
+    });
+  }
   const user = {
     id: "dev-" + group,
     username: `Dev ${group}`,
