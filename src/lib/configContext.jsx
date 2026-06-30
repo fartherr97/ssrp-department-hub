@@ -10,6 +10,7 @@ import * as api from "./api.js";
 import * as audit from "./audit.js";
 import { applyTheme } from "./theme.js";
 import { readJSON, writeJSON } from "./storage.js";
+import { cloneDefaultConfig } from "../config/defaultConfig.js";
 
 const ConfigContext = createContext(null);
 
@@ -34,15 +35,22 @@ export function ConfigProvider({ children }) {
   // Initial load.
   useEffect(() => {
     let alive = true;
-    api.getConfig().then((loaded) => {
-      if (!alive) return;
-      setConfigState(loaded);
-      lastSavedRef.current = loaded;
-      historyRef.current = readJSON(HISTORY_KEY, []);
-      setUndoDepth(historyRef.current.length);
-      applyTheme(loaded?.branding?.colors);
-      setReady(true);
-    });
+    api.getConfig()
+      .catch((err) => {
+        // Never hang on "LOADING…" if the backend hiccups — fall back to the
+        // default config so the app still renders (and login still works).
+        console.error("Failed to load config, using defaults:", err);
+        return cloneDefaultConfig();
+      })
+      .then((loaded) => {
+        if (!alive) return;
+        setConfigState(loaded);
+        lastSavedRef.current = loaded;
+        historyRef.current = readJSON(HISTORY_KEY, []);
+        setUndoDepth(historyRef.current.length);
+        applyTheme(loaded?.branding?.colors);
+        setReady(true);
+      });
     return () => {
       alive = false;
     };

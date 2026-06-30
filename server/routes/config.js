@@ -11,7 +11,7 @@
 import { Router } from "express";
 import { env } from "../env.js";
 import { loadConfig, saveConfig } from "../db.js";
-import { requireAuth, requireCapability, canManageSite } from "../permissions.js";
+import { requireCapability, canManageSite } from "../permissions.js";
 import { cloneDefaultConfig } from "../../src/config/defaultConfig.js";
 
 const MAX_CONFIG_BYTES = 4 * 1024 * 1024; // 4 MB ceiling on a single config doc
@@ -29,7 +29,10 @@ export async function currentConfig() {
 export function configRouter() {
   const router = Router();
 
-  router.get("/config", requireAuth, async (_req, res, next) => {
+  // Public: the front-end needs the config to render the login screen itself
+  // (branding, theme) before anyone is signed in, mirroring the localStorage
+  // mock which always returns it. Writes are still gated below.
+  router.get("/config", async (_req, res, next) => {
     try {
       res.json({ ok: true, data: await currentConfig() });
     } catch (err) {
