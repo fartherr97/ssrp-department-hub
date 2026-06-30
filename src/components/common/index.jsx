@@ -360,6 +360,21 @@ export function Select({
       {mounted &&
         rect &&
         createPortal(
+          <>
+            {/* Invisible full-screen catcher under the menu: a tap/click anywhere
+                outside the options closes the dropdown reliably on every device.
+                The document mousedown/touchstart listeners above can miss taps on
+                iOS Safari, which left the menu stuck on top of the modal eating
+                every tap (Save/X appeared dead). This guarantees a close. */}
+            {open && (
+              <div
+                className="fixed inset-0 z-[3999]"
+                onPointerDown={() => {
+                  setOpen(false);
+                  triggerRef.current?.focus();
+                }}
+              />
+            )}
           <div
             ref={menuRef}
             role="listbox"
@@ -401,7 +416,8 @@ export function Select({
                 </button>
               );
             })}
-          </div>,
+          </div>
+          </>,
           document.body
         )}
     </>
