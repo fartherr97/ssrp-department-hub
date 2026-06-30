@@ -52,8 +52,35 @@ function sameOriginGuard(req, res, next) {
   return res.status(403).json({ ok: false, error: "Cross-origin request blocked" });
 }
 
+// Retry the first DB connection a few times — on Railway the private network
+// (and the DB itself) can take a few seconds to be reachable after a deploy, and
+// we'd rather wait briefly than crash-loop.
+async function migrateWithRetry(attempts = 6) {
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      await migrate();
+      return;
+    } catch (err) {
+      const last = i === attempts;
+      if (err?.code === "ECONNREFUSED" && env.db.host === "localhost" && !env.db.url) {
+        console.error(
+          "\n[db] Could not reach a database at localhost:3306, and no " +
+            "DATABASE_URL / DB_* variables are set.\n" +
+            "     On Railway: open this service → Variables → add\n" +
+            "       DATABASE_URL = ${{ MySQL.MYSQL_URL }}\n" +
+            "     (replace 'MySQL' with your database service's name), then redeploy.\n"
+        );
+        process.exit(1); // misconfiguration, not transient — don't spin
+      }
+      console.warn(`[db] connection attempt ${i}/${attempts} failed (${err?.code || err?.message}).`);
+      if (last) throw err;
+      await new Promise((r) => setTimeout(r, Math.min(1000 * 2 ** (i - 1), 8000)));
+    }
+  }
+}
+
 async function main() {
-  await migrate();
+  await migrateWithRetry();
 
   const app = express();
   // Railway terminates TLS in front of us; trust the proxy so Secure cookies and
