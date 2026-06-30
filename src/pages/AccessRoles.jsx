@@ -198,16 +198,45 @@ function GroupCard({ group, user }) {
             What this group can do
           </div>
           <div className="grid gap-2">
-            {CAPS.map((cap) => (
-              <CapabilityToggle
-                key={cap.key}
-                title={cap.title}
-                desc={cap.desc}
-                checked={!!group[cap.key]}
-                disabled={!canAdmin || !hasCapability(user, config, cap.key)}
-                onChange={(v) => update({ [cap.key]: v })}
-              />
-            ))}
+            {CAPS.map((cap) => {
+              const mainSub =
+                (config.roster?.subdivisions || []).find((s) => s.main) ||
+                config.roster?.subdivisions?.[0];
+              const rankOpts = mainSub?.ranks || [];
+              return (
+                <div key={cap.key}>
+                  <CapabilityToggle
+                    title={cap.title}
+                    desc={cap.desc}
+                    checked={!!group[cap.key]}
+                    disabled={!canAdmin || !hasCapability(user, config, cap.key)}
+                    onChange={(v) => update({ [cap.key]: v })}
+                  />
+                  {cap.hasRankCeiling && group[cap.key] && (
+                    <div className="mt-2 rounded-xl border border-white/10 bg-white/[0.02] p-3">
+                      <Field label="Highest rank they can manage">
+                        <Select
+                          value={group.rosterRankCeiling || ""}
+                          disabled={!canAdmin}
+                          onChange={(e) => update({ rosterRankCeiling: e.target.value })}
+                        >
+                          <option value="">Select a rank…</option>
+                          {rankOpts.map((r) => (
+                            <option key={r.id} value={r.id}>
+                              {r.name}
+                            </option>
+                          ))}
+                        </Select>
+                      </Field>
+                      <p className="mt-1.5 text-[11px] text-cad-muted">
+                        They can add, edit, and promote main-roster members at this rank and
+                        every rank below it (plus rank-less cadets/recruits), nothing higher.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
 

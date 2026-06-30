@@ -121,6 +121,8 @@ function migrateConfig(saved) {
           // Calendar management defaults to roster editors (Command and up).
           manageCalendar: g.manageCalendar ?? (admin || editor),
           manageLogs: g.manageLogs ?? (admin || editor),
+          // Limited roster editing is opt-in, off for everyone by default.
+          editRosterLimited: g.editRosterLimited ?? false,
           members: (g.members || []).map((m) => ({ role: m.role || "member", ...m })),
         };
       });

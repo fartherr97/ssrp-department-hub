@@ -56,6 +56,12 @@ export const CAPABILITIES = [
     title: "Write administrative logs",
     desc: "Add entries to administrative log pages (admin log, FTO, interview, booth). They can edit/delete their own entries; editing anyone's requires Manage access or Manage site.",
   },
+  {
+    key: "editRosterLimited",
+    title: "Edit junior ranks only (training / recruiting)",
+    desc: "Add and manage main-roster members up to a chosen rank ceiling (e.g. Cadet up to Police Officer I), and promote them within that range. Lets training/recruiting supervisors onboard and pass cadets without full roster access. Set the ceiling rank below.",
+    hasRankCeiling: true,
+  },
 ];
 
 export function userGroup(config, user) {
@@ -136,6 +142,51 @@ export function canEditSubdivision(user, config, sub) {
 
 export function canEditAnyRoster(user, config) {
   return hasCapability(user, config, "editRoster") || hasCapability(user, config, "editSubdivisions");
+}
+
+// ── Limited ("junior ranks only") roster editing ────────────────────────────
+// A group with editRosterLimited can manage MAIN-roster members up to a rank
+// ceiling (config.groups[].rosterRankCeiling = a rank id in the main roster).
+// That rank and everything below it in roster order, plus rank-less cadets, are
+// editable; higher ranks are read-only to them. This is enforcement the backend
+// must mirror — the client checks are UX only.
+
+export function rosterRankCeiling(user, config) {
+  return userGroup(config, user)?.rosterRankCeiling || null;
+}
+
+// Does this user have limited-edit rights on this subdivision (main roster only)?
+export function canEditRosterLimited(user, config, sub) {
+  if (!sub?.main) return false;
+  return hasCapability(user, config, "editRosterLimited") && !!rosterRankCeiling(user, config);
+}
+
+// Is a rank id at or below the ceiling in the roster's own order (highest-first)?
+export function rankWithinCeiling(sub, rankId, ceilingId) {
+  const ranks = sub?.ranks || [];
+  const ceilIdx = ranks.findIndex((r) => r.id === ceilingId);
+  if (ceilIdx < 0) return false;
+  if (!rankId) return true; // no rank yet (cadet/recruit) → junior → editable
+  const rIdx = ranks.findIndex((r) => r.id === rankId);
+  return rIdx < 0 ? true : rIdx >= ceilIdx;
+}
+
+// Can this user edit THIS member (used for per-row controls + saves)?
+export function canEditMember(user, config, sub, member) {
+  if (canEditSubdivision(user, config, sub) || canManageSite(user, config)) return true;
+  if (!canEditRosterLimited(user, config, sub)) return false;
+  return rankWithinCeiling(sub, member?.rank, rosterRankCeiling(user, config));
+}
+
+// The rank objects a limited editor may assign (ceiling and below); full editors
+// get all ranks. Drives the rank dropdown + promotion options.
+export function assignableRanks(user, config, sub) {
+  const ranks = sub?.ranks || [];
+  if (canEditSubdivision(user, config, sub) || canManageSite(user, config)) return ranks;
+  if (!canEditRosterLimited(user, config, sub)) return [];
+  const ceilingId = rosterRankCeiling(user, config);
+  const ceilIdx = ranks.findIndex((r) => r.id === ceilingId);
+  return ceilIdx < 0 ? [] : ranks.slice(ceilIdx);
 }
 
 // Structural roster edits (add/remove subdivisions, shared columns), main-roster

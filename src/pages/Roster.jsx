@@ -25,7 +25,15 @@ import {
   GraduationCap,
 } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
-import { canEditSubdivision, canEditRosterStructure } from "../lib/permissions.js";
+import {
+  canEditSubdivision,
+  canEditRosterStructure,
+  canEditMember,
+  canEditRosterLimited,
+  assignableRanks,
+  rankWithinCeiling,
+  rosterRankCeiling,
+} from "../lib/permissions.js";
 import { getSubPagePath, buildSubPath } from "../lib/navigation.js";
 import { initials, userDisplayName } from "../lib/user.js";
 import {
@@ -1302,22 +1310,22 @@ function StatPills({ total, statusField, counts }) {
 
 // ─── Member table row ────────────────────────────────────────────────────────
 
-function MemberRow({ member, category, fields, statusFieldId, accent, rankById, canEdit, onEdit, onDelete, onDragStart, onDragEnd, onRowDrop, dropTarget, setDropTarget, selected, onToggleSelect }) {
+function MemberRow({ member, category, fields, statusFieldId, accent, rankById, canEdit, rowEditable = canEdit, selectable = rowEditable, onEdit, onDelete, onDragStart, onDragEnd, onRowDrop, dropTarget, setDropTarget, selected, onToggleSelect }) {
   const rt = rankById[member.rank];
   const isDropTarget =
     dropTarget && dropTarget.catId === category.id && dropTarget.memberId === member.id;
   return (
     <tr
-      draggable={canEdit}
-      onDragStart={(e) => canEdit && onDragStart(e, category.id, member.id)}
-      onDragEnd={() => canEdit && onDragEnd()}
+      draggable={rowEditable}
+      onDragStart={(e) => rowEditable && onDragStart(e, category.id, member.id)}
+      onDragEnd={() => rowEditable && onDragEnd()}
       onDragOver={(e) => {
-        if (!canEdit || !hasMemberDrag(e)) return;
+        if (!rowEditable || !hasMemberDrag(e)) return;
         e.preventDefault();
         if (!isDropTarget) setDropTarget({ catId: category.id, memberId: member.id });
       }}
       onDrop={(e) => {
-        if (!canEdit) return;
+        if (!rowEditable) return;
         e.preventDefault();
         e.stopPropagation(); // don't also fire the category-level drop
         onRowDrop(e, category.id, member.id);
@@ -1329,7 +1337,7 @@ function MemberRow({ member, category, fields, statusFieldId, accent, rankById, 
     >
       <td className="px-3 py-2.5">
         <div className="flex items-center gap-3">
-          {canEdit && (
+          {selectable && (
             <input
               type="checkbox"
               checked={selected}
@@ -1338,7 +1346,7 @@ function MemberRow({ member, category, fields, statusFieldId, accent, rankById, 
               className="h-4 w-4 shrink-0 cursor-pointer accent-[var(--color-primary)]"
             />
           )}
-          {canEdit && (
+          {rowEditable && (
             <GripVertical
               size={14}
               className="shrink-0 cursor-grab text-slate-600 group-hover:text-slate-400"
@@ -1384,15 +1392,17 @@ function MemberRow({ member, category, fields, statusFieldId, accent, rankById, 
       ))}
       {canEdit && (
         <td className="px-3 py-2.5">
-          <div className="flex items-center justify-end gap-1 opacity-0 transition group-hover:opacity-100">
-            <IconButton icon={Pencil} label="Edit member" onClick={() => onEdit(category.id, member)} />
-            <IconButton
-              icon={Trash2}
-              label="Remove member"
-              onClick={() => onDelete(category.id, member)}
-              className="hover:border-red-500/40 hover:text-red-300"
-            />
-          </div>
+          {rowEditable && (
+            <div className="flex items-center justify-end gap-1 opacity-0 transition group-hover:opacity-100">
+              <IconButton icon={Pencil} label="Edit member" onClick={() => onEdit(category.id, member)} />
+              <IconButton
+                icon={Trash2}
+                label="Remove member"
+                onClick={() => onDelete(category.id, member)}
+                className="hover:border-red-500/40 hover:text-red-300"
+              />
+            </div>
+          )}
         </td>
       )}
     </tr>
@@ -1407,6 +1417,8 @@ function SubRoster({
   statusField,
   accent,
   canEdit,
+  canEditStructure = canEdit,
+  memberEditable,
   categoryFilter = "all",
   matches,
   filtering,
@@ -1507,38 +1519,46 @@ function SubRoster({
                     <Badge color={cat.color}>{cat.members.length}</Badge>
                     {canEdit && (
                       <div className="ml-auto flex items-center gap-1">
-                        <IconButton
-                          icon={ChevronUp}
-                          label="Move category up"
-                          disabled={categories.indexOf(cat) === 0}
-                          onClick={() => onMoveCategory(sub.id, cat.id, -1)}
-                          className="h-7 w-7 disabled:opacity-30"
-                        />
-                        <IconButton
-                          icon={ChevronDown}
-                          label="Move category down"
-                          disabled={categories.indexOf(cat) === categories.length - 1}
-                          onClick={() => onMoveCategory(sub.id, cat.id, 1)}
-                          className="h-7 w-7 disabled:opacity-30"
-                        />
+                        {canEditStructure && (
+                          <>
+                            <IconButton
+                              icon={ChevronUp}
+                              label="Move category up"
+                              disabled={categories.indexOf(cat) === 0}
+                              onClick={() => onMoveCategory(sub.id, cat.id, -1)}
+                              className="h-7 w-7 disabled:opacity-30"
+                            />
+                            <IconButton
+                              icon={ChevronDown}
+                              label="Move category down"
+                              disabled={categories.indexOf(cat) === categories.length - 1}
+                              onClick={() => onMoveCategory(sub.id, cat.id, 1)}
+                              className="h-7 w-7 disabled:opacity-30"
+                            />
+                          </>
+                        )}
                         <IconButton
                           icon={UserPlus}
                           label="Add member"
                           onClick={() => onAddMember(sub.id, cat.id)}
                           className="h-7 w-7"
                         />
-                        <IconButton
-                          icon={Pencil}
-                          label="Edit category"
-                          onClick={() => onEditCategory(sub.id, cat)}
-                          className="h-7 w-7"
-                        />
-                        <IconButton
-                          icon={Trash2}
-                          label="Delete category"
-                          onClick={() => onDeleteCategory(sub.id, cat)}
-                          className="h-7 w-7 hover:border-red-500/40 hover:text-red-300"
-                        />
+                        {canEditStructure && (
+                          <>
+                            <IconButton
+                              icon={Pencil}
+                              label="Edit category"
+                              onClick={() => onEditCategory(sub.id, cat)}
+                              className="h-7 w-7"
+                            />
+                            <IconButton
+                              icon={Trash2}
+                              label="Delete category"
+                              onClick={() => onDeleteCategory(sub.id, cat)}
+                              className="h-7 w-7 hover:border-red-500/40 hover:text-red-300"
+                            />
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1568,6 +1588,8 @@ function SubRoster({
                     accent={accent}
                     rankById={rankById}
                     canEdit={canEdit}
+                    rowEditable={memberEditable ? memberEditable(member) : canEdit}
+                    selectable={canEditStructure}
                     onEdit={(catId, m) => onEditMember(sub.id, catId, m)}
                     onDelete={(catId, m) => onDeleteMember(sub.id, catId, m)}
                     onDragStart={onDragStart}
@@ -1627,6 +1649,8 @@ export default function Roster({ user, page }) {
   const totalMembers = categories.reduce((n, c) => n + c.members.length, 0);
   const accent = activeSub?.accent || "var(--color-primary)";
   const canEditActive = canEditSubdivision(user, config, activeSub);
+  // Training/recruiting supervisors with limited edit rights (junior ranks only).
+  const limitedActive = !canEditActive && canEditRosterLimited(user, config, activeSub);
   // A subdivision may carry its own stats panel; otherwise the shared one.
   const stats = activeSub?.stats ?? config.roster.stats;
   const statsShown = Boolean(stats?.show && stats.items?.length);
@@ -1701,6 +1725,16 @@ export default function Roster({ user, page }) {
     if (!ctx) return;
     const { subId: mSub, categoryId, member: orig } = ctx;
     const { isNew, ...clean } = draft;
+    // Enforce the rank ceiling for limited (training/recruiting) editors so they
+    // can't promote past their range, even if the UI were bypassed. Full editors
+    // and site managers pass this freely.
+    const editSub = subdivisions.find((s) => s.id === mSub);
+    if (
+      !canEditSubdivision(user, config, editSub) &&
+      !canEditMember(user, config, editSub, { rank: clean.rank })
+    ) {
+      return;
+    }
     const catChanged = Boolean(targetCategory && targetCategory !== categoryId);
     mutate((cfg) => {
       // Promotion automation: a rank or category change stamps the promotion
@@ -1918,6 +1952,15 @@ export default function Roster({ user, page }) {
   const modalSub = memberM.data
     ? subdivisions.find((s) => s.id === memberM.data.subId)
     : null;
+  // Limited editors can only assign ranks up to their ceiling; full editors get
+  // every rank. Always include the member's current rank so it still displays.
+  const modalRanks = modalSub
+    ? (() => {
+        const assignable = assignableRanks(user, config, modalSub);
+        const cur = (modalSub.ranks || []).find((r) => r.id === memberM.data?.member?.rank);
+        return cur && !assignable.some((r) => r.id === cur.id) ? [cur, ...assignable] : assignable;
+      })()
+    : [];
 
   return (
     <div>
@@ -2041,7 +2084,9 @@ export default function Roster({ user, page }) {
                 sub={activeSub}
                 accent={accent}
                 categoryFilter={categoryFilter}
-                canEdit={canEditActive}
+                canEdit={canEditActive || limitedActive}
+                canEditStructure={canEditActive}
+                memberEditable={(m) => canEditMember(user, config, activeSub, m)}
                 {...subRosterProps}
               />
             </Panel>
@@ -2088,6 +2133,7 @@ export default function Roster({ user, page }) {
               const cats = s.categories || [];
               const count = cats.reduce((n, c) => n + c.members.length, 0);
               const canEditCard = canEditSubdivision(user, config, s);
+              const limitedCard = !canEditCard && canEditRosterLimited(user, config, s);
               return (
                 <Panel key={s.id} className="overflow-hidden">
                   <div
@@ -2171,7 +2217,15 @@ export default function Roster({ user, page }) {
                       No categories yet{canEditCard ? ", use + to add one." : "."}
                     </div>
                   ) : (
-                    <SubRoster sub={s} accent={sAccent} compact canEdit={canEditCard} {...subRosterProps} />
+                    <SubRoster
+                      sub={s}
+                      accent={sAccent}
+                      compact
+                      canEdit={canEditCard || limitedCard}
+                      canEditStructure={canEditCard}
+                      memberEditable={(m) => canEditMember(user, config, s, m)}
+                      {...subRosterProps}
+                    />
                   )}
                 </Panel>
               );
@@ -2286,7 +2340,7 @@ export default function Roster({ user, page }) {
           onClose={() => setMemberModal(null)}
           fields={fields}
           categories={modalSub?.categories || categories}
-          rankTitles={modalSub?.ranks || []}
+          rankTitles={modalRanks}
           categoryId={memberM.data.categoryId}
           member={memberM.data.member}
           onSave={saveMember}
