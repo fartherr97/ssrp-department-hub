@@ -15,6 +15,7 @@ import { Strategy as DiscordStrategy } from "passport-discord";
 import { env, assertDiscordConfigured } from "./env.js";
 import { buildSessionUser } from "./permissions.js";
 import { loadConfig } from "./db.js";
+import { resolveDepartmentId } from "./tenant.js";
 
 const SCOPES = ["identify", "guilds.members.read"];
 
@@ -57,11 +58,13 @@ export function configurePassport() {
         clientSecret: env.discord.clientSecret,
         callbackURL: env.discord.callbackUrl,
         scope: SCOPES,
+        passReqToCallback: true,
       },
-      async (accessToken, _refreshToken, profile, done) => {
+      async (req, accessToken, _refreshToken, profile, done) => {
         try {
           const { nick, roleIds } = await fetchGuildMember(accessToken, env.discord.guildId);
-          const config = await loadConfig(env.departmentId);
+          // Resolve the group against the department the user logged in from.
+          const config = await loadConfig(resolveDepartmentId(req));
           const user = buildSessionUser(config || { groups: [] }, {
             discordId: profile.id,
             username: profile.global_name || profile.username,

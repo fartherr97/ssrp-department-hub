@@ -25,6 +25,7 @@ import { mountAuthRoutes } from "./auth.js";
 import { configRouter } from "./routes/config.js";
 import { auditRouter } from "./routes/audit.js";
 import { rosterRouter } from "./routes/roster.js";
+import { tenantMiddleware } from "./tenant.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const distDir = path.resolve(__dirname, "..", "dist");
@@ -126,9 +127,11 @@ async function main() {
   // Auth routes (/auth/*).
   mountAuthRoutes(app);
 
-  // API routes (/api/*), behind the same-origin guard.
+  // API routes (/api/*), behind the same-origin guard. tenantMiddleware stamps
+  // req.departmentId from the request hostname (domain-based multi-tenancy).
   const api = express.Router();
   api.use(sameOriginGuard);
+  api.use(tenantMiddleware);
   api.use(configRouter());
   api.use(auditRouter());
   api.use(rosterRouter());

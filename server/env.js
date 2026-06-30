@@ -13,6 +13,28 @@ function bool(v, fallback = false) {
   return /^(1|true|yes|on)$/i.test(String(v).trim());
 }
 
+// Parse "host=id,host2=id2" (or a JSON object) into a lowercased host → id map.
+function parseDepartmentMap(raw) {
+  if (!raw) return {};
+  const trimmed = String(raw).trim();
+  try {
+    if (trimmed.startsWith("{")) {
+      const obj = JSON.parse(trimmed);
+      const out = {};
+      for (const [k, v] of Object.entries(obj)) out[k.toLowerCase().trim()] = String(v).trim();
+      return out;
+    }
+  } catch {
+    /* fall through to csv parsing */
+  }
+  const out = {};
+  for (const pair of trimmed.split(",")) {
+    const [host, id] = pair.split("=");
+    if (host && id) out[host.toLowerCase().trim()] = id.trim();
+  }
+  return out;
+}
+
 // Railway provides MySQL/MariaDB credentials as MYSQL* and also a MYSQL_URL.
 // Support both those and the DB_* names from .env.example so either works.
 const db = {
@@ -30,9 +52,15 @@ export const env = {
   port: Number(process.env.PORT || 3003),
   isProd: process.env.NODE_ENV === "production",
 
-  // Which department/guild this deployment serves. The config is stored keyed by
-  // this id, so one DB could host several departments if you ever need to.
+  // The default department id for this deployment (used when the request's host
+  // doesn't map to a specific department — e.g. the Railway URL, or a
+  // deploy-per-department setup). Config is stored keyed by department id.
   departmentId: process.env.DEPARTMENT_ID || process.env.DISCORD_GUILD_ID || "default",
+
+  // Optional explicit hostname → department-id map for domain-based tenancy.
+  // Format: "fhp.ssrp.gg=fhp,tpd.ssrp.gg=tpd" (also accepts JSON). Hosts not
+  // listed fall back to the subdomain label, then to departmentId.
+  departmentMap: parseDepartmentMap(process.env.DEPARTMENT_MAP),
 
   session: {
     secret: process.env.SESSION_SECRET || "change-me-in-production",

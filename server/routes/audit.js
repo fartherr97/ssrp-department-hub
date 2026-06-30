@@ -9,16 +9,17 @@
  * acted); reads are open to signed-in members too.
  */
 import { Router } from "express";
-import { env } from "../env.js";
 import { loadAudit, appendAudit } from "../db.js";
 import { requireAuth } from "../permissions.js";
+import { resolveDepartmentId } from "../tenant.js";
 
 export function auditRouter() {
   const router = Router();
 
-  router.get("/audit", requireAuth, async (_req, res, next) => {
+  router.get("/audit", requireAuth, async (req, res, next) => {
     try {
-      res.json({ ok: true, data: await loadAudit(env.departmentId) });
+      const departmentId = req.departmentId || resolveDepartmentId(req);
+      res.json({ ok: true, data: await loadAudit(departmentId) });
     } catch (err) {
       next(err);
     }
@@ -39,7 +40,8 @@ export function auditRouter() {
           group: req.user.group || "",
         },
       };
-      res.json({ ok: true, data: await appendAudit(env.departmentId, stamped) });
+      const departmentId = req.departmentId || resolveDepartmentId(req);
+      res.json({ ok: true, data: await appendAudit(departmentId, stamped) });
     } catch (err) {
       next(err);
     }

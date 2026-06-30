@@ -114,6 +114,46 @@ These map to the README's backend checklist:
 - **Audit log is append-only** — no update/delete route, kept forever.
 - `helmet` sets security headers; `trust proxy` is on for Railway's TLS.
 
+## Serving multiple departments (domain-based tenancy)
+
+One deployment + one database can serve every department; the server picks which
+config to return from the **request hostname**:
+
+```
+fhp.ssrp.gg  → department "fhp"   (its own config + audit rows)
+tpd.ssrp.gg  → department "tpd"
+hcso.ssrp.gg → department "hcso"
+```
+
+The front-end needs **no changes** — each site just calls `/api/config` and the
+server answers with that host's config. Resolution (see `server/tenant.js`):
+
+1. an explicit `DEPARTMENT_MAP` entry for the host (`fhp.ssrp.gg=fhp,…`)
+2. otherwise the first DNS label of a real subdomain (`fhp.ssrp.gg` → `fhp`)
+3. otherwise `DEPARTMENT_ID` (the Railway URL, `localhost`, apex domains)
+
+So you have two equivalent ways to run it:
+
+- **One deploy, many domains** — point each department's subdomain at this one
+  service (add the custom domains in Railway → Settings → Networking), optionally
+  set `DEPARTMENT_MAP`, and each subdomain gets its own isolated config. New
+  departments are created by an admin opening that subdomain and configuring the
+  Builder (or by seeding a config row directly). No code or redeploy needed.
+- **One deploy per department** — give each Railway service its own
+  `DEPARTMENT_ID` (and optionally its own DB). Same code, fully isolated. This is
+  the simplest model and needs nothing beyond the env var.
+
+Both use the exact same code; it's purely how you point domains / set env vars.
+
+> **Discord OAuth across subdomains:** the callback URL must match the host the
+> user started on. For multiple subdomains, either register each subdomain's
+> `/auth/discord/callback` in the Discord app, or route all logins through one
+> central auth domain. (Doesn't affect dev login, which is per-subdomain.)
+
+Bot rank-sync (`POST /api/roster/sync`) isn't tied to a hostname, so include the
+target department in the body: `{ discordId, roleIds, departmentId }` (falls back
+to the host / `DEPARTMENT_ID`).
+
 ## Handing off to Steve's stack
 
 Everything department-specific lives in env vars, and all DB access is in

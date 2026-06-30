@@ -12,6 +12,7 @@
 import { Router } from "express";
 import { env } from "../env.js";
 import { loadConfig, saveConfig, appendAudit } from "../db.js";
+import { resolveDepartmentId } from "../tenant.js";
 import { syncMemberRanksFromDiscord } from "../../src/lib/roster.js";
 
 function botAuthed(req) {
@@ -29,14 +30,18 @@ export function rosterRouter() {
       if (!botAuthed(req)) {
         return res.status(401).json({ ok: false, error: "Bot authentication required" });
       }
-      const { discordId, roleIds } = req.body || {};
+      const { discordId, roleIds, departmentId: bodyDept } = req.body || {};
       if (!discordId || !Array.isArray(roleIds)) {
         return res
           .status(400)
-          .json({ ok: false, error: "Expected { discordId, roleIds: [] }" });
+          .json({ ok: false, error: "Expected { discordId, roleIds: [], departmentId? }" });
       }
 
-      const config = await loadConfig(env.departmentId);
+      // The bot isn't tied to a hostname, so it names the department explicitly
+      // (falls back to the request host / default for single-tenant setups).
+      const departmentId = bodyDept || resolveDepartmentId(req);
+
+      const config = await loadConfig(departmentId);
       if (!config) return res.status(404).json({ ok: false, error: "No config yet" });
 
       const next = syncMemberRanksFromDiscord(config, String(discordId), roleIds.map(String));
@@ -44,8 +49,8 @@ export function rosterRouter() {
         return res.json({ ok: true, data: { changed: false } });
       }
 
-      await saveConfig(env.departmentId, next);
-      await appendAudit(env.departmentId, {
+      await saveConfig(departmentId, next);
+      await appendAudit(departmentId, {
         id: `sync-${discordId}`,
         category: "roster",
         action: `Discord rank sync for ${discordId}`,
