@@ -310,6 +310,7 @@ function PageModal({ open, onClose, config, page, onSave }) {
 function NavGroups() {
   const { config, mutate } = useConfig();
   const [name, setName] = useState("");
+  const [confirmDel, setConfirmDel] = useState(null);
   const dropdownGroups = config.dropdownGroups || [];
 
   function add() {
@@ -319,13 +320,19 @@ function NavGroups() {
     setName("");
   }
   function remove(group) {
-    // Don't orphan pages: only allow removing empty groups.
-    if (config.pages.some((p) => p.navGroup === group)) return;
-    mutate((cfg) => ({
-      ...cfg,
-      navGroups: cfg.navGroups.filter((g) => g !== group),
-      dropdownGroups: (cfg.dropdownGroups || []).filter((g) => g !== group),
-    }));
+    mutate((cfg) => {
+      const remaining = cfg.navGroups.filter((g) => g !== group);
+      if (remaining.length === 0) return cfg; // keep at least one group
+      const fallback = remaining[0];
+      return {
+        ...cfg,
+        navGroups: remaining,
+        dropdownGroups: (cfg.dropdownGroups || []).filter((g) => g !== group),
+        // Move any pages out of the deleted group so nothing is orphaned. To
+        // remove a page entirely, delete it in the Pages list below.
+        pages: cfg.pages.map((p) => (p.navGroup === group ? { ...p, navGroup: fallback } : p)),
+      };
+    });
   }
   function setMode(group, asDropdown) {
     mutate((cfg) => {
@@ -404,9 +411,18 @@ function NavGroups() {
                 />
               </div>
               <button
-                onClick={() => remove(g)}
-                disabled={used}
-                title={used ? "This group still contains pages, move or delete them first" : "Remove group"}
+                onClick={() => {
+                  if (config.navGroups.length <= 1) return;
+                  const count = config.pages.filter((p) => p.navGroup === g).length;
+                  if (count > 0) setConfirmDel({ group: g, count });
+                  else remove(g);
+                }}
+                disabled={config.navGroups.length <= 1}
+                title={
+                  config.navGroups.length <= 1
+                    ? "You need at least one navigation group"
+                    : "Remove group"
+                }
                 className="text-slate-500 transition hover:text-red-300 disabled:opacity-30"
               >
                 <Trash2 size={15} />
@@ -426,6 +442,22 @@ function NavGroups() {
           Add
         </Button>
       </div>
+
+      <ConfirmDialog
+        open={Boolean(confirmDel)}
+        title="Remove this navigation group?"
+        message={`"${confirmDel?.group}" still has ${confirmDel?.count} ${
+          confirmDel?.count === 1 ? "page" : "pages"
+        }. Removing the group moves ${
+          confirmDel?.count === 1 ? "it" : "them"
+        } to "${config.navGroups.filter((g) => g !== confirmDel?.group)[0]}" — nothing is deleted. To remove a page entirely, delete it in the Pages list below.`}
+        confirmLabel="Remove group"
+        onCancel={() => setConfirmDel(null)}
+        onConfirm={() => {
+          remove(confirmDel.group);
+          setConfirmDel(null);
+        }}
+      />
     </Panel>
   );
 }

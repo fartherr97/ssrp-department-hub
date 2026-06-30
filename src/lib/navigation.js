@@ -9,21 +9,16 @@ export function buildNav(config, user) {
   const pages = config?.pages || [];
   const order = config?.navGroups || [];
 
-  // Preserve navGroups order, then append any groups referenced by pages but
-  // missing from navGroups (so a page is never silently hidden).
-  const groupNames = [...order];
-  for (const page of pages) {
-    if (page.navGroup && !groupNames.includes(page.navGroup)) {
-      groupNames.push(page.navGroup);
-    }
-  }
+  // navGroups is the source of truth for what appears in the top bar. A page
+  // whose navGroup was deleted falls under the first group rather than
+  // resurrecting a phantom heading, so removing a group really removes it.
+  const fallback = order[0];
+  const groupOf = (p) => (order.includes(p.navGroup) ? p.navGroup : fallback);
 
-  return groupNames
+  return order
     .map((name) => ({
       name,
-      pages: pages.filter(
-        (p) => p.navGroup === name && canAccessPage(user, p, config)
-      ),
+      pages: pages.filter((p) => groupOf(p) === name && canAccessPage(user, p, config)),
     }))
     .filter((group) => group.pages.length > 0);
 }
