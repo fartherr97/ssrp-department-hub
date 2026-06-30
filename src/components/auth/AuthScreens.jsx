@@ -45,7 +45,13 @@ function DevLogin({ groups, onDevLogin }) {
     ...(groups || []),
     { id: "viewer", label: "Regular member (view only)" },
   ];
-  const [group, setGroup] = useState(groups?.[groups.length - 1]?.id || "viewer");
+  // Default to the highest-privilege group so a quick "Enter" previews the hub
+  // with full access (Builder, Access & Roles, etc.) rather than the lowest tier.
+  const topGroup = (groups || []).reduce(
+    (best, g) => ((g.level ?? 0) > (best?.level ?? -Infinity) ? g : best),
+    null
+  );
+  const [group, setGroup] = useState(topGroup?.id || "viewer");
   return (
     <div className="mt-10 w-full max-w-sm rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-4 text-left">
       <div className="mb-2 text-xs font-bold uppercase tracking-wider text-amber-300/80">
