@@ -13,27 +13,42 @@
  * surface, and config is stored as a JSON column validated before write.
  */
 import mysql from "mysql2/promise";
+import mysqlCallback from "mysql2"; // callback API, required by express-mysql-session
 import { env } from "./env.js";
+
+function poolOptions() {
+  return {
+    host: env.db.host,
+    port: env.db.port,
+    user: env.db.user,
+    password: env.db.password,
+    database: env.db.database,
+    connectionLimit: 8,
+    waitForConnections: true,
+    // Keep BIGINT ids (Discord snowflakes) as strings, never lose precision.
+    supportBigNumbers: true,
+    bigNumberStrings: true,
+  };
+}
 
 let pool;
 
 export function getPool() {
   if (pool) return pool;
-  pool = env.db.url
-    ? mysql.createPool(env.db.url)
-    : mysql.createPool({
-        host: env.db.host,
-        port: env.db.port,
-        user: env.db.user,
-        password: env.db.password,
-        database: env.db.database,
-        connectionLimit: 8,
-        waitForConnections: true,
-        // Keep BIGINT ids (Discord snowflakes) as strings, never lose precision.
-        supportBigNumbers: true,
-        bigNumberStrings: true,
-      });
+  pool = env.db.url ? mysql.createPool(env.db.url) : mysql.createPool(poolOptions());
   return pool;
+}
+
+// A SEPARATE callback-style pool for express-mysql-session, which does not work
+// with mysql2's promise pool (it calls connection.query(sql, params, cb)).
+let sessionPool;
+
+export function getSessionPool() {
+  if (sessionPool) return sessionPool;
+  sessionPool = env.db.url
+    ? mysqlCallback.createPool(env.db.url)
+    : mysqlCallback.createPool(poolOptions());
+  return sessionPool;
 }
 
 // Create tables if they don't exist. Safe to run on every boot.

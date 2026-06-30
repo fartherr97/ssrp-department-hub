@@ -42,6 +42,12 @@ async function fetchGuildMember(accessToken, guildId) {
 }
 
 export function configurePassport() {
+  // Register serialize/deserialize unconditionally — req.login() needs them for
+  // ANY login (including dev login), regardless of whether Discord is set up.
+  // The whole user object is small, so store it directly in the session.
+  passport.serializeUser((user, done) => done(null, user));
+  passport.deserializeUser((user, done) => done(null, user));
+
   const missing = assertDiscordConfigured();
   if (missing.length) {
     console.warn(
@@ -80,9 +86,6 @@ export function configurePassport() {
     )
   );
 
-  // The whole user object is small, store it directly in the session.
-  passport.serializeUser((user, done) => done(null, user));
-  passport.deserializeUser((user, done) => done(null, user));
   return true;
 }
 

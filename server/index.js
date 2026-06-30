@@ -20,7 +20,7 @@ import passport from "passport";
 import MySQLStoreFactory from "express-mysql-session";
 
 import { env } from "./env.js";
-import { getPool, migrate } from "./db.js";
+import { getSessionPool, migrate } from "./db.js";
 import { mountAuthRoutes } from "./auth.js";
 import { configRouter } from "./routes/config.js";
 import { auditRouter } from "./routes/audit.js";
@@ -103,7 +103,7 @@ async function main() {
   const MySQLStore = MySQLStoreFactory(session);
   const sessionStore = new MySQLStore(
     { createDatabaseTable: true, clearExpired: true },
-    getPool()
+    getSessionPool()
   );
   app.use(
     session({
