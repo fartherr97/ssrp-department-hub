@@ -133,11 +133,20 @@ mock:
 | ------ | -------------------- | --------------- | -------------- |
 | `GET`  | `/api/config`        | —               | config object  |
 | `PUT`  | `/api/config`        | full config     | saved config   |
+| `GET`  | `/api/versions`      | —               | recent snapshots |
+| `POST` | `/api/versions`      | `{ config, category, action }` | stored snapshot |
 
 Store the config as a JSON document (or normalized tables) in MariaDB, scoped
 per department/guild. The audit log (`GET`/`POST /api/audit`) is append-only
 and kept **forever** — no pruning and no delete endpoint (the localStorage
 mock's 500-entry cap exists only for browser quota).
+
+**Version history** (`/api/versions`) keeps full config snapshots so any past
+version can be restored (Google-Sheets style). Restoring is just a `PUT
+/api/config` of the chosen snapshot, so it re-runs the same authorization — a
+stored snapshot can never escalate privileges on restore. The mock keeps the
+most recent few (snapshots are large); the backend keeps them in
+`config_versions` (prune to taste).
 
 ### Auth (Discord via passport-discord)
 

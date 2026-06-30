@@ -25,6 +25,7 @@ import { mountAuthRoutes } from "./auth.js";
 import { configRouter } from "./routes/config.js";
 import { auditRouter } from "./routes/audit.js";
 import { rosterRouter } from "./routes/roster.js";
+import { versionsRouter } from "./routes/versions.js";
 import { tenantMiddleware } from "./tenant.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -135,6 +136,7 @@ async function main() {
   api.use(configRouter());
   api.use(auditRouter());
   api.use(rosterRouter());
+  api.use(versionsRouter());
   app.use("/api", api);
 
   app.get("/api/health", (_req, res) => res.json({ ok: true, data: "up" }));

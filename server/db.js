@@ -72,6 +72,19 @@ export async function migrate() {
       INDEX idx_dept_created (department_id, created_at)
     )
   `);
+  // Full config snapshots for version history / restore (Google-Sheets style).
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS config_versions (
+      id            BIGINT AUTO_INCREMENT PRIMARY KEY,
+      department_id VARCHAR(64) NOT NULL,
+      snapshot      JSON        NOT NULL,
+      actor         JSON        NULL,
+      category      VARCHAR(32) NULL,
+      action        VARCHAR(255) NULL,
+      created_at    TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_ver_dept_created (department_id, created_at)
+    )
+  `);
 }
 
 // ─── Config ──────────────────────────────────────────────────────────────────
@@ -118,4 +131,40 @@ export async function appendAudit(departmentId, entry) {
     [departmentId, JSON.stringify(entry), entry?.actor?.discordId || entry?.discordId || null]
   );
   return entry;
+}
+
+// ─── Version history (config snapshots) ──────────────────────────────────────
+
+export async function loadVersions(departmentId, limit = 100) {
+  const db = getPool();
+  const [rows] = await db.query(
+    `SELECT id, snapshot, actor, category, action, created_at
+     FROM config_versions WHERE department_id = ?
+     ORDER BY id DESC LIMIT ?`,
+    [departmentId, limit]
+  );
+  return rows.map((r) => ({
+    id: String(r.id),
+    config: typeof r.snapshot === "string" ? JSON.parse(r.snapshot) : r.snapshot,
+    actor: typeof r.actor === "string" ? JSON.parse(r.actor) : r.actor,
+    category: r.category,
+    action: r.action,
+    ts: r.created_at,
+  }));
+}
+
+export async function appendVersion(departmentId, version) {
+  const db = getPool();
+  await db.query(
+    `INSERT INTO config_versions (department_id, snapshot, actor, category, action)
+     VALUES (?, ?, ?, ?, ?)`,
+    [
+      departmentId,
+      JSON.stringify(version.config ?? {}),
+      version.actor ? JSON.stringify(version.actor) : null,
+      version.category || null,
+      version.action || null,
+    ]
+  );
+  return version;
 }

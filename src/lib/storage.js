@@ -24,6 +24,18 @@ export function writeJSON(key, value) {
   }
 }
 
+// Like writeJSON but reports whether the write succeeded, so callers can shed
+// data (e.g. drop the oldest snapshots) and retry until it fits the quota.
+export function tryWriteJSON(key, value) {
+  if (typeof window === "undefined") return true;
+  try {
+    window.localStorage.setItem(PREFIX + key, JSON.stringify(value));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function removeKey(key) {
   if (typeof window === "undefined") return;
   try {

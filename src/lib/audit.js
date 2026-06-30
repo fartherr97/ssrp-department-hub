@@ -240,11 +240,25 @@ export async function recordChange(prev, next) {
   }
   if (!summary) return;
   try {
-    await api.appendAuditLog(entryFrom(summary));
+    const entry = entryFrom(summary);
+    await api.appendAuditLog(entry);
+    // Snapshot the new config so this point in time can be restored later.
+    await api.pushVersion({
+      id: entry.id,
+      ts: entry.ts,
+      actor: entry.actor,
+      category: entry.category,
+      action: entry.action,
+      config: next,
+    });
     notifyChanged();
   } catch {
     /* ignore */
   }
+}
+
+export function getVersions() {
+  return api.getVersions();
 }
 
 // Log an explicit event (e.g. a reset) that isn't a simple diff.

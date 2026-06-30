@@ -13,7 +13,7 @@
  */
 
 import { cloneDefaultConfig, CONFIG_VERSION } from "../config/defaultConfig.js";
-import { readJSON, writeJSON, removeKey } from "./storage.js";
+import { readJSON, writeJSON, tryWriteJSON, removeKey } from "./storage.js";
 
 const USE_BACKEND =
   import.meta.env?.VITE_USE_BACKEND === "true" || false;
@@ -22,6 +22,10 @@ const CONFIG_KEY = "config";
 const SESSION_KEY = "session";
 const AUDIT_KEY = "audit";
 const AUDIT_LIMIT = 500;
+const VERSIONS_KEY = "versions";
+// Version snapshots include the full config (heavy), so the mock keeps only the
+// most recent few; the backend's audit/version table keeps the full history.
+const VERSION_LIMIT = 25;
 
 // ─── Real backend transport (used when USE_BACKEND) ──────────────────────────
 
@@ -198,6 +202,29 @@ export async function appendAuditLog(entry) {
   const next = [entry, ...log].slice(0, AUDIT_LIMIT);
   writeJSON(AUDIT_KEY, next);
   return entry;
+}
+
+// ─── VERSION HISTORY ─────────────────────────────────────────────────────────
+// Google-Docs-style snapshots: each save records the full config so any past
+// version can be restored. The mock caps the count (snapshots are large) and
+// sheds the oldest if it can't fit localStorage. The backend keeps them forever
+// (e.g. a config_versions table, or the audit row carrying the snapshot).
+
+export async function getVersions() {
+  if (USE_BACKEND) return http("/versions");
+  return readJSON(VERSIONS_KEY, []);
+}
+
+export async function pushVersion(version) {
+  if (USE_BACKEND) {
+    return http("/versions", { method: "POST", body: JSON.stringify(version) });
+  }
+  let list = [version, ...readJSON(VERSIONS_KEY, [])].slice(0, VERSION_LIMIT);
+  // Drop the oldest snapshots until the write fits the storage quota.
+  while (list.length && !tryWriteJSON(VERSIONS_KEY, list)) {
+    list = list.slice(0, list.length - 1);
+  }
+  return version;
 }
 
 // ─── AUTH / SESSION ──────────────────────────────────────────────────────────
