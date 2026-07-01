@@ -39,7 +39,11 @@ async function http(path, options = {}) {
   if (!res.ok || json.ok === false) {
     throw new Error(json.error || `Request failed (${res.status})`);
   }
-  return json.data ?? json;
+  // Our envelope is { ok, data }. Return data even when it's null/false — a
+  // logged-out /auth/me legitimately returns data:null, and `json.data ?? json`
+  // would wrongly hand back the whole truthy envelope (making the app think a
+  // guest is signed in). Only fall back to the raw body for non-enveloped replies.
+  return json && typeof json === "object" && "data" in json ? json.data : json;
 }
 
 // ─── Config migration ────────────────────────────────────────────────────────
