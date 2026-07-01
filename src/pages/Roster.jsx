@@ -1179,7 +1179,7 @@ function FTOBody({ initialSubId, user, onToast }) {
             ))}
           </div>
         )}
-        <div className="grid items-end gap-2 sm:grid-cols-[1fr_1fr_auto]">
+        <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Label">
             <Input value={seriesLabel} onChange={(e) => setSeriesLabel(e.target.value)} placeholder="Troopers" />
           </Field>
@@ -1191,6 +1191,8 @@ function FTOBody({ initialSubId, user, onToast }) {
               className="font-mono"
             />
           </Field>
+        </div>
+        <div className="mt-3 flex justify-end">
           <Button
             icon={Plus}
             disabled={!seriesLabel.trim() || !/#/.test(seriesFormat)}
@@ -1203,7 +1205,7 @@ function FTOBody({ initialSubId, user, onToast }) {
               setSeriesFormat("");
             }}
           >
-            Add
+            Add series
           </Button>
         </div>
       </div>
@@ -1228,7 +1230,7 @@ function FTOBody({ initialSubId, user, onToast }) {
             </Select>
           </Field>
         )}
-        <div className="mt-2 grid items-end gap-2 sm:grid-cols-[1fr_1fr_1fr_1fr_auto]">
+        <div className="mt-2 grid gap-3 sm:grid-cols-2">
           <Field label="Name">
             <Input
               value={selectedApplicant ? selectedApplicant.name || "" : hireName}
@@ -1264,6 +1266,8 @@ function FTOBody({ initialSubId, user, onToast }) {
               ))}
             </Select>
           </Field>
+        </div>
+        <div className="mt-3 flex justify-end">
           <Button
             icon={UserPlus}
             disabled={(!selectedApplicant && !hireName.trim()) || !cadetRank}
