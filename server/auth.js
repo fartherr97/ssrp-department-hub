@@ -16,6 +16,7 @@ import { env, assertDiscordConfigured } from "./env.js";
 import { buildSessionUser } from "./permissions.js";
 import { loadConfig } from "./db.js";
 import { resolveDepartmentId } from "./tenant.js";
+import { isSameOrigin } from "./security.js";
 
 const SCOPES = ["identify", "guilds.members.read"];
 
@@ -118,20 +119,40 @@ export function mountAuthRoutes(app) {
     });
   });
 
-  // Optional: local-only dev login so you can exercise the real backend without
-  // standing up Discord OAuth. Refuses to run in production.
-  app.post("/auth/dev-login", (req, res) => {
+  // Optional: dev login so you can exercise the real backend without standing up
+  // Discord OAuth. Gated behind DEV_LOGIN_ENABLED (fail-closed, see env.js) so a
+  // production deploy that forgets to set it can't be used to mint sessions.
+  app.post("/auth/dev-login", async (req, res) => {
     if (!env.devLoginEnabled) {
       return res.status(403).json({ ok: false, error: "Dev login disabled" });
     }
+    // This route is mounted at /auth (outside the /api same-origin guard), yet it
+    // creates a session — so it needs its own CSRF defense. Require the request to
+    // come from our own origin, exactly like sameOriginGuard does for /api.
+    if (!isSameOrigin(req)) {
+      return res.status(403).json({ ok: false, error: "Cross-origin request blocked" });
+    }
     const group = String(req.body?.group || "member");
+    // Resolve privileges from the ACTUAL group in the department config rather
+    // than trusting a magic "admin" string from the client. isAdmin now means
+    // exactly "this group has manageSite" — the same rule real Discord logins use
+    // (see buildSessionUser) — so dev login can never grant more than a real
+    // member of that group would have.
+    let isAdmin = false;
+    try {
+      const config = await loadConfig(resolveDepartmentId(req));
+      const g = (config?.groups || []).find((x) => x.id === group);
+      isAdmin = !!g?.manageSite;
+    } catch {
+      /* no config / unknown group → isAdmin stays false */
+    }
     const user = {
       id: "dev-" + group,
       username: `Dev ${group}`,
       displayName: `Dev ${group}`,
       avatarUrl: "",
       group,
-      isAdmin: group === "admin",
+      isAdmin,
       isDev: true,
     };
     req.login(user, (err) => {

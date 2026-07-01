@@ -49,12 +49,20 @@ export default function AuditLog({ user }) {
   useEffect(() => {
     const load = () => {
       audit.getLog().then((l) => setLog(Array.isArray(l) ? l : []));
-      audit.getVersions().then((v) => setVersions(Array.isArray(v) ? v : []));
+      // Version history is a manage-site feature (the backend only returns the
+      // full-config snapshots to site managers), so only fetch it when the user
+      // can restore — otherwise the request 403s and the tab stays empty anyway.
+      if (canRestore) {
+        audit
+          .getVersions()
+          .then((v) => setVersions(Array.isArray(v) ? v : []))
+          .catch(() => setVersions([]));
+      }
     };
     load();
     window.addEventListener("audit:changed", load);
     return () => window.removeEventListener("audit:changed", load);
-  }, []);
+  }, [canRestore]);
 
   function restore(version) {
     if (!version?.config) return;

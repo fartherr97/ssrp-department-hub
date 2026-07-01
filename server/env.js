@@ -81,9 +81,11 @@ export const env = {
   // a logged-in user, so it authenticates with this instead of a session.
   botSyncSecret: process.env.BOT_SYNC_SECRET || "",
 
-  // Lets the front-end dev login work against the real backend during local
-  // testing. MUST be off in production — never issue a session without OAuth.
-  devLoginEnabled: bool(process.env.DEV_LOGIN_ENABLED, process.env.NODE_ENV !== "production"),
+  // Lets the front-end dev login work against the real backend for testing.
+  // Fail-closed: OFF unless DEV_LOGIN_ENABLED is explicitly truthy (previously it
+  // defaulted ON whenever NODE_ENV wasn't "production", which silently exposed an
+  // admin-minting endpoint on any deploy that forgot to set NODE_ENV).
+  devLoginEnabled: bool(process.env.DEV_LOGIN_ENABLED, false),
 
   db,
 };

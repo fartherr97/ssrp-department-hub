@@ -12,6 +12,8 @@ import {
   canManageSite,
   canManageAccess,
   canAccessPage,
+  canEditAnyRoster,
+  isManagerOfAny,
 } from "../src/lib/permissions.js";
 
 /*
@@ -64,6 +66,31 @@ export function requireCapability(key, getConfig) {
     if (!req.user) return res.status(401).json({ ok: false, error: "Not signed in" });
     const config = await getConfig(req);
     if (!hasCapability(req.user, config, key)) {
+      return res.status(403).json({ ok: false, error: "Insufficient permissions" });
+    }
+    next();
+  };
+}
+
+// "Staff" = anyone with an oversight role: site managers, access managers, any
+// roster editor, or a manager of any group. Mirrors the visibility rule for the
+// Audit page (canAccessPage type "audit") so the audit + version-history APIs are
+// only readable by people who can already see that data in the UI.
+export function isStaff(user, config) {
+  return (
+    canManageSite(user, config) ||
+    canManageAccess(user, config) ||
+    canEditAnyRoster(user, config) ||
+    isManagerOfAny(user, config)
+  );
+}
+
+// Gate a route on staff status (see isStaff). getConfig(req) → the dept config.
+export function requireStaff(getConfig) {
+  return async (req, res, next) => {
+    if (!req.user) return res.status(401).json({ ok: false, error: "Not signed in" });
+    const config = await getConfig(req);
+    if (!isStaff(req.user, config)) {
       return res.status(403).json({ ok: false, error: "Insufficient permissions" });
     }
     next();

@@ -1,4 +1,4 @@
-import { Component, Suspense, lazy, useEffect, useState, startTransition } from "react";
+import { Component, Suspense, lazy, useEffect, useRef, useState, startTransition } from "react";
 import useAuth from "./hooks/useAuth.js";
 import { useConfig } from "./lib/configContext.jsx";
 import * as audit from "./lib/audit.js";
@@ -126,7 +126,7 @@ function ActiveView({ page, user, config }) {
 }
 
 export default function App() {
-  const { config, ready } = useConfig();
+  const { config, ready, reload } = useConfig();
   const { user, checking, devLogin, logout } = useAuth();
   const [activePageId, setActivePageId] = useState(null);
 
@@ -134,6 +134,25 @@ export default function App() {
   useEffect(() => {
     audit.setActor(user);
   }, [user]);
+
+  // The backend returns a different config view per caller (guests get a public
+  // subset with no member lists or secrets; signed-in users get their full view).
+  // Re-fetch whenever the signed-in identity changes so login upgrades us to the
+  // full config and logout drops the sensitive data from memory. Skip the very
+  // first render — the initial load already ran and useAuth is still checking.
+  const lastUserId = useRef(undefined);
+  useEffect(() => {
+    const id = user?.id ?? null;
+    if (checking) return;
+    if (lastUserId.current === undefined) {
+      lastUserId.current = id;
+      return;
+    }
+    if (lastUserId.current !== id) {
+      lastUserId.current = id;
+      reload();
+    }
+  }, [user, checking, reload]);
 
   // Resolve the initial page once config is loaded.
   useEffect(() => {
@@ -166,6 +185,10 @@ export default function App() {
 
   if (!ready || checking) return <LoadingScreen branding={config?.branding} />;
   if (!user) return <LoginScreen config={config} onDevLogin={devLogin} />;
+  // Signed in, but the config in hand may still be the guest subset the backend
+  // returns before login (it deliberately omits `pages`). Wait for the reload
+  // triggered on the auth change to bring the full, authorized config.
+  if (!Array.isArray(config?.pages)) return <LoadingScreen branding={config?.branding} />;
 
   function navigate(pageId) {
     startTransition(() => setActivePageId(pageId));

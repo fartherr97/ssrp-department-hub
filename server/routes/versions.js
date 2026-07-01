@@ -11,7 +11,7 @@
  */
 import { Router } from "express";
 import { loadVersions, appendVersion } from "../db.js";
-import { requireAuth } from "../permissions.js";
+import { requireAuth, requireCapability } from "../permissions.js";
 import { resolveDepartmentId } from "../tenant.js";
 import {
   canManageSite,
@@ -37,14 +37,25 @@ function canWrite(user, config) {
 export function versionsRouter() {
   const router = Router();
 
-  router.get("/versions", requireAuth, async (req, res, next) => {
-    try {
-      const departmentId = req.departmentId || resolveDepartmentId(req);
-      res.json({ ok: true, data: await loadVersions(departmentId) });
-    } catch (err) {
-      next(err);
+  // A snapshot is a FULL config document (member Discord ids, webhook secrets and
+  // all), and only a site manager can actually restore one — so reading the
+  // history requires manage-site. This keeps whole-config secrets out of reach of
+  // lower-tier staff who can see the audit summary but not the raw config.
+  router.get(
+    "/versions",
+    requireCapability(
+      "manageSite",
+      (req) => currentConfig(req.departmentId || resolveDepartmentId(req))
+    ),
+    async (req, res, next) => {
+      try {
+        const departmentId = req.departmentId || resolveDepartmentId(req);
+        res.json({ ok: true, data: await loadVersions(departmentId) });
+      } catch (err) {
+        next(err);
+      }
     }
-  });
+  );
 
   router.post("/versions", requireAuth, async (req, res, next) => {
     try {

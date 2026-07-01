@@ -10,13 +10,19 @@
  */
 import { Router } from "express";
 import { loadAudit, appendAudit } from "../db.js";
-import { requireAuth } from "../permissions.js";
+import { requireAuth, requireStaff } from "../permissions.js";
 import { resolveDepartmentId } from "../tenant.js";
+import { currentConfig } from "./config.js";
+
+const getConfig = (req) => currentConfig(req.departmentId || resolveDepartmentId(req));
 
 export function auditRouter() {
   const router = Router();
 
-  router.get("/audit", requireAuth, async (req, res, next) => {
+  // Reads are staff-only: the audit log is an oversight tool (who changed what),
+  // not member-facing. Appends stay open to any signed-in member because the
+  // client records routine actions (attendance, log writes) as they happen.
+  router.get("/audit", requireStaff(getConfig), async (req, res, next) => {
     try {
       const departmentId = req.departmentId || resolveDepartmentId(req);
       res.json({ ok: true, data: await loadAudit(departmentId) });

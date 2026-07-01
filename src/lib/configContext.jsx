@@ -41,10 +41,14 @@ export function ConfigProvider({ children }) {
   const lastSnapAt = useRef(0);
   const [undoDepth, setUndoDepth] = useState(0);
 
-  // Initial load.
-  useEffect(() => {
-    let alive = true;
-    api.getConfig()
+  // Fetch (or re-fetch) the config from the data layer and load it into state.
+  // Called once on mount, and again on every auth change: the backend tailors
+  // GET /api/config to the caller (a guest gets a public subset with no member
+  // lists / secrets; a signed-in user gets their full view), so we must reload
+  // after login/logout to swap between those views.
+  const reload = useCallback(() => {
+    return api
+      .getConfig()
       .catch((err) => {
         // Never hang on "LOADING…" if the backend hiccups — fall back to the
         // default config so the app still renders (and login still works).
@@ -52,18 +56,20 @@ export function ConfigProvider({ children }) {
         return cloneDefaultConfig();
       })
       .then((loaded) => {
-        if (!alive) return;
         setConfigState(loaded);
         lastSavedRef.current = loaded;
-        historyRef.current = readJSON(HISTORY_KEY, []);
-        setUndoDepth(historyRef.current.length);
         applyTheme(loaded?.branding?.colors);
         setReady(true);
+        return loaded;
       });
-    return () => {
-      alive = false;
-    };
   }, []);
+
+  // Initial load.
+  useEffect(() => {
+    historyRef.current = readJSON(HISTORY_KEY, []);
+    setUndoDepth(historyRef.current.length);
+    reload();
+  }, [reload]);
 
   // Keep the theme in sync whenever colors change.
   useEffect(() => {
@@ -146,6 +152,7 @@ export function ConfigProvider({ children }) {
         saving,
         mutate,
         replaceConfig,
+        reload,
         undo,
         canUndo: undoDepth > 0,
       }}

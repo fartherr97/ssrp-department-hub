@@ -14,7 +14,8 @@
 import { Router } from "express";
 import { getPool } from "../db.js";
 import { requireAuth } from "../permissions.js";
-import { resolveDepartmentId } from "../tenant.js";
+import { resolveDepartmentId, validDepartmentId } from "../tenant.js";
+import { safeEqual } from "../security.js";
 import { env } from "../env.js";
 
 async function ensureTable() {
@@ -32,7 +33,7 @@ async function ensureTable() {
 function botAuthed(req) {
   if (!env.botSyncSecret) return false;
   const token = (req.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
-  return token && token === env.botSyncSecret;
+  return safeEqual(token, env.botSyncSecret);
 }
 
 export function hoursRouter() {
@@ -71,9 +72,12 @@ export function hoursRouter() {
       if (!Array.isArray(members)) {
         return res.status(400).json({ ok: false, error: "Expected { members: [...] }" });
       }
+      if (bodyDept != null && !validDepartmentId(bodyDept)) {
+        return res.status(400).json({ ok: false, error: "Invalid departmentId" });
+      }
       await ensureTable();
       const db = getPool();
-      const departmentId = bodyDept || resolveDepartmentId(req);
+      const departmentId = validDepartmentId(bodyDept) || resolveDepartmentId(req);
       await db.query(
         `INSERT INTO duty_hours (department_id, payload) VALUES (?, ?)
          ON DUPLICATE KEY UPDATE payload = VALUES(payload)`,

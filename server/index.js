@@ -17,6 +17,7 @@ import express from "express";
 import session from "express-session";
 import helmet from "helmet";
 import passport from "passport";
+import rateLimit from "express-rate-limit";
 import MySQLStoreFactory from "express-mysql-session";
 
 import { env } from "./env.js";
@@ -28,6 +29,7 @@ import { rosterRouter } from "./routes/roster.js";
 import { versionsRouter } from "./routes/versions.js";
 import { hoursRouter } from "./routes/hours.js";
 import { tenantMiddleware } from "./tenant.js";
+import { isSameOrigin } from "./security.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const distDir = path.resolve(__dirname, "..", "dist");
@@ -39,19 +41,47 @@ const distDir = path.resolve(__dirname, "..", "dist");
  * automatically. Combined with SameSite=Lax cookies this covers the contract's
  * CSRF requirement without the front-end needing to manage a token.
  */
+// ── Rate limiters ────────────────────────────────────────────────────────────
+// Keyed by client IP (trust proxy is set, so this is the real client on Railway).
+// Limits are generous enough for normal use + the dev demo, but cap brute-force
+// and scraping. Each responds with our standard JSON error shape on 429.
+const limitReached = (_req, res) =>
+  res.status(429).json({ ok: false, error: "Too many requests, slow down." });
+
+// Broad ceiling for the whole API surface (read-heavy: config polling, roster).
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: limitReached,
+});
+
+// Login/session minting — the classic brute-force target. Only counts failures
+// isn't supported cleanly, so we cap total auth POSTs per window instead.
+const authLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: limitReached,
+});
+
+// Bot feed endpoints (roster sync / duty hours) authenticate with a shared
+// secret; cap them so a leaked secret can't be used to hammer the DB.
+const botLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: limitReached,
+});
+
 function sameOriginGuard(req, res, next) {
   if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") return next();
   // Bot/feed endpoints authenticate with a secret header, not a cookie — exempt.
   if (req.path === "/roster/sync" || req.path === "/hours") return next();
-  const origin = req.get("origin") || req.get("referer") || "";
-  const host = req.get("host") || "";
-  if (origin && host) {
-    try {
-      if (new URL(origin).host === host) return next();
-    } catch {
-      /* fall through to reject */
-    }
-  }
+  if (isSameOrigin(req)) return next();
   return res.status(403).json({ ok: false, error: "Cross-origin request blocked" });
 }
 
@@ -82,7 +112,25 @@ async function migrateWithRetry(attempts = 6) {
   }
 }
 
+// Refuse to boot a production deploy with a weak/default session secret. The
+// session cookie is signed with this value; the placeholder is public (it's in
+// .env.example), so shipping it would let anyone forge sessions. Fail fast rather
+// than half-start an insecure server.
+function assertProdSecrets() {
+  if (!env.isProd) return;
+  const secret = env.session.secret;
+  if (!process.env.SESSION_SECRET || !secret || secret === "change-me-in-production") {
+    console.error(
+      "\n[boot] Refusing to start in production without a real SESSION_SECRET.\n" +
+        "       Set SESSION_SECRET to a long random string (e.g. `openssl rand -hex 32`)\n" +
+        "       in this service's Variables, then redeploy.\n"
+    );
+    process.exit(1);
+  }
+}
+
 async function main() {
+  assertProdSecrets();
   await migrateWithRetry();
 
   const app = express();
@@ -126,12 +174,22 @@ async function main() {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  // Auth routes (/auth/*).
+  // Auth routes (/auth/*). POSTs (login/dev-login/logout) are rate-limited to
+  // blunt brute force; the GET redirects to Discord are cheap and left alone.
+  app.use("/auth", (req, res, next) =>
+    req.method === "POST" ? authLimiter(req, res, next) : next()
+  );
   mountAuthRoutes(app);
 
   // API routes (/api/*), behind the same-origin guard. tenantMiddleware stamps
   // req.departmentId from the request hostname (domain-based multi-tenancy).
   const api = express.Router();
+  // Bot endpoints get their own (higher) budget; everything else shares apiLimiter.
+  api.use((req, res, next) =>
+    req.path === "/roster/sync" || req.path === "/hours"
+      ? botLimiter(req, res, next)
+      : apiLimiter(req, res, next)
+  );
   api.use(sameOriginGuard);
   api.use(tenantMiddleware);
   api.use(configRouter());

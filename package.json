@@ -15,23 +15,24 @@
     "server": "node --watch server/index.js"
   },
   "dependencies": {
-    "dotenv": "latest",
-    "express": "latest",
-    "express-mysql-session": "latest",
-    "express-session": "latest",
-    "framer-motion": "latest",
-    "helmet": "latest",
-    "lucide-react": "latest",
-    "mysql2": "latest",
-    "passport": "latest",
-    "passport-discord": "latest",
-    "react": "latest",
-    "react-dom": "latest"
+    "dotenv": "17.4.2",
+    "express": "5.2.1",
+    "express-mysql-session": "3.0.3",
+    "express-rate-limit": "8.5.2",
+    "express-session": "1.19.0",
+    "framer-motion": "12.40.0",
+    "helmet": "8.2.0",
+    "lucide-react": "1.17.0",
+    "mysql2": "3.22.5",
+    "passport": "0.7.0",
+    "passport-discord": "0.1.4",
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "latest",
-    "@vitejs/plugin-react": "latest",
-    "tailwindcss": "latest",
-    "vite": "latest"
+    "@tailwindcss/vite": "4.3.0",
+    "@vitejs/plugin-react": "6.0.2",
+    "tailwindcss": "4.3.0",
+    "vite": "8.0.16"
   }
 }

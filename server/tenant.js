@@ -52,6 +52,15 @@ export function resolveDepartmentId(req) {
   return departmentFromHost(req?.headers?.host) || env.departmentId;
 }
 
+// Department ids key DB rows and are echoed into audit entries, so a
+// body-supplied one (bot endpoints let the caller name the department) must be a
+// tightly bounded slug. Returns the id if valid, else null. Callers should fall
+// back to resolveDepartmentId(req) when this returns null.
+const DEPARTMENT_ID_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
+export function validDepartmentId(id) {
+  return typeof id === "string" && DEPARTMENT_ID_RE.test(id) ? id : null;
+}
+
 // Express middleware: stamp req.departmentId for downstream handlers.
 export function tenantMiddleware(req, _res, next) {
   req.departmentId = resolveDepartmentId(req);
