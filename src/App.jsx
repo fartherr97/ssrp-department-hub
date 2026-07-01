@@ -154,9 +154,11 @@ export default function App() {
     }
   }, [user, checking, reload]);
 
-  // Resolve the initial page once config is loaded.
+  // Resolve the initial page once the *full* config is loaded. The pre-login
+  // guest subset has no `pages`, so wait for the real config (post-auth reload)
+  // before picking a landing page — otherwise we'd lock in "home" prematurely.
   useEffect(() => {
-    if (ready && config && activePageId == null) {
+    if (ready && Array.isArray(config?.pages) && activePageId == null) {
       setActivePageId(getInitialPageId(config));
     }
   }, [ready, config, activePageId]);
@@ -170,14 +172,16 @@ export default function App() {
   }, [config]);
 
   useEffect(() => {
-    if (!config || !activePageId) return;
+    // Only meaningful once the full config (with pages) is loaded; the pre-login
+    // guest subset has no pages, and reading config.pages[0] there would throw.
+    if (!activePageId || !Array.isArray(config?.pages)) return;
     // Normalize the URL's *page* segment only, pages with internal tabs
     // manage the second segment themselves (e.g. /builder/branding).
     const seg = decodeURIComponent(
       window.location.pathname.replace(/^\/+/, "").split("/")[0] || ""
     );
     const matches =
-      seg === activePageId || (seg === "" && activePageId === config.pages[0]?.id);
+      seg === activePageId || (seg === "" && activePageId === config.pages?.[0]?.id);
     if (!matches) {
       window.history.replaceState(null, "", getPagePath(activePageId, config));
     }
