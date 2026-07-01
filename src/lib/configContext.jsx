@@ -20,6 +20,15 @@ const HISTORY_LIMIT = 10;
 const HISTORY_STEP_GAP = 4000;
 const HISTORY_KEY = "configHistory";
 
+// Rough gauge of "big config" (skip heavy localStorage snapshotting). Cheap:
+// counts roster members instead of serializing the whole config.
+function isLargeConfig(config) {
+  let n = 0;
+  for (const s of config?.roster?.subdivisions || [])
+    for (const c of s.categories || []) n += (c.members || []).length;
+  return n > 150;
+}
+
 export function ConfigProvider({ children }) {
   const [config, setConfigState] = useState(null);
   const [ready, setReady] = useState(false);
@@ -75,8 +84,10 @@ export function ConfigProvider({ children }) {
 
   // Push an undo snapshot of `prev`. Edits made within HISTORY_STEP_GAP of each
   // other count as a single step, so undo reverts a whole burst of typing, not
-  // one keystroke. writeJSON is quota-safe: if snapshots don't fit (e.g. large
-  // uploaded images), history simply stays in-memory for the session.
+  // one keystroke. Undo always works in-memory for the session; we only PERSIST
+  // history to localStorage for small configs — for a large roster, serializing
+  // ~10 full copies on every edit stalls the main thread (which can make a modal
+  // feel stuck on save), so we keep it in-memory only.
   const trackChange = useCallback((prev) => {
     if (!prev) return;
     const now = Date.now();
@@ -85,6 +96,7 @@ export function ConfigProvider({ children }) {
     if (sameBurst && historyRef.current.length) return;
     historyRef.current = [...historyRef.current, prev].slice(-HISTORY_LIMIT);
     setUndoDepth(historyRef.current.length);
+    if (isLargeConfig(prev)) return; // in-memory only for big rosters
     writeJSON(HISTORY_KEY, historyRef.current);
   }, []);
 

@@ -939,6 +939,17 @@ function FTOBody({ initialSubId, user, onToast }) {
   const [gradRankSel, setGradRankSel] = useState("");
   const gradRank = promoteOptions.some((r) => r.id === gradRankSel) ? gradRankSel : gradDefault;
 
+  // Graduation category: where a passed cadet lands (e.g. "Trooper Grade"),
+  // guessed from the category names, overridable below.
+  const cats = sub?.categories || [];
+  const gradCatDefault =
+    cats.find((c) => /trooper|member|officer|deputy|firefighter|medic|patrol|personnel/i.test(c.name))?.id ||
+    cats.find((c) => !/recruit|cadet|candidate|applicant/i.test(c.name))?.id ||
+    cats[0]?.id ||
+    "";
+  const [gradCatSel, setGradCatSel] = useState("");
+  const gradCat = cats.some((c) => c.id === gradCatSel) ? gradCatSel : gradCatDefault;
+
   const [passing, setPassing] = useState(null); // member mid "pass final eval"
   const [passRank, setPassRank] = useState("");
   const [passProb, setPassProb] = useState("");
@@ -950,30 +961,40 @@ function FTOBody({ initialSubId, user, onToast }) {
   const cadets = [];
   for (const cat of sub?.categories || []) {
     for (const m of cat.members) {
-      if (cadetRank && m.rank === cadetRank) cadets.push({ ...m, catName: cat.name });
+      if (cadetRank && m.rank === cadetRank) cadets.push({ ...m, catName: cat.name, catId: cat.id });
     }
   }
   const csId = R.callsignFieldId(config);
 
+  // Promote + (optionally) move the cadet into the graduation category.
+  function graduate(cfg, memberId, fromCatId, rankId, probationUntil = "") {
+    let next = R.applyPromotion(cfg, sub.id, [memberId], { rankId, probationUntil });
+    if (gradCat && fromCatId && gradCat !== fromCatId) {
+      next = R.moveMember(next, sub.id, fromCatId, memberId, gradCat);
+    }
+    return next;
+  }
+  const gradCatName = () => cats.find((c) => c.id === gradCat)?.name;
+  const movedMsg = (fromCatId) =>
+    gradCat && fromCatId && gradCat !== fromCatId ? ` and moved to ${gradCatName()}` : "";
+
   function passEval() {
     const target = passing;
-    mutate((cfg) =>
-      R.applyPromotion(cfg, sub.id, [target.id], { rankId: passRank, probationUntil: passProb })
-    );
+    mutate((cfg) => graduate(cfg, target.id, target.catId, passRank, passProb));
     const rankName = ranks.find((r) => r.id === passRank)?.name || "their new rank";
-    onToast?.(`${target.name} passed final eval, promoted to ${rankName}`);
+    onToast?.(`${target.name} passed final eval, promoted to ${rankName}${movedMsg(target.catId)}`);
     setPassing(null);
     setPassRank("");
     setPassProb("");
   }
 
   // One-click "Passed Training": promote the cadet straight to the graduation
-  // rank with an auto callsign and today's promotion date, no extra prompts.
+  // rank with an auto callsign, and move them into the graduation category.
   function quickPass(m) {
     if (!gradRank || !promoteOptions.some((r) => r.id === gradRank)) return;
-    mutate((cfg) => R.applyPromotion(cfg, sub.id, [m.id], { rankId: gradRank }));
+    mutate((cfg) => graduate(cfg, m.id, m.catId, gradRank));
     const rankName = ranks.find((r) => r.id === gradRank)?.name || "their new rank";
-    onToast?.(`${m.name} passed training, promoted to ${rankName} with a new callsign`);
+    onToast?.(`${m.name} passed training, promoted to ${rankName} with a new callsign${movedMsg(m.catId)}`);
   }
 
   function hire() {
@@ -1037,6 +1058,16 @@ function FTOBody({ initialSubId, user, onToast }) {
             {promoteOptions.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Graduation category" hint="Which band a passed cadet moves into.">
+          <Select value={gradCat} onChange={(e) => setGradCatSel(e.target.value)}>
+            <option value="">Stay in place</option>
+            {cats.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
               </option>
             ))}
           </Select>
@@ -1125,7 +1156,7 @@ function FTOBody({ initialSubId, user, onToast }) {
                     className="!py-1.5 text-xs"
                     onClick={() => setConfirmFail(m)}
                   >
-                    Fail
+                    Failed training
                   </Button>
                 </div>
                 {passing?.id === m.id && (
@@ -1156,8 +1187,8 @@ function FTOBody({ initialSubId, user, onToast }) {
 
       <ConfirmDialog
         open={Boolean(confirmFail)}
-        title="Fail final evaluation?"
-        message={`Terminate "${confirmFail?.name}" and archive them to the Termination Roster (reinstatable with Overturn)? To return them to an earlier stage instead, cancel and change their status/assignment.`}
+        title="Failed training?"
+        message={`This removes "${confirmFail?.name}" from the roster and archives them to the Termination Roster (reinstatable with Overturn). To return them to an earlier stage instead, cancel and change their status/assignment.`}
         confirmLabel="Fail & terminate"
         onCancel={() => setConfirmFail(null)}
         onConfirm={() => {
