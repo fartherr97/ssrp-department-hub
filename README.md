@@ -269,6 +269,13 @@ it "comes off" the member's profile automatically with no cleanup job.
   reject non-object shapes; the front-end sanitizes URLs at render time
   (`src/lib/urls.js`) but the server should never trust the payload.
 - **Rate-limit** auth and config endpoints.
+- **Admin-log webhook**: a management-set Discord webhook (per admin-log page,
+  `page.config.webhook = { enabled, url, roleIds, … }`) posts each new log as an
+  embed. Today the client sends it, so the URL lives in the config every member
+  receives. For production, **redact `webhook.url` from config sent to
+  non-managers** and fire the webhook **server-side** on the log write (reuse
+  `buildWebhookPayload` from `src/pages/AdminLog.jsx`), so the URL never reaches
+  regular clients.
 
 ### Environment
 

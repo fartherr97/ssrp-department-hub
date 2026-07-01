@@ -9,6 +9,8 @@ import {
   Settings2,
   ChevronUp,
   ChevronDown,
+  Webhook,
+  Send,
 } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
 import { canWriteLogs, canManageAccess, canManageSite } from "../lib/permissions.js";
@@ -28,6 +30,7 @@ import {
   Select,
   Badge,
   CommaListInput,
+  ColorInput,
   Toast,
   useModalData,
 } from "../components/common/index.jsx";
@@ -217,6 +220,67 @@ function typeColor(type = "") {
   let h = 0;
   for (const c of t) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   return TYPE_PALETTE[h % TYPE_PALETTE.length];
+}
+
+// ── Discord webhook: send a new log to a channel as an embed ─────────────────
+// The embed mirrors the log card (type, subject, fields, "logged by"), with
+// optional role-ID pings above it. Discord webhooks accept browser POSTs.
+// NOTE for the backend: the webhook URL sits in the config, which every signed-in
+// member's client receives — for production, redact it from non-manager reads and
+// fire the webhook server-side on POST /api/audit or the log write.
+export function buildWebhookPayload(webhook, entry) {
+  const hex = String(webhook.color || typeColor(entry.type) || "#3b82f6").replace("#", "");
+  const color = parseInt(hex, 16);
+  const fmt = (v) => (v.type === "checkbox" ? (v.value ? "Yes" : "No") : String(v.value ?? ""));
+  const fields = [];
+  if (entry.subject?.name || entry.subject?.discordId) {
+    fields.push({
+      name: "Subject",
+      value: [entry.subject.name, entry.subject.discordId && `<@${entry.subject.discordId}>`]
+        .filter(Boolean)
+        .join(" ") || "—",
+      inline: true,
+    });
+  }
+  for (const v of entry.values || []) {
+    const val = fmt(v);
+    if (val === "" || val === "false") continue;
+    fields.push({ name: v.label || "Field", value: val.slice(0, 1024), inline: false });
+  }
+  const embed = {
+    ...(entry.bookName ? { author: { name: entry.bookName } } : {}),
+    title: entry.type || "Log entry",
+    color: Number.isFinite(color) ? color : undefined,
+    fields: fields.slice(0, 25),
+    footer: {
+      text: `Logged by ${entry.by?.name || "Unknown"}${webhook.footer ? ` · ${webhook.footer}` : ""}`,
+    },
+    timestamp: entry.at,
+  };
+  const content = (webhook.roleIds || [])
+    .map((id) => `<@&${String(id).trim()}>`)
+    .filter((s) => s.length > 5)
+    .join(" ");
+  return {
+    ...(content ? { content } : {}),
+    ...(webhook.username ? { username: webhook.username } : {}),
+    ...(webhook.avatarUrl ? { avatar_url: webhook.avatarUrl } : {}),
+    embeds: [embed],
+    allowed_mentions: { parse: ["roles"] },
+  };
+}
+
+async function sendLogWebhook(webhook, entry) {
+  if (!webhook?.enabled || !webhook.url) return;
+  try {
+    await fetch(webhook.url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(buildWebhookPayload(webhook, entry)),
+    });
+  } catch {
+    /* webhook failures never block logging */
+  }
 }
 
 function TypePill({ type }) {
@@ -759,6 +823,115 @@ function StatsView({ entries }) {
   );
 }
 
+// ─── Webhook settings (management only) ──────────────────────────────────────
+
+function WebhookModal({ open, onClose, webhook, books, onSave, onToast }) {
+  const [draft, setDraft] = useState(webhook);
+  const set = (patch) => setDraft((d) => ({ ...d, ...patch }));
+  const [testing, setTesting] = useState(false);
+
+  async function sendTest() {
+    if (!draft.url) return;
+    setTesting(true);
+    const book = books[0];
+    const sample = {
+      bookName: book?.name || "Admin Log",
+      type: (book?.types || [])[0] || "Test",
+      subject: { name: "Test Subject", discordId: "" },
+      values: [{ label: "Notes", type: "textarea", value: "This is a webhook test from the Department Hub." }],
+      by: { name: "Webhook test", discordId: "" },
+      at: new Date().toISOString(),
+    };
+    try {
+      const res = await fetch(draft.url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildWebhookPayload(draft, sample)),
+      });
+      onToast?.(res.ok ? "Test sent to Discord" : `Discord rejected it (${res.status})`);
+    } catch {
+      onToast?.("Couldn't reach the webhook (check the URL)");
+    }
+    setTesting(false);
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Admin log webhook"
+      size="lg"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={() => { onSave(draft); onClose(); }}>Save</Button>
+        </>
+      }
+    >
+      <div className="grid gap-4">
+        <p className="text-sm text-slate-400">
+          Send each new log to a Discord channel as an embed styled like the log card, with optional
+          role pings above it. Only site managers see this.
+        </p>
+
+        <label className="flex items-center gap-2 text-sm text-slate-200">
+          <input
+            type="checkbox"
+            checked={!!draft.enabled}
+            onChange={(e) => set({ enabled: e.target.checked })}
+            className="h-4 w-4 accent-[var(--color-primary)]"
+          />
+          Enabled — post new entries to Discord
+        </label>
+
+        <Field label="Webhook URL" hint="Discord → Channel → Integrations → Webhooks → Copy URL.">
+          <Input
+            value={draft.url || ""}
+            onChange={(e) => set({ url: e.target.value.trim() })}
+            placeholder="https://discord.com/api/webhooks/…"
+          />
+        </Field>
+
+        <Field label="Ping role IDs" hint="Optional. Pinged above the embed. Separate with commas.">
+          <CommaListInput
+            value={draft.roleIds || []}
+            onChange={(roleIds) => set({ roleIds })}
+            placeholder="123456789012345678, …"
+          />
+        </Field>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Bot name" hint="Optional override.">
+            <Input value={draft.username || ""} onChange={(e) => set({ username: e.target.value })} placeholder="FHP Records" />
+          </Field>
+          <Field label="Bot avatar URL" hint="Optional override.">
+            <Input value={draft.avatarUrl || ""} onChange={(e) => set({ avatarUrl: e.target.value.trim() })} placeholder="https://…" />
+          </Field>
+          <Field label="Embed color" hint="Optional. Defaults to the log type's color.">
+            <ColorInput value={draft.color || "#3b82f6"} onChange={(color) => set({ color })} />
+          </Field>
+          <Field label="Footer note" hint="Optional. Appended after 'Logged by …'.">
+            <Input value={draft.footer || ""} onChange={(e) => set({ footer: e.target.value })} placeholder="Florida Highway Patrol" />
+          </Field>
+        </div>
+
+        <div className="flex justify-end">
+          <Button variant="secondary" icon={Send} disabled={!draft.url || testing} onClick={sendTest}>
+            {testing ? "Sending…" : "Send test"}
+          </Button>
+        </div>
+
+        <p className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-200/90">
+          The webhook URL is stored in the site config. For production, Steve should move sending to
+          the backend and redact the URL from non-manager reads (see README).
+        </p>
+      </div>
+    </Modal>
+  );
+}
+
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 50;
@@ -772,12 +945,15 @@ export default function AdminLog({ page, user }) {
 
   const canWrite = canWriteLogs(user, config);
   const canModerate = canManageAccess(user, config) || canManageSite(user, config);
+  // Webhook setup is management-only (manage-site).
+  const canWebhook = canManageSite(user, config);
   const canEditEntry = (e) =>
     canModerate || (canWrite && e.by?.discordId && e.by.discordId === user?.id);
 
   const [tab, setTab] = useState(books[0]?.id || "stats");
   const [entryModal, setEntryModal] = useState(null);
   const [booksOpen, setBooksOpen] = useState(false);
+  const [webhookOpen, setWebhookOpen] = useState(false);
   const [confirmDel, setConfirmDel] = useState(null);
   const [query, setQuery] = useState("");
   const [limit, setLimit] = useState(PAGE_SIZE);
@@ -839,6 +1015,7 @@ export default function AdminLog({ page, user }) {
         if (days > 0 && did) next = applyAutoProbation(next, did, days);
         return next;
       });
+      sendLogWebhook(cfg.webhook, entry); // fire-and-forget to Discord if configured
       show(days > 0 && did ? `Entry logged, ${days}-day probation set` : "Entry logged");
     } else {
       setEntries(
@@ -902,6 +1079,11 @@ export default function AdminLog({ page, user }) {
             {canModerate && (
               <Button variant="secondary" icon={Settings2} onClick={() => setBooksOpen(true)}>
                 Manage logbooks
+              </Button>
+            )}
+            {canWebhook && (
+              <Button variant="secondary" icon={Webhook} onClick={() => setWebhookOpen(true)}>
+                Webhook
               </Button>
             )}
             {canWrite && books.length > 0 && (
@@ -1001,6 +1183,15 @@ export default function AdminLog({ page, user }) {
         onClose={() => setBooksOpen(false)}
         books={books}
         onChange={(next) => setCfg({ books: next })}
+      />
+      <WebhookModal
+        key={webhookOpen ? "wh-open" : "wh-closed"}
+        open={webhookOpen}
+        onClose={() => setWebhookOpen(false)}
+        webhook={cfg.webhook || {}}
+        books={books}
+        onSave={(next) => setCfg({ webhook: next })}
+        onToast={show}
       />
       <ConfirmDialog
         open={Boolean(confirmDel)}
