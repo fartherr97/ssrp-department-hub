@@ -28,6 +28,22 @@ const memberFields = [
     type: "select",
     options: ["Alpha","Bravo","Charlie","Delta","Echo","Foxtrot","Golf","Hotel","India","Juliet","Kilo","Lima","N/A"],
   },
+  {
+    id: "phase",
+    label: "Training Phase",
+    type: "select",
+    pill: true,
+    options: ["Classroom", "Academy", "Phase 1", "Phase 2", "Phase 3", "Field Training", "Complete"],
+    optionColors: {
+      Classroom: "#f59e0b",
+      Academy: "#a855f7",
+      "Phase 1": "#3b82f6",
+      "Phase 2": "#3b82f6",
+      "Phase 3": "#3b82f6",
+      "Field Training": "#14b8a6",
+      Complete: "#22c55e",
+    },
+  },
   { id: "prob", label: "Probation Ends", type: "date" },
   { id: "entry", label: "Date of Entry", type: "date" },
   { id: "promo", label: "Date of Promotion", type: "date" },
@@ -335,6 +351,9 @@ const recruits = [
   m("9910","M. Vasquez","Recruit","A","","6/25/2026","","7/9",null,"1121571529650606110","N/A",""),
   m("9911","N. Thomas","Recruit","A","","6/26/2026","","7/10",null,"675564425327149056","N/A",""),
 ];
+// Demo: spread recruits across the training phases.
+const PHASES = ["Classroom", "Academy", "Phase 1", "Phase 2", "Phase 3", "Field Training"];
+recruits.forEach((r, i) => { r.fields.phase = PHASES[i % PHASES.length]; });
 
 const applicants = [
   m("", "K. Marsh", "Applicant", "A", "", "6/28/2026", "", "", null, "1290000000000000001", "N/A", ""),

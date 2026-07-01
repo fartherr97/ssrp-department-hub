@@ -998,6 +998,17 @@ function FTOBody({ initialSubId, user, onToast }) {
     }
   }
   const csId = R.callsignFieldId(config);
+  // A "training phase" column (a dropdown like Classroom / Academy / Phase 1…),
+  // if the department has one — shown + editable per cadet below.
+  const rosterFields = config.roster.memberFields || [];
+  const trainingField = rosterFields.find(
+    (f) => f.type === "select" && /phase|training|academy|stage/i.test(`${f.label} ${f.id}`)
+  );
+  function setPhase(m, value) {
+    mutate((cfg) =>
+      R.updateMember(cfg, sub.id, m.catId, m.id, { fields: { ...(m.fields || {}), [trainingField.id]: value } })
+    );
+  }
 
   // Promote + (optionally) move the cadet into the graduation category, using the
   // chosen graduation callsign series when set.
@@ -1305,6 +1316,19 @@ function FTOBody({ initialSubId, user, onToast }) {
                       {csId && m.fields?.[csId] ? ` · ${m.fields[csId]}` : ""}
                     </div>
                   </div>
+                  {trainingField?.options?.length > 0 && (
+                    <div className="w-40 shrink-0">
+                      <Select
+                        value={m.fields?.[trainingField.id] || ""}
+                        onChange={(e) => setPhase(m, e.target.value)}
+                      >
+                        <option value="">{trainingField.label}…</option>
+                        {trainingField.options.map((o) => (
+                          <option key={o} value={o}>{o}</option>
+                        ))}
+                      </Select>
+                    </div>
+                  )}
                   <Button
                     className="!py-1.5 text-xs"
                     disabled={!gradRank}
