@@ -329,7 +329,7 @@ function makeCallsignGenerator(format, used) {
  * date to today, and, if the target rank has a callsignFormat, hand each one
  * the next free callsign.
  */
-export function applyPromotion(config, subId, memberIds, { rankId, probationUntil = "" }) {
+export function applyPromotion(config, subId, memberIds, { rankId, probationUntil = "", callsignFormat = "" }) {
   const ids = new Set(memberIds);
   const sub = findSubdivision(config, subId);
   if (!sub || !rankId) return config;
@@ -347,7 +347,9 @@ export function applyPromotion(config, subId, memberIds, { rankId, probationUnti
       }
     }
   }
-  const nextCallsign = csId && rank?.callsignFormat ? makeCallsignGenerator(rank.callsignFormat, used) : null;
+  // An explicit callsign series (e.g. "96##") overrides the rank's own format.
+  const format = callsignFormat || rank?.callsignFormat;
+  const nextCallsign = csId && format ? makeCallsignGenerator(format, used) : null;
 
   return mapCategories(config, subId, (cats) =>
     cats.map((c) => ({
@@ -449,17 +451,23 @@ export function isProbationActive(value) {
   return String(value).slice(0, 10) >= new Date().toISOString().slice(0, 10);
 }
 
-// The next free callsign for a rank's format (or null), used when hiring.
-export function nextCallsignFor(config, subId, rankId) {
+// The next free callsign for a given format (e.g. "96##") in a subdivision.
+export function nextCallsignForFormat(config, subId, format) {
   const csId = callsignFieldId(config);
   const sub = findSubdivision(config, subId);
-  const rank = (sub?.ranks || []).find((r) => r.id === rankId);
-  if (!csId || !rank?.callsignFormat) return null;
+  if (!csId || !format || !sub) return null;
   const used = new Set();
   for (const c of sub.categories || []) {
     for (const m of c.members) if (m.fields?.[csId]) used.add(String(m.fields[csId]));
   }
-  return makeCallsignGenerator(rank.callsignFormat, used)?.() ?? null;
+  return makeCallsignGenerator(format, used)?.() ?? null;
+}
+
+// The next free callsign for a rank's format (or null), used when hiring.
+export function nextCallsignFor(config, subId, rankId) {
+  const sub = findSubdivision(config, subId);
+  const rank = (sub?.ranks || []).find((r) => r.id === rankId);
+  return rank?.callsignFormat ? nextCallsignForFormat(config, subId, rank.callsignFormat) : null;
 }
 
 // ── LOA bookkeeping ──────────────────────────────────────────────────────────

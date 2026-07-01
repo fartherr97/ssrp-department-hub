@@ -956,6 +956,15 @@ function FTOBody({ initialSubId, user, onToast }) {
       ? fto.gradCatId ?? gradCatDefault
       : gradCatDefault;
 
+  // Callsign series (100-blocks like "96##"): a managed list on the subdivision,
+  // with a chosen series for hiring and for graduation. A series' format wins
+  // over the rank's own callsignFormat, assigning the next free number in it.
+  const series = sub?.callsignSeries || [];
+  const saveSeries = (next) =>
+    mutate((cfg) => R.updateSubdivision(cfg, sub.id, { callsignSeries: next }));
+  const gradSeries = series.find((s) => s.id === fto.gradSeriesId) || null;
+  const hireSeries = series.find((s) => s.id === fto.hireSeriesId) || null;
+
   const [passing, setPassing] = useState(null); // member mid "pass final eval"
   const [passRank, setPassRank] = useState("");
   const [passProb, setPassProb] = useState("");
@@ -963,6 +972,8 @@ function FTOBody({ initialSubId, user, onToast }) {
   const [hireName, setHireName] = useState("");
   const [hireDiscord, setHireDiscord] = useState("");
   const [hireCat, setHireCat] = useState("");
+  const [seriesLabel, setSeriesLabel] = useState("");
+  const [seriesFormat, setSeriesFormat] = useState("");
 
   const cadets = [];
   for (const cat of sub?.categories || []) {
@@ -972,9 +983,14 @@ function FTOBody({ initialSubId, user, onToast }) {
   }
   const csId = R.callsignFieldId(config);
 
-  // Promote + (optionally) move the cadet into the graduation category.
+  // Promote + (optionally) move the cadet into the graduation category, using the
+  // chosen graduation callsign series when set.
   function graduate(cfg, memberId, fromCatId, rankId, probationUntil = "") {
-    let next = R.applyPromotion(cfg, sub.id, [memberId], { rankId, probationUntil });
+    let next = R.applyPromotion(cfg, sub.id, [memberId], {
+      rankId,
+      probationUntil,
+      callsignFormat: gradSeries?.format || "",
+    });
     if (gradCat && fromCatId && gradCat !== fromCatId) {
       next = R.moveMember(next, sub.id, fromCatId, memberId, gradCat);
     }
@@ -1014,7 +1030,11 @@ function FTOBody({ initialSubId, user, onToast }) {
       if (hireF) fields[hireF] = today;
       const promoF = R.promotionDateFieldId(cfg);
       if (promoF) fields[promoF] = today;
-      const cs = cadetRank ? R.nextCallsignFor(cfg, sub.id, cadetRank) : null;
+      const cs = hireSeries
+        ? R.nextCallsignForFormat(cfg, sub.id, hireSeries.format)
+        : cadetRank
+        ? R.nextCallsignFor(cfg, sub.id, cadetRank)
+        : null;
       const csF = R.callsignFieldId(cfg);
       if (cs && csF) fields[csF] = cs;
       const statusF = R.statusFieldId(cfg);
@@ -1078,6 +1098,70 @@ function FTOBody({ initialSubId, user, onToast }) {
             ))}
           </Select>
         </Field>
+        <Field label="Graduation callsign series" hint="Passed cadets get the next free number here.">
+          <Select value={fto.gradSeriesId || ""} onChange={(e) => saveFto({ gradSeriesId: e.target.value })}>
+            <option value="">Use the rank's own format</option>
+            {series.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label} ({s.format})
+              </option>
+            ))}
+          </Select>
+        </Field>
+      </div>
+
+      {/* Callsign series manager */}
+      <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+        <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.5px] text-cad-muted">
+          Callsign series
+        </div>
+        {series.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-2">
+            {series.map((s) => (
+              <span
+                key={s.id}
+                className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-[var(--color-surface-2)] px-2.5 py-1 text-xs text-slate-200"
+              >
+                <span className="font-semibold">{s.label}</span>
+                <span className="font-mono text-slate-400">{s.format}</span>
+                <button
+                  onClick={() => saveSeries(series.filter((x) => x.id !== s.id))}
+                  className="text-slate-500 hover:text-red-300"
+                  title="Remove series"
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="grid items-end gap-2 sm:grid-cols-[1fr_1fr_auto]">
+          <Field label="Label">
+            <Input value={seriesLabel} onChange={(e) => setSeriesLabel(e.target.value)} placeholder="Troopers" />
+          </Field>
+          <Field label="Format" hint="# = auto-number digit, e.g. 96## → 9600, 9601…">
+            <Input
+              value={seriesFormat}
+              onChange={(e) => setSeriesFormat(e.target.value)}
+              placeholder="96##"
+              className="font-mono"
+            />
+          </Field>
+          <Button
+            icon={Plus}
+            disabled={!seriesLabel.trim() || !/#/.test(seriesFormat)}
+            onClick={() => {
+              saveSeries([
+                ...series,
+                { id: R.uid("cs"), label: seriesLabel.trim(), format: seriesFormat.trim() },
+              ]);
+              setSeriesLabel("");
+              setSeriesFormat("");
+            }}
+          >
+            Add
+          </Button>
+        </div>
       </div>
 
       {/* Hire applicant */}
@@ -1085,7 +1169,7 @@ function FTOBody({ initialSubId, user, onToast }) {
         <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.5px] text-cad-muted">
           Hire applicant into the program
         </div>
-        <div className="grid items-end gap-2 sm:grid-cols-[1fr_1fr_1fr_auto]">
+        <div className="grid items-end gap-2 sm:grid-cols-[1fr_1fr_1fr_1fr_auto]">
           <Field label="Name">
             <Input value={hireName} onChange={(e) => setHireName(e.target.value)} placeholder="J. Doe" />
           </Field>
@@ -1105,13 +1189,23 @@ function FTOBody({ initialSubId, user, onToast }) {
               ))}
             </Select>
           </Field>
+          <Field label="Callsign series">
+            <Select value={fto.hireSeriesId || ""} onChange={(e) => saveFto({ hireSeriesId: e.target.value })}>
+              <option value="">Cadet rank format</option>
+              {series.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label} ({s.format})
+                </option>
+              ))}
+            </Select>
+          </Field>
           <Button icon={UserPlus} disabled={!hireName.trim() || !cadetRank} onClick={hire}>
             Hire
           </Button>
         </div>
         <p className="mt-2 text-xs text-slate-500">
           Hired as {ranks.find((r) => r.id === cadetRank)?.name || "the cadet rank"}, with
-          today's hire date, an auto callsign (if the rank has a format), and Active status.
+          today's hire date, the next free callsign in the chosen series, and Active status.
         </p>
       </div>
 
