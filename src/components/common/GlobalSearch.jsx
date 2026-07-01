@@ -55,9 +55,12 @@ function buildIndex(config) {
           subName: sub.name,
           subId: sub.id,
           catName: cat.name,
+          catColor: cat.color || "",
           rank: rankById[m.rank] || "",
           callsign: csId ? m.fields?.[csId] || "" : "",
           status: stId ? m.fields?.[stId] || "" : "",
+          fields: m.fields || {},
+          avatarUrl: m.avatarUrl || "",
           coc: cocByName.get(nameKey) || [],
           pageId: rosterPage?.id,
         });
@@ -97,7 +100,7 @@ function buildIndex(config) {
     .filter((p) => p.type !== "builder")
     .map((p) => ({ kind: "page", id: p.id, name: p.label, pageType: p.type, pageId: p.id }));
 
-  return { people, events, pages: pageItems };
+  return { people, events, pages: pageItems, memberFields: config?.roster?.memberFields || [], statusFieldId: stId, callsignFieldId: csId };
 }
 
 function scoreMatch(haystack, q) {
@@ -109,8 +112,11 @@ function scoreMatch(haystack, q) {
 
 export default function GlobalSearch({ config, onNavigate }) {
   const [open, setOpen] = useState(false);
+  const [profile, setProfile] = useState(null);
   const [q, setQ] = useState("");
   const inputRef = useRef(null);
+  const profileRef = useRef(null);
+  profileRef.current = profile;
 
   const index = useMemo(() => (open ? buildIndex(config) : null), [open, config]);
 
@@ -120,7 +126,8 @@ export default function GlobalSearch({ config, onNavigate }) {
         e.preventDefault();
         setOpen(true);
       } else if (e.key === "Escape") {
-        setOpen(false);
+        if (profileRef.current) setProfile(null);
+        else setOpen(false);
       }
     };
     document.addEventListener("keydown", onKey);
@@ -166,8 +173,18 @@ export default function GlobalSearch({ config, onNavigate }) {
     return { people, pages, events };
   }, [index, q]);
 
+  // Clicking a person opens a profile card; pages/events jump straight there.
+  function select(item) {
+    if (item.kind === "person") {
+      setProfile(item);
+      return;
+    }
+    jump(item);
+  }
+
   function jump(item) {
     setOpen(false);
+    setProfile(null);
     if (!item.pageId) return;
     // Land on the right subdivision for roster people when possible.
     if (item.kind === "person" && item.subId) {
@@ -234,7 +251,7 @@ export default function GlobalSearch({ config, onNavigate }) {
                     {results.people.length > 0 && (
                       <Group icon={Users} label="People">
                         {results.people.map((p) => (
-                          <button key={p.id} onClick={() => jump(p)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition hover:bg-white/[0.06]">
+                          <button key={p.id} onClick={() => select(p)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition hover:bg-white/[0.06]">
                             <div className="min-w-0 flex-1">
                               <div className="truncate text-sm font-semibold text-white">{p.name}</div>
                               <div className="truncate text-xs text-slate-400">
@@ -258,7 +275,7 @@ export default function GlobalSearch({ config, onNavigate }) {
                     {results.pages.length > 0 && (
                       <Group icon={FileText} label="Pages">
                         {results.pages.map((p) => (
-                          <button key={p.id} onClick={() => jump(p)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition hover:bg-white/[0.06]">
+                          <button key={p.id} onClick={() => select(p)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition hover:bg-white/[0.06]">
                             <span className="truncate text-sm text-slate-200">{p.name}</span>
                           </button>
                         ))}
@@ -267,7 +284,7 @@ export default function GlobalSearch({ config, onNavigate }) {
                     {results.events.length > 0 && (
                       <Group icon={CalendarDays} label="Events">
                         {results.events.map((p) => (
-                          <button key={p.id} onClick={() => jump(p)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition hover:bg-white/[0.06]">
+                          <button key={p.id} onClick={() => select(p)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition hover:bg-white/[0.06]">
                             <div className="min-w-0">
                               <div className="truncate text-sm text-slate-200">{p.name}</div>
                               <div className="truncate text-xs text-slate-500">
@@ -285,7 +302,121 @@ export default function GlobalSearch({ config, onNavigate }) {
           </div>,
           document.body
         )}
+
+      {profile &&
+        createPortal(
+          <ProfileCard
+            person={profile}
+            memberFields={index?.memberFields || []}
+            onClose={() => setProfile(null)}
+            onGoToRoster={() => jump(profile)}
+          />,
+          document.body
+        )}
     </>
+  );
+}
+
+function fmtDate(v) {
+  const s = String(v || "");
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  return m ? `${m[2]}/${m[3]}/${m[1]}` : s;
+}
+
+function fmtField(field, value) {
+  if (field.type === "checkbox") return value ? "Yes" : "—";
+  if (field.type === "cert") return value ? "Certified" : "—";
+  if (value === undefined || value === null || value === "") return "—";
+  if (field.type === "date") return fmtDate(value);
+  return String(value);
+}
+
+function ProfileCard({ person, memberFields, onClose, onGoToRoster }) {
+  const [copied, setCopied] = useState(false);
+  const initials = (person.name || "?")
+    .split(/\s+/)
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+  // Show stored custom columns (skip callsign/status shown in the header, and the
+  // auto-computed tenure/service types which aren't stored).
+  const rows = (memberFields || []).filter(
+    (f) => f.id !== "callsign" && f.id !== "status" && f.type !== "tenure" && f.type !== "service"
+  );
+  const copyId = () => {
+    navigator.clipboard?.writeText(person.discordId).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    });
+  };
+  return (
+    <div className="fixed inset-0 z-[2100] flex items-start justify-center overflow-y-auto p-4 pt-[12vh]">
+      <div className="anim-overlay-in fixed inset-0 bg-black/75" onClick={onClose} />
+      <div className="anim-modal-in hub-panel relative z-10 w-full max-w-md overflow-hidden rounded-2xl">
+        <div className="flex items-start gap-3 border-b border-white/10 p-4" style={{ borderLeft: `3px solid ${person.catColor || "var(--color-primary)"}` }}>
+          {person.avatarUrl ? (
+            <img src={person.avatarUrl} alt="" className="h-12 w-12 shrink-0 rounded-xl object-cover" />
+          ) : (
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/5 text-sm font-black text-slate-300">
+              {initials}
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-base font-bold text-white">{person.name}</div>
+            <div className="truncate text-sm text-slate-400">
+              {[person.rank, person.callsign && `#${person.callsign}`].filter(Boolean).join(" · ") || "—"}
+            </div>
+            <div className="truncate text-xs text-slate-500">
+              {[person.subName, person.catName].filter(Boolean).join(" · ")}
+            </div>
+          </div>
+          <button onClick={onClose} aria-label="Close" className="press rounded-lg p-1.5 text-slate-400 hover:text-white">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="grid gap-2 p-4">
+          {person.status && (
+            <Row label="Status" value={person.status} />
+          )}
+          {person.discordId && (
+            <div className="flex items-center justify-between gap-2 text-sm">
+              <span className="text-slate-500">Discord ID</span>
+              <button onClick={copyId} className="font-mono text-xs text-slate-300 hover:text-white" title="Copy">
+                {copied ? "Copied!" : person.discordId}
+              </button>
+            </div>
+          )}
+          {person.coc?.length > 0 && (
+            <Row label="Chain of command" value={person.coc.map((c) => c.title).join(", ")} />
+          )}
+          {rows.map((f) => (
+            <Row key={f.id} label={f.label} value={fmtField(f, person.fields?.[f.id])} />
+          ))}
+        </div>
+
+        {person.pageId && (
+          <div className="border-t border-white/10 p-3">
+            <button
+              onClick={onGoToRoster}
+              className="btn-glossy w-full rounded-xl bg-[linear-gradient(90deg,var(--color-primary),var(--color-hover))] px-4 py-2 text-sm font-semibold text-white"
+            >
+              View on roster
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Row({ label, value }) {
+  return (
+    <div className="flex items-center justify-between gap-3 text-sm">
+      <span className="shrink-0 text-slate-500">{label}</span>
+      <span className="truncate text-right text-slate-200">{value}</span>
+    </div>
   );
 }
 
