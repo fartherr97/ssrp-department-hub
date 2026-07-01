@@ -919,9 +919,14 @@ function FTOBody({ initialSubId, user, onToast }) {
   const [subSel, setSubSel] = useState(initialSubId || subdivisions[0]?.id);
   const sub = subdivisions.find((x) => x.id === subSel) || subdivisions[0];
   const ranks = sub?.ranks || [];
+  // FTO program settings persist on the subdivision so cadet rank, graduation
+  // rank, and graduation category are remembered between visits.
+  const fto = sub?.fto || {};
+  const saveFto = (patch) =>
+    mutate((cfg) => R.updateSubdivision(cfg, sub.id, { fto: { ...(sub.fto || {}), ...patch } }));
+
   const autoCadet = ranks.find((r) => /cadet|recruit|trainee/i.test(r.name))?.id || "";
-  const [cadetRankSel, setCadetRankSel] = useState("");
-  const cadetRank = cadetRankSel || autoCadet;
+  const cadetRank = ranks.some((r) => r.id === fto.cadetRankId) ? fto.cadetRankId : autoCadet;
 
   // Ranks this person may promote cadets into (ceiling-limited for training
   // supervisors, all ranks for full editors), excluding the cadet rank itself.
@@ -929,26 +934,27 @@ function FTOBody({ initialSubId, user, onToast }) {
     (r) => r.id !== cadetRank
   );
   // Default graduation rank: the rank just above cadet in roster order, clamped
-  // to what this person is allowed to assign.
+  // to what this person is allowed to assign. A saved choice wins.
   const cadetIdx = ranks.findIndex((r) => r.id === cadetRank);
   const aboveCadet = cadetIdx > 0 ? ranks[cadetIdx - 1] : null;
   const gradDefault =
     aboveCadet && promoteOptions.some((r) => r.id === aboveCadet.id)
       ? aboveCadet.id
       : promoteOptions[promoteOptions.length - 1]?.id || "";
-  const [gradRankSel, setGradRankSel] = useState("");
-  const gradRank = promoteOptions.some((r) => r.id === gradRankSel) ? gradRankSel : gradDefault;
+  const gradRank = promoteOptions.some((r) => r.id === fto.gradRankId) ? fto.gradRankId : gradDefault;
 
   // Graduation category: where a passed cadet lands (e.g. "Trooper Grade"),
-  // guessed from the category names, overridable below.
+  // guessed from the category names, overridable and remembered below.
   const cats = sub?.categories || [];
   const gradCatDefault =
     cats.find((c) => /trooper|member|officer|deputy|firefighter|medic|patrol|personnel/i.test(c.name))?.id ||
     cats.find((c) => !/recruit|cadet|candidate|applicant/i.test(c.name))?.id ||
     cats[0]?.id ||
     "";
-  const [gradCatSel, setGradCatSel] = useState("");
-  const gradCat = cats.some((c) => c.id === gradCatSel) ? gradCatSel : gradCatDefault;
+  const gradCat =
+    fto.gradCatId === "" || cats.some((c) => c.id === fto.gradCatId)
+      ? fto.gradCatId ?? gradCatDefault
+      : gradCatDefault;
 
   const [passing, setPassing] = useState(null); // member mid "pass final eval"
   const [passRank, setPassRank] = useState("");
@@ -1043,7 +1049,7 @@ function FTOBody({ initialSubId, user, onToast }) {
           </Field>
         )}
         <Field label="Cadet rank" hint="Which rank counts as the cadet program.">
-          <Select value={cadetRank} onChange={(e) => setCadetRankSel(e.target.value)}>
+          <Select value={cadetRank} onChange={(e) => saveFto({ cadetRankId: e.target.value })}>
             <option value="">Choose rank…</option>
             {ranks.map((r) => (
               <option key={r.id} value={r.id}>
@@ -1053,7 +1059,7 @@ function FTOBody({ initialSubId, user, onToast }) {
           </Select>
         </Field>
         <Field label="Graduation rank" hint="One-click 'Passed training' promotes to this rank.">
-          <Select value={gradRank} onChange={(e) => setGradRankSel(e.target.value)}>
+          <Select value={gradRank} onChange={(e) => saveFto({ gradRankId: e.target.value })}>
             <option value="">Choose rank…</option>
             {promoteOptions.map((r) => (
               <option key={r.id} value={r.id}>
@@ -1063,7 +1069,7 @@ function FTOBody({ initialSubId, user, onToast }) {
           </Select>
         </Field>
         <Field label="Graduation category" hint="Which band a passed cadet moves into.">
-          <Select value={gradCat} onChange={(e) => setGradCatSel(e.target.value)}>
+          <Select value={gradCat} onChange={(e) => saveFto({ gradCatId: e.target.value })}>
             <option value="">Stay in place</option>
             {cats.map((c) => (
               <option key={c.id} value={c.id}>
