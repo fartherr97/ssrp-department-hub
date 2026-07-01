@@ -128,9 +128,9 @@ export function IconButton({ icon: Icon, label, className = "", ...rest }) {
 
 // ─── Form fields ─────────────────────────────────────────────────────────────
 
-export function Field({ label, hint, children }) {
+export function Field({ label, hint, children, className = "" }) {
   return (
-    <label className="block">
+    <label className={`block ${className}`}>
       {label && (
         <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.5px] text-cad-muted">
           {label}

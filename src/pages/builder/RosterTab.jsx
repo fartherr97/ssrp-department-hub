@@ -246,29 +246,28 @@ function DisciplineSection() {
         {rules.map((r) => (
           <div
             key={r.id}
-            className="grid items-end gap-2 rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-3 sm:grid-cols-[1fr_auto_auto]"
+            className="flex flex-wrap items-end gap-3 rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-3"
           >
-            <Field label="When the log type contains" hint="e.g. Strike, Non-Verbal DA">
+            <Field label="When the log type contains" hint="e.g. Strike, Non-Verbal DA" className="min-w-[12rem] flex-1">
               <Input
                 value={r.match}
                 onChange={(e) => update(r.id, { match: e.target.value })}
                 placeholder="Strike"
               />
             </Field>
-            <Field label="Probation (days)">
+            <Field label="Probation (days)" className="w-28 shrink-0">
               <Input
                 type="number"
                 min="1"
                 value={r.days}
                 onChange={(e) => update(r.id, { days: Number(e.target.value) || 0 })}
-                className="w-28"
               />
             </Field>
             <IconButton
               icon={Trash2}
               label="Delete rule"
               onClick={() => remove(r.id)}
-              className="mb-1 hover:border-red-500/40 hover:text-red-300"
+              className="shrink-0 hover:border-red-500/40 hover:text-red-300"
             />
           </div>
         ))}
