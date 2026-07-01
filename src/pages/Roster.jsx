@@ -617,9 +617,9 @@ function RanksEditor({ subId }) {
         {ranks.map((rt, idx) => (
           <div
             key={rt.id}
-            className="grid gap-2 rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-3"
+            className="grid gap-3 rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-3"
           >
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Rank name">
                 <Input
                   value={rt.name}
@@ -633,8 +633,6 @@ function RanksEditor({ subId }) {
                   onChange={(insigniaUrl) => mutate(R.updateRank(config, subId, rt.id, { insigniaUrl }))}
                 />
               </Field>
-            </div>
-            <div className="grid items-end gap-2 sm:grid-cols-[1fr_1fr_auto]">
               <Field label="Callsign format" hint="# auto-numbers, e.g. 91##">
                 <Input
                   value={rt.callsignFormat || ""}
@@ -653,28 +651,28 @@ function RanksEditor({ subId }) {
                   }
                 />
               </Field>
-              <div className="mb-0.5 flex items-center justify-end gap-1">
-              <IconButton
-              icon={ChevronUp}
-              label="Move up"
-              disabled={idx === 0}
-              onClick={() => mutate(R.moveRank(config, subId, rt.id, -1))}
-              className="disabled:opacity-30"
-            />
-            <IconButton
-              icon={ChevronDown}
-              label="Move down"
-              disabled={idx === ranks.length - 1}
-              onClick={() => mutate(R.moveRank(config, subId, rt.id, 1))}
-              className="disabled:opacity-30"
-            />
-            <IconButton
-              icon={Trash2}
-              label="Delete rank"
-              onClick={() => mutate(R.deleteRank(config, subId, rt.id))}
-              className="hover:border-red-500/40 hover:text-red-300"
-            />
             </div>
+            <div className="flex items-center justify-end gap-1">
+              <IconButton
+                icon={ChevronUp}
+                label="Move up"
+                disabled={idx === 0}
+                onClick={() => mutate(R.moveRank(config, subId, rt.id, -1))}
+                className="disabled:opacity-30"
+              />
+              <IconButton
+                icon={ChevronDown}
+                label="Move down"
+                disabled={idx === ranks.length - 1}
+                onClick={() => mutate(R.moveRank(config, subId, rt.id, 1))}
+                className="disabled:opacity-30"
+              />
+              <IconButton
+                icon={Trash2}
+                label="Delete rank"
+                onClick={() => mutate(R.deleteRank(config, subId, rt.id))}
+                className="hover:border-red-500/40 hover:text-red-300"
+              />
             </div>
           </div>
         ))}
