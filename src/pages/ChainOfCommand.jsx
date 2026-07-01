@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Plus, Network, ZoomIn, ZoomOut, Maximize2, Minimize2 } from "lucide-react";
+import { Plus, Network, ZoomIn, ZoomOut, Maximize2, Minimize2, DownloadCloud } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
 import { canEditFleet } from "../lib/permissions.js";
 import { uid } from "../lib/roster.js";
@@ -38,6 +38,77 @@ const hasNodeDrag = (e) => Array.from(e.dataTransfer?.types || []).includes("tex
 
 function newNode(title = "New Position") {
   return { id: uid("node"), title, name: "", color: "", imageUrl: "", members: [], children: [] };
+}
+
+// ── Auto-import an org chart from the roster ─────────────────────────────────
+// Reads the ranks (top-to-bottom = the hierarchy) and builds a tree: one box per
+// rank (a single holder shows as the box's name; several collapse into a member
+// list), grouped into tiers by the rank's base name. Where a rank name carries a
+// position (e.g. "Lieutenant - Patrol Operations A"), it's nested under the
+// senior with the matching position ("Captain - Patrol Operations A"); otherwise
+// it round-robins under the tier above. Editors rearrange from there.
+
+const STOP_WORDS = new Set(["and","the","of","for","operations","division","bureau","unit","section","troop","office","department"]);
+const baseOf = (name) => String(name || "").split(" - ")[0].trim();
+const positionOf = (name) => {
+  const i = String(name || "").indexOf(" - ");
+  return i >= 0 ? name.slice(i + 3).trim().toLowerCase() : "";
+};
+function positionsMatch(a, b) {
+  if (!a || !b) return false;
+  if (a === b || a.includes(b) || b.includes(a)) return true;
+  const wb = new Set(b.split(/[^a-z0-9]+/).filter((w) => w.length > 2 && !STOP_WORDS.has(w)));
+  return a.split(/[^a-z0-9]+/).some((w) => w.length > 2 && !STOP_WORDS.has(w) && wb.has(w));
+}
+
+export function buildTreeFromRoster(config, subId) {
+  const subs = config?.roster?.subdivisions || [];
+  const sub = subs.find((s) => s.id === subId) || subs.find((s) => s.main) || subs[0];
+  if (!sub) return { root: null, count: 0, subName: "" };
+
+  const holdersByRank = new Map();
+  for (const cat of sub.categories || [])
+    for (const m of cat.members || [])
+      if (m.rank) {
+        if (!holdersByRank.has(m.rank)) holdersByRank.set(m.rank, []);
+        holdersByRank.get(m.rank).push(m.name || "Unnamed");
+      }
+  const orderedRanks = (sub.ranks || []).filter((r) => (holdersByRank.get(r.id) || []).length);
+  if (!orderedRanks.length) return { root: null, count: 0, subName: sub.name };
+
+  const mk = (title, holders) => ({
+    id: uid("node"),
+    title,
+    name: holders.length === 1 ? holders[0] : "",
+    color: "",
+    imageUrl: "",
+    members: holders.length > 1 ? holders : [],
+    children: [],
+  });
+
+  const root = mk(sub.name || "Command", []);
+  let count = 1;
+  let prevTier = [root];
+  let curTier = [];
+  let curBase = null;
+
+  for (const r of orderedRanks) {
+    const base = baseOf(r.name);
+    if (curBase === null) curBase = base;
+    if (base !== curBase) {
+      if (curTier.length) prevTier = curTier;
+      curTier = [];
+      curBase = base;
+    }
+    const node = mk(r.name, holdersByRank.get(r.id) || []);
+    count++;
+    const pos = positionOf(r.name);
+    let parent = pos ? prevTier.find((p) => positionsMatch(positionOf(p.title), pos)) : null;
+    if (!parent) parent = prevTier[curTier.length % prevTier.length] || root;
+    parent.children.push(node);
+    curTier.push(node);
+  }
+  return { root, count, subName: sub.name };
 }
 
 // ── Pure tree helpers (immutable, by node id) ────────────────────────────────
@@ -545,6 +616,7 @@ export default function ChainOfCommand({ page, user }) {
 
   const [editing, setEditing] = useState(null); // node being edited
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [confirmImport, setConfirmImport] = useState(null); // { root, count, subName }
   const [dropHint, setDropHint] = useState(null); // { targetId, mode } while dragging
   const [dragId, setDragId] = useState(null); // box currently being dragged
   const [zoom, setZoom] = useState(1);
@@ -620,6 +692,12 @@ export default function ChainOfCommand({ page, user }) {
   function move(dir) {
     setRoot(moveNode(root, editing.id, dir));
   }
+  function importFromRoster() {
+    const built = buildTreeFromRoster(config);
+    if (!built.root) return;
+    if (root) setConfirmImport(built); // replacing an existing chart → confirm
+    else setRoot(built.root);
+  }
 
   return (
     <div>
@@ -633,18 +711,24 @@ export default function ChainOfCommand({ page, user }) {
             : "Who reports to whom, from the top down.")
         }
         actions={
-          canEdit &&
-          !root && (
-            <Button
-              icon={Plus}
-              onClick={() => {
-                const r = newNode("Chief");
-                setRoot(r);
-                setEditing(r);
-              }}
-            >
-              Start the chart
-            </Button>
+          canEdit && (
+            <>
+              <Button variant="secondary" icon={DownloadCloud} onClick={importFromRoster}>
+                Import from roster
+              </Button>
+              {!root && (
+                <Button
+                  icon={Plus}
+                  onClick={() => {
+                    const r = newNode("Chief");
+                    setRoot(r);
+                    setEditing(r);
+                  }}
+                >
+                  Start blank
+                </Button>
+              )}
+            </>
           )
         }
       />
@@ -658,17 +742,22 @@ export default function ChainOfCommand({ page, user }) {
             the chart down through your ranks.
           </p>
           {canEdit && (
-            <Button
-              icon={Plus}
-              className="mt-4"
-              onClick={() => {
-                const r = newNode("Chief");
-                setRoot(r);
-                setEditing(r);
-              }}
-            >
-              Start the chart
-            </Button>
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              <Button icon={DownloadCloud} onClick={importFromRoster}>
+                Import from roster
+              </Button>
+              <Button
+                variant="secondary"
+                icon={Plus}
+                onClick={() => {
+                  const r = newNode("Chief");
+                  setRoot(r);
+                  setEditing(r);
+                }}
+              >
+                Start blank
+              </Button>
+            </div>
           )}
         </Panel>
       ) : (
@@ -805,6 +894,20 @@ export default function ChainOfCommand({ page, user }) {
         onConfirm={() => {
           setRoot(deleteNode(root, confirmDelete.id));
           setConfirmDelete(null);
+        }}
+      />
+
+      <ConfirmDialog
+        open={Boolean(confirmImport)}
+        title="Import from roster?"
+        message={`Replace the current chart with ${confirmImport?.count || 0} boxes built from ${
+          confirmImport?.subName || "the roster"
+        }'s ranks. Positions with a name (e.g. "Lieutenant - Patrol Operations A") nest under the matching senior; you can rearrange everything afterward.`}
+        confirmLabel="Import & replace"
+        onCancel={() => setConfirmImport(null)}
+        onConfirm={() => {
+          setRoot(confirmImport.root);
+          setConfirmImport(null);
         }}
       />
     </div>

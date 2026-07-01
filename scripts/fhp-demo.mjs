@@ -425,6 +425,18 @@ cfg.roster = {
   ],
 };
 
+// A Chain of Command page (empty — use "Import from roster" on the page to build it).
+if (Array.isArray(cfg.pages) && !cfg.pages.some((p) => p.type === "chain")) {
+  const rosterIdx = cfg.pages.findIndex((p) => p.type === "roster");
+  cfg.pages.splice(rosterIdx === -1 ? cfg.pages.length : rosterIdx + 1, 0, {
+    id: "chain-of-command",
+    label: "Chain of Command",
+    type: "chain",
+    navGroup: cfg.pages.find((p) => p.type === "roster")?.navGroup || cfg.navGroups?.[0] || "Main",
+    config: { root: null },
+  });
+}
+
 const total = categories.reduce((n, c) => n + c.members.length, 0);
 process.stderr.write(`FHP demo: ${total} members, ${ranks.length} ranks, ${categories.length} categories\n`);
 process.stdout.write(JSON.stringify(cfg, null, 2));
