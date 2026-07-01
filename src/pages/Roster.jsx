@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Plus,
+  Pin,
   Pencil,
   Trash2,
   ChevronUp,
@@ -1619,7 +1620,7 @@ function MemberRow({ member, category, fields, statusFieldId, probationFieldId, 
             {rt.insigniaUrl && (
               <img src={rt.insigniaUrl} alt="" className="h-5 w-5 shrink-0 object-contain" />
             )}
-            <span className="font-medium text-slate-200">{rt.name}</span>
+            <span className="whitespace-nowrap font-medium text-slate-200">{rt.name}</span>
           </div>
         ) : (
           <span className="text-slate-600">—</span>
@@ -1695,6 +1696,7 @@ function SubRoster({
   onEditCategory,
   onDeleteCategory,
   compact = false,
+  freeze = false,
 }) {
   const categories = sub.categories || [];
   const rankById = useMemo(
@@ -1703,27 +1705,29 @@ function SubRoster({
   );
   const colCount = 2 + fields.length + (canEdit ? 1 : 0);
   const visible = categories.filter((c) => categoryFilter === "all" || c.id === categoryFilter);
+  const thBase = "whitespace-nowrap px-3 py-2.5 font-semibold";
+  const thFreeze = freeze ? " sticky top-0 z-20 bg-[var(--color-surface-1)]" : "";
 
   return (
-    <div className="overflow-x-auto">
+    <div className={freeze ? "max-h-[70vh] overflow-auto" : "overflow-x-auto"}>
       <table
         className={`w-full border-collapse text-left ${compact ? "min-w-[520px]" : "min-w-[760px]"}`}
       >
         <thead>
           <tr className="text-[11px] uppercase tracking-wider text-slate-500">
-            <th className="px-3 py-2.5 font-semibold">Name</th>
-            <th className="px-3 py-2.5 font-semibold">Rank</th>
+            <th className={thBase + thFreeze}>Name</th>
+            <th className={thBase + thFreeze}>Rank</th>
             {fields.map((f) => (
               <th
                 key={f.id}
-                className={`px-3 py-2.5 font-semibold ${
+                className={`${thBase}${thFreeze} ${
                   isCenteredField(f, statusField?.id) ? "text-center" : ""
                 }`}
               >
                 {f.label}
               </th>
             ))}
-            {canEdit && <th className="px-3 py-2.5" />}
+            {canEdit && <th className={thBase + thFreeze} />}
           </tr>
         </thead>
         {visible.map((cat) => {
@@ -1921,6 +1925,13 @@ export default function Roster({ user, page }) {
 
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [discFilter, setDiscFilter] = useState("all");
+  const [probFilter, setProbFilter] = useState("all");
+  // The disciplinary-action column (a select field), if the department has one.
+  const discField = fields.find(
+    (f) => f.type === "select" && /disciplin|\bda\b|strike|action/i.test(`${f.label} ${f.id}`)
+  );
   const [memberModal, setMemberModal] = useState(null);
   const [categoryModal, setCategoryModal] = useState(null);
   const [subModal, setSubModal] = useState(null);
@@ -1957,14 +1968,30 @@ export default function Roster({ user, page }) {
 
   const q = query.trim().toLowerCase();
   function matches(member) {
-    if (!q) return true;
-    const hay = [member.name, member.discordId, ...Object.values(member.fields || {})]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
-    return hay.includes(q);
+    if (q) {
+      const hay = [member.name, member.discordId, ...Object.values(member.fields || {})]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    if (statusFilter !== "all" && (member.fields?.[statusField?.id] || "") !== statusFilter)
+      return false;
+    if (discField && discFilter !== "all" && (member.fields?.[discField.id] || "") !== discFilter)
+      return false;
+    if (probFilter !== "all") {
+      const onProb = probationId && R.isProbationActive(member.fields?.[probationId]);
+      if (probFilter === "on" && !onProb) return false;
+      if (probFilter === "off" && onProb) return false;
+    }
+    return true;
   }
-  const filtering = q !== "" || categoryFilter !== "all";
+  const filtering =
+    q !== "" ||
+    categoryFilter !== "all" ||
+    statusFilter !== "all" ||
+    discFilter !== "all" ||
+    probFilter !== "all";
 
   // ── Member handlers (subdivision + category aware) ──
   function openNewMember(forSubId, categoryId) {
@@ -2181,6 +2208,7 @@ export default function Roster({ user, page }) {
     fields,
     statusField,
     probationFieldId: probationId,
+    freeze: Boolean(config.roster.freezeHeader),
     matches,
     filtering,
     dragOverCat,
@@ -2306,30 +2334,78 @@ export default function Roster({ user, page }) {
           />
 
           {/* Summary + controls */}
-          <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            {statsShown ? (
-              <div />
-            ) : (
+          <div className="mb-4 flex flex-col gap-3">
+            {!statsShown && (
               <StatPills total={totalMembers} statusField={statusField} counts={statusCounts} />
             )}
             <div className="flex flex-wrap items-center gap-2">
-              <div className="relative">
+              <div className="relative w-56">
                 <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                 <Input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search name, ID, field…"
-                  className="w-56 pl-9"
+                  className="pl-9"
                 />
               </div>
-              <Select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="w-44">
-                <option value="all">All categories</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </Select>
+              <div className="w-40">
+                <Select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+                  <option value="all">All categories</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              {statusField?.options?.length > 0 && (
+                <div className="w-36">
+                  <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                    <option value="all">Any status</option>
+                    {statusField.options.map((o) => (
+                      <option key={o} value={o}>{o}</option>
+                    ))}
+                  </Select>
+                </div>
+              )}
+              {discField?.options?.length > 0 && (
+                <div className="w-44">
+                  <Select value={discFilter} onChange={(e) => setDiscFilter(e.target.value)}>
+                    <option value="all">Any {discField.label.toLowerCase()}</option>
+                    {discField.options.map((o) => (
+                      <option key={o} value={o}>{o}</option>
+                    ))}
+                  </Select>
+                </div>
+              )}
+              {probationId && (
+                <div className="w-40">
+                  <Select value={probFilter} onChange={(e) => setProbFilter(e.target.value)}>
+                    <option value="all">Any probation</option>
+                    <option value="on">On probation</option>
+                    <option value="off">Not on probation</option>
+                  </Select>
+                </div>
+              )}
+              {canEditActive && (
+                <button
+                  onClick={() =>
+                    mutate((cfg) => ({
+                      ...cfg,
+                      roster: { ...cfg.roster, freezeHeader: !cfg.roster.freezeHeader },
+                    }))
+                  }
+                  title="Keep the header row visible while scrolling"
+                  className={`press inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition ${
+                    config.roster.freezeHeader
+                      ? "border-[color:var(--color-border-strong)] bg-[color:var(--color-primary)]/15 text-white"
+                      : "border-white/10 bg-white/[0.03] text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <Pin size={14} />
+                  Freeze header
+                </button>
+              )}
             </div>
           </div>
 
