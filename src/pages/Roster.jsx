@@ -177,7 +177,7 @@ function FieldValue({ field, value, statusFieldId, probationFieldId, accent }) {
     return (
       <span
         style={p.style}
-        className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold ${p.className}`}
+        className={`inline-flex items-center whitespace-nowrap rounded-md border px-2 py-0.5 text-xs font-bold ${p.className}`}
       >
         {value}
       </span>
@@ -1613,10 +1613,19 @@ function MemberRow({ member, category, fields, statusFieldId, probationFieldId, 
         e.stopPropagation(); // don't also fire the category-level drop
         onRowDrop(e, category.id, member.id);
       }}
+      onClick={(e) => {
+        // Click anywhere on the row to edit — but let the checkbox, drag handle,
+        // Discord chip, and action buttons handle their own clicks.
+        if (!rowEditable) return;
+        if (e.target.closest("button, input, a")) return;
+        onEdit(category.id, member);
+      }}
       style={isDropTarget ? { boxShadow: "inset 0 3px 0 0 var(--color-primary)" } : undefined}
       className={`group border-t border-white/5 transition hover:bg-white/[0.03] ${
-        selected ? "bg-[color:var(--color-primary)]/8" : ""
-      } ${isDropTarget ? "bg-[color:var(--color-primary)]/10" : ""}`}
+        rowEditable ? "cursor-pointer" : ""
+      } ${selected ? "bg-[color:var(--color-primary)]/8" : ""} ${
+        isDropTarget ? "bg-[color:var(--color-primary)]/10" : ""
+      }`}
     >
       <td className="px-3 py-2.5">
         <div className="flex items-center gap-3">
@@ -1675,9 +1684,9 @@ function MemberRow({ member, category, fields, statusFieldId, probationFieldId, 
         </td>
       ))}
       {canEdit && (
-        <td className="px-3 py-2.5">
+        <td className="sticky right-0 z-[1] bg-[var(--color-surface-1)] px-3 py-2.5">
           {rowEditable && (
-            <div className="flex items-center justify-end gap-1 opacity-0 transition group-hover:opacity-100">
+            <div className="flex items-center justify-end gap-1">
               <IconButton icon={Pencil} label="Edit member" onClick={() => onEdit(category.id, member)} />
               <IconButton
                 icon={Trash2}
@@ -1755,7 +1764,9 @@ function SubRoster({
                 {f.label}
               </th>
             ))}
-            {canEdit && <th className={thBase + thFreeze} />}
+            {canEdit && (
+              <th className={`${thBase} sticky right-0 z-[22] bg-[var(--color-surface-1)]${freeze ? " top-0" : ""}`} />
+            )}
           </tr>
         </thead>
         {visible.map((cat) => {
