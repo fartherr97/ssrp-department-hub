@@ -974,6 +974,21 @@ function FTOBody({ initialSubId, user, onToast }) {
   const [hireCat, setHireCat] = useState("");
   const [seriesLabel, setSeriesLabel] = useState("");
   const [seriesFormat, setSeriesFormat] = useState("");
+  const [hireApplicantId, setHireApplicantId] = useState("");
+
+  // If a Department Applicants / Candidates band exists, hiring can pick an
+  // existing applicant (converting them into the program) instead of typing.
+  const applicantsCat = cats.find((c) => /applicant|candidate/i.test(c.name));
+  const applicants = applicantsCat?.members || [];
+  const selectedApplicant = applicants.find((a) => a.id === hireApplicantId) || null;
+
+  // Default hire target: the band that holds cadets, or a recruit/cadet-named
+  // one, rather than whatever category happens to be first.
+  const defaultHireCat =
+    cats.find((c) => cadetRank && (c.members || []).some((mm) => mm.rank === cadetRank))?.id ||
+    cats.find((c) => /recruit|cadet|trainee/i.test(c.name))?.id ||
+    cats[0]?.id ||
+    "";
 
   const cadets = [];
   for (const cat of sub?.categories || []) {
@@ -1019,36 +1034,64 @@ function FTOBody({ initialSubId, user, onToast }) {
     onToast?.(`${m.name} passed training, promoted to ${rankName} with a new callsign${movedMsg(m.catId)}`);
   }
 
-  function hire() {
-    const catId = hireCat || sub?.categories?.[0]?.id;
-    if (!sub || !catId || !hireName.trim()) return;
-    const name = hireName.trim();
-    mutate((cfg) => {
-      const today = new Date().toISOString().slice(0, 10);
-      const fields = {};
-      const hireF = R.hireDateFieldId(cfg);
-      if (hireF) fields[hireF] = today;
-      const promoF = R.promotionDateFieldId(cfg);
-      if (promoF) fields[promoF] = today;
+  // Compute the hire fields (dates, callsign, active status) merged onto a base.
+  function hireFields(cfg, base = {}) {
+    const today = new Date().toISOString().slice(0, 10);
+    const fields = { ...base };
+    const hireF = R.hireDateFieldId(cfg);
+    if (hireF && !fields[hireF]) fields[hireF] = today;
+    const promoF = R.promotionDateFieldId(cfg);
+    if (promoF) fields[promoF] = today;
+    const csF = R.callsignFieldId(cfg);
+    if (csF && !fields[csF]) {
       const cs = hireSeries
         ? R.nextCallsignForFormat(cfg, sub.id, hireSeries.format)
         : cadetRank
         ? R.nextCallsignFor(cfg, sub.id, cadetRank)
         : null;
-      const csF = R.callsignFieldId(cfg);
-      if (cs && csF) fields[csF] = cs;
-      const statusF = R.statusFieldId(cfg);
-      const statusOpts =
-        (cfg.roster.memberFields || []).find((f) => f.id === statusF)?.options || [];
-      const active = statusOpts.find((o) => /active/i.test(o));
-      if (statusF && active) fields[statusF] = active;
-      return R.addMember(cfg, sub.id, catId, {
+      if (cs) fields[csF] = cs;
+    }
+    const statusF = R.statusFieldId(cfg);
+    const statusOpts =
+      (cfg.roster.memberFields || []).find((f) => f.id === statusF)?.options || [];
+    const active = statusOpts.find((o) => /active/i.test(o));
+    if (statusF && active) fields[statusF] = active;
+    return fields;
+  }
+
+  function hire() {
+    const catId = hireCat || defaultHireCat;
+    if (!sub || !catId) return;
+
+    // Convert an existing applicant: set them to the cadet rank + hire fields,
+    // then move them out of the applicants band into the program.
+    if (selectedApplicant) {
+      const app = selectedApplicant;
+      mutate((cfg) => {
+        let next = R.updateMember(cfg, sub.id, applicantsCat.id, app.id, {
+          rank: cadetRank,
+          fields: hireFields(cfg, app.fields || {}),
+        });
+        if (catId !== applicantsCat.id) {
+          next = R.moveMember(next, sub.id, applicantsCat.id, app.id, catId);
+        }
+        return next;
+      });
+      onToast?.(`${app.name || "Applicant"} hired into the cadet program`);
+      setHireApplicantId("");
+      return;
+    }
+
+    if (!hireName.trim()) return;
+    const name = hireName.trim();
+    mutate((cfg) =>
+      R.addMember(cfg, sub.id, catId, {
         name,
         discordId: hireDiscord.trim(),
         rank: cadetRank,
-        fields,
-      });
-    });
+        fields: hireFields(cfg),
+      })
+    );
     onToast?.(`${name} hired into the cadet program`);
     setHireName("");
     setHireDiscord("");
@@ -1169,19 +1212,40 @@ function FTOBody({ initialSubId, user, onToast }) {
         <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.5px] text-cad-muted">
           Hire applicant into the program
         </div>
-        <div className="grid items-end gap-2 sm:grid-cols-[1fr_1fr_1fr_1fr_auto]">
+        {applicantsCat && (
+          <Field
+            label={`From ${applicantsCat.name}`}
+            hint="Pick a current applicant to move into the program, or choose Manual entry."
+          >
+            <Select value={hireApplicantId} onChange={(e) => setHireApplicantId(e.target.value)}>
+              <option value="">Manual entry…</option>
+              {applicants.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name || "Unnamed applicant"}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
+        <div className="mt-2 grid items-end gap-2 sm:grid-cols-[1fr_1fr_1fr_1fr_auto]">
           <Field label="Name">
-            <Input value={hireName} onChange={(e) => setHireName(e.target.value)} placeholder="J. Doe" />
+            <Input
+              value={selectedApplicant ? selectedApplicant.name || "" : hireName}
+              onChange={(e) => setHireName(e.target.value)}
+              placeholder="J. Doe"
+              disabled={!!selectedApplicant}
+            />
           </Field>
           <Field label="Discord ID">
             <Input
-              value={hireDiscord}
+              value={selectedApplicant ? selectedApplicant.discordId || "" : hireDiscord}
               onChange={(e) => setHireDiscord(e.target.value)}
               placeholder="000000000000000000"
+              disabled={!!selectedApplicant}
             />
           </Field>
           <Field label="Category">
-            <Select value={hireCat || sub?.categories?.[0]?.id || ""} onChange={(e) => setHireCat(e.target.value)}>
+            <Select value={hireCat || defaultHireCat} onChange={(e) => setHireCat(e.target.value)}>
               {(sub?.categories || []).map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
@@ -1199,7 +1263,11 @@ function FTOBody({ initialSubId, user, onToast }) {
               ))}
             </Select>
           </Field>
-          <Button icon={UserPlus} disabled={!hireName.trim() || !cadetRank} onClick={hire}>
+          <Button
+            icon={UserPlus}
+            disabled={(!selectedApplicant && !hireName.trim()) || !cadetRank}
+            onClick={hire}
+          >
             Hire
           </Button>
         </div>

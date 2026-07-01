@@ -336,6 +336,12 @@ const recruits = [
   m("9911","N. Thomas","Recruit","A","","6/26/2026","","7/10",null,"675564425327149056","N/A",""),
 ];
 
+const applicants = [
+  m("", "K. Marsh", "Applicant", "A", "", "6/28/2026", "", "", null, "1290000000000000001", "N/A", ""),
+  m("", "T. Vale", "Applicant", "A", "", "6/29/2026", "", "", null, "1290000000000000002", "N/A", ""),
+  m("", "R. Kestrel", "Applicant", "A", "", "6/30/2026", "", "", null, "1290000000000000003", "N/A", ""),
+];
+
 const categories = [
   { name: "Command Staff", color: "#d4af37", members: commandStaff },
   { name: "Command Grade", color: "#f59e0b", members: commandGrade },
@@ -343,6 +349,7 @@ const categories = [
   { name: "Junior Supervisor Grade", color: "#14b8a6", members: juniorSupervisor },
   { name: "Trooper Grade", color: "#22c55e", members: [...masterTroopers, ...seniorTroopers, ...tfc, ...troopers, ...auxiliary] },
   { name: "Department Recruits", color: "#a855f7", members: recruits },
+  { name: "Department Applicants", color: "#64748b", members: applicants },
 ];
 
 // ── Build rank list (unique, in appearance order) ────────────────────────────
