@@ -44,7 +44,7 @@ const STARTER_CATEGORIES = [
   "Hats & Helmets",
 ];
 
-function newOutfit() {
+export function newOutfit() {
   return {
     id: uid("outfit"),
     name: "New Uniform",
@@ -283,26 +283,13 @@ function OutfitCard({ outfit, canEdit, onEdit, onDelete, onMove, isFirst, isLast
   );
 }
 
-// ─── Page ────────────────────────────────────────────────────────────────────
+// ─── Reusable uniform board (grid of outfits + editor), shared by the plain
+// Uniform Roster page and each tab of the Subdivision Uniform Roster ──────────
 
-export default function UniformRoster({ page, user }) {
-  const { config, mutate } = useConfig();
-  const canEdit = canEditFleet(user, config);
-  const cfg = page?.config || {};
-  const outfits = Array.isArray(cfg.outfits) ? cfg.outfits : [];
-
+export function UniformBoard({ outfits, setOutfits, canEdit, notes, setNotes, notesLabel = "Uniform rules", emptyHint }) {
   const [outfitModal, setOutfitModal] = useState(null);
   const [confirm, setConfirm] = useState(null);
   const outfitM = useModalData(outfitModal);
-
-  const setCfg = (patch) =>
-    mutate((c) => ({
-      ...c,
-      pages: c.pages.map((p) =>
-        p.id === page.id ? { ...p, config: { ...(p.config || {}), ...patch } } : p
-      ),
-    }));
-  const setOutfits = (next) => setCfg({ outfits: next });
 
   function moveOutfit(id, dir) {
     const i = outfits.findIndex((o) => o.id === id);
@@ -314,34 +301,24 @@ export default function UniformRoster({ page, user }) {
   }
   function saveOutfit(draft) {
     const { isNew, ...clean } = draft;
-    setOutfits(
-      isNew ? [...outfits, clean] : outfits.map((o) => (o.id === clean.id ? clean : o))
-    );
+    setOutfits(isNew ? [...outfits, clean] : outfits.map((o) => (o.id === clean.id ? clean : o)));
     setOutfitModal(null);
   }
 
   return (
     <div>
-      <PageHeader
-        kicker={cfg.heroKicker || "Personnel"}
-        title={cfg.heroTitle || page?.label || "Uniform Roster"}
-        subtitle={cfg.heroSubtitle || "Approved uniforms and their components, numbers, and textures."}
-        actions={
-          canEdit && (
-            <Button icon={Plus} onClick={() => setOutfitModal(newOutfit())}>
-              Add uniform
-            </Button>
-          )
-        }
-      />
+      {canEdit && outfits.length > 0 && (
+        <div className="mb-4 flex justify-end">
+          <Button icon={Plus} onClick={() => setOutfitModal(newOutfit())}>Add uniform</Button>
+        </div>
+      )}
 
       {outfits.length === 0 ? (
         <Panel className="p-10 text-center">
           <Shirt size={32} className="mx-auto mb-3 text-slate-500" />
           <div className="text-base font-semibold text-slate-200">No uniforms yet</div>
           <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
-            Add a card per uniform (Class A, Class B, vest options, qualification pins…),
-            each with a reference photo and its component numbers and textures.
+            {emptyHint || "Add a card per uniform (Class A, Class B, vest options, qualification pins…), each with a reference photo and its component numbers and textures."}
           </p>
           {canEdit && (
             <Button icon={Plus} className="mt-4" onClick={() => setOutfitModal(newOutfit())}>
@@ -366,33 +343,24 @@ export default function UniformRoster({ page, user }) {
         </div>
       )}
 
-      {/* Page-level rules */}
-      {(cfg.notes || canEdit) && (
+      {setNotes && (notes || canEdit) && (
         <Panel className="mt-4 p-4">
-          <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.5px] text-cad-muted">
-            Department uniform rules
-          </div>
+          <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.5px] text-cad-muted">{notesLabel}</div>
           {canEdit ? (
             <Textarea
               rows={3}
-              value={cfg.notes || ""}
+              value={notes || ""}
               placeholder="e.g. Hats are mandatory on duty. Glasses must be professional…"
-              onChange={(e) => setCfg({ notes: e.target.value })}
+              onChange={(e) => setNotes(e.target.value)}
             />
           ) : (
-            <p className="whitespace-pre-line text-sm leading-6 text-slate-300">{cfg.notes}</p>
+            <p className="whitespace-pre-line text-sm leading-6 text-slate-300">{notes}</p>
           )}
         </Panel>
       )}
 
       {outfitM.data && (
-        <OutfitModal
-          key={outfitM.key}
-          open={outfitM.open}
-          onClose={() => setOutfitModal(null)}
-          outfit={outfitM.data}
-          onSave={saveOutfit}
-        />
+        <OutfitModal key={outfitM.key} open={outfitM.open} onClose={() => setOutfitModal(null)} outfit={outfitM.data} onSave={saveOutfit} />
       )}
       <ConfirmDialog
         open={Boolean(confirm)}
@@ -404,6 +372,39 @@ export default function UniformRoster({ page, user }) {
           setOutfits(outfits.filter((o) => o.id !== confirm.id));
           setConfirm(null);
         }}
+      />
+    </div>
+  );
+}
+
+// ─── Page ────────────────────────────────────────────────────────────────────
+
+export default function UniformRoster({ page, user }) {
+  const { config, mutate } = useConfig();
+  const canEdit = canEditFleet(user, config);
+  const cfg = page?.config || {};
+  const outfits = Array.isArray(cfg.outfits) ? cfg.outfits : [];
+
+  const setCfg = (patch) =>
+    mutate((c) => ({
+      ...c,
+      pages: c.pages.map((p) => (p.id === page.id ? { ...p, config: { ...(p.config || {}), ...patch } } : p)),
+    }));
+
+  return (
+    <div>
+      <PageHeader
+        kicker={cfg.heroKicker || "Personnel"}
+        title={cfg.heroTitle || page?.label || "Uniform Roster"}
+        subtitle={cfg.heroSubtitle || "Approved uniforms and their components, numbers, and textures."}
+      />
+      <UniformBoard
+        outfits={outfits}
+        setOutfits={(next) => setCfg({ outfits: next })}
+        canEdit={canEdit}
+        notes={cfg.notes}
+        setNotes={(next) => setCfg({ notes: next })}
+        notesLabel="Department uniform rules"
       />
     </div>
   );

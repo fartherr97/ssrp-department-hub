@@ -178,6 +178,8 @@ function PageModal({ open, onClose, config, page, onSave }) {
                     ? { books: defaultLogBooks(), entries: [] }
                     : type === "exams"
                     ? { exams: [], submissions: [] }
+                    : type === "uniformtabs"
+                    ? { tabs: [] }
                     : type === "calendar"
                     ? { events: [] }
                     : type === "activity"
@@ -191,6 +193,7 @@ function PageModal({ open, onClose, config, page, onSave }) {
               <option value="content">Content page (blocks)</option>
               <option value="fleet">Vehicle roster (fleet structure)</option>
               <option value="uniforms">Uniform roster (class structure)</option>
+              <option value="uniformtabs">Subdivision uniform rosters (tabbed)</option>
               <option value="chain">Chain of command (org chart)</option>
               <option value="adminlog">Administrative log (logbooks + stats)</option>
               <option value="exams">Exams (Google-Forms style, auto-graded)</option>
@@ -201,9 +204,11 @@ function PageModal({ open, onClose, config, page, onSave }) {
           </Field>
         )}
 
-        {["fleet", "calendar", "uniforms", "chain", "adminlog", "exams", "activity", "hours"].includes(draft.type) && (
+        {["fleet", "calendar", "uniforms", "uniformtabs", "chain", "adminlog", "exams", "activity", "hours"].includes(draft.type) && (
           <p className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm text-slate-400">
-            {draft.type === "exams"
+            {draft.type === "uniformtabs"
+              ? "Like the Uniform Roster, but split into tabs per subdivision (SWAT, TED, K9…). Site managers add tabs and choose which group(s) — e.g. each subdivision's heads — may edit each tab. Full roster editors and site managers can edit any tab."
+              : draft.type === "exams"
               ? "A Google-Forms-style exam center built on the page itself: create exams with multiple-choice, checkbox, dropdown, true/false, short-answer, and paragraph questions. Objective answers auto-grade; paragraphs are flagged for a reviewer. Per exam you choose which groups can take it and which can review submissions. Managers build exams; restrict who can VIEW the page below."
               : draft.type === "hours"
               ? "On-duty hours from the Duty Hub: a weekly top-hours leaderboard plus a table of every member's week/month hours and strikes. Hours sync from the Duty Hub (backend); strikes are counted from the admin logs. Viewable by anyone you allow below."
@@ -232,7 +237,7 @@ function PageModal({ open, onClose, config, page, onSave }) {
         </Field>
 
         {/* Any custom page type can be restricted to chosen groups. */}
-        {["content", "home", "fleet", "uniforms", "chain", "calendar", "adminlog", "exams", "activity", "hours"].includes(draft.type) && (
+        {["content", "home", "fleet", "uniforms", "uniformtabs", "chain", "calendar", "adminlog", "exams", "activity", "hours"].includes(draft.type) && (
           <Field label="Who can see this page">
             <div className="grid gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-3">
               <label className="flex items-center gap-2 text-sm text-slate-300">

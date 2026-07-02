@@ -24,6 +24,7 @@ const ActivityFeed = lazy(() => import("./pages/ActivityFeed.jsx"));
 const DutyHours = lazy(() => import("./pages/DutyHours.jsx"));
 const HelpPage = lazy(() => import("./pages/HelpPage.jsx"));
 const ExamsPage = lazy(() => import("./pages/ExamsPage.jsx"));
+const SubdivisionUniforms = lazy(() => import("./pages/SubdivisionUniforms.jsx"));
 
 // Map a page's `type` to the component that renders it.
 const PAGE_COMPONENTS = {
@@ -42,6 +43,7 @@ const PAGE_COMPONENTS = {
   hours: DutyHours,
   help: HelpPage,
   exams: ExamsPage,
+  uniformtabs: SubdivisionUniforms,
 };
 
 function ViewLoading() {
