@@ -708,7 +708,7 @@ export function Modal({ open, onClose, title, children, footer, size = "md" }) {
         onClick={onClose}
       />
       <div
-        className={`${open ? "anim-modal-in" : "anim-modal-out"} hub-panel relative z-10 w-full ${widths[size]} rounded-2xl`}
+        className={`${open ? "anim-modal-in" : "anim-modal-out"} hub-panel relative z-10 w-full min-w-0 ${widths[size]} rounded-2xl`}
       >
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
           <h3 className="text-lg font-semibold text-white">{title}</h3>

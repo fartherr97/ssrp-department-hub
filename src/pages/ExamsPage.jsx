@@ -1021,10 +1021,10 @@ export default function ExamsPage({ page, user }) {
       />
 
       {TABS.length > 1 && (
-        <div className="mb-5 flex gap-1 rounded-xl border border-white/10 bg-[var(--color-surface-1)] p-1">
+        <div className="mb-5 flex gap-1 overflow-x-auto rounded-xl border border-white/10 bg-[var(--color-surface-1)] p-1">
           {TABS.map((t) => (
             <button key={t.id} onClick={() => setTab(t.id)}
-              className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition ${tab === t.id ? "bg-[color:var(--color-primary)]/20 text-white" : "text-slate-400 hover:text-white"}`}>
+              className={`flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold transition sm:flex-1 ${tab === t.id ? "bg-[color:var(--color-primary)]/20 text-white" : "text-slate-400 hover:text-white"}`}>
               <t.icon size={15} />{t.label}
             </button>
           ))}

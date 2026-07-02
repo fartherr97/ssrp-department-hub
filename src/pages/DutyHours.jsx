@@ -110,7 +110,7 @@ export default function DutyHours({ page }) {
           subtitle="Once the Duty Hub feed is connected (or members are on the roster), hours show up here."
         />
       ) : (
-        <div className="grid gap-5">
+        <div className="grid grid-cols-1 gap-5">
           {/* Weekly leaderboard */}
           <div>
             <div className="mb-2 flex items-center gap-2 px-1 text-[11px] font-bold uppercase tracking-[0.5px] text-cad-muted">
