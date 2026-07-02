@@ -287,6 +287,18 @@ body::-webkit-scrollbar-thumb {
     border-color 0.16s ease;
 }
 .lift:hover { transform: translateY(-2px); }
+
+/* Shared card hover: a subtle lift plus an accent glow outline. Applied to the
+ * hub's card grids (exams, uniforms, vehicles…) so they feel consistent. */
+.hub-card-hover {
+  transition: transform 0.2s var(--ease-out), box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+.hub-card-hover:hover {
+  transform: translateY(-4px);
+  border-color: color-mix(in srgb, var(--color-primary) 55%, transparent);
+  box-shadow: 0 14px 34px -14px var(--color-primary);
+}
 .btn-glossy {
   transition: transform 0.15s ease, background-color 0.15s ease,
     border-color 0.15s ease, color 0.15s ease;

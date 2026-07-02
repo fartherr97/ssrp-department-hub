@@ -204,7 +204,7 @@ function OutfitModal({ open, onClose, outfit, onSave }) {
 function OutfitCard({ outfit, canEdit, onEdit, onDelete, onMove, isFirst, isLast }) {
   const items = (outfit.items || []).filter((it) => it.category || it.number || it.texture);
   return (
-    <Panel className="flex flex-col overflow-hidden">
+    <Panel className="hub-card-hover flex flex-col overflow-hidden">
       <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-bold text-white">{outfit.name}</div>

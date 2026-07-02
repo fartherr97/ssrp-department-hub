@@ -554,11 +554,12 @@ function SubmissionsTab({ exams, submissions, user, config, onReview }) {
 
 function MembersTab({ exams, submissions, user, config, onReview }) {
   const [q, setQ] = useState("");
-  const [openKey, setOpenKey] = useState(null);
+  const [selectedKey, setSelectedKey] = useState(null);
   const [openSub, setOpenSub] = useState(null);
   const examById = (id) => exams.find((e) => e.id === id);
   const canReviewSub = (s) => { const e = examById(s.examId); return e ? canReviewExam(user, config, e) : canManageExams(user, config); };
 
+  // Build the member index live (so a review updates the open profile too).
   const reviewable = submissions.filter(canReviewSub).filter((s) => s.subject?.name && s.subject.name !== "Anonymous");
   const map = new Map();
   for (const s of reviewable) {
@@ -566,58 +567,80 @@ function MembersTab({ exams, submissions, user, config, onReview }) {
     if (!map.has(key)) map.set(key, { key, name: s.subject.name, discordId: s.subject.discordId, subs: [] });
     map.get(key).subs.push(s);
   }
-  const people = [...map.values()].sort((a, b) => (b.subs[0]?.at || "").localeCompare(a.subs[0]?.at || ""));
+  for (const p of map.values()) p.subs.sort((a, b) => (b.at || "").localeCompare(a.at || ""));
+
   const term = q.trim().toLowerCase();
-  const visible = people.filter((p) => !term || `${p.name} ${p.discordId || ""}`.toLowerCase().includes(term));
+  const suggestions = term
+    ? [...map.values()].filter((p) => `${p.name} ${p.discordId || ""}`.toLowerCase().includes(term)).slice(0, 8)
+    : [];
+  const selected = selectedKey ? map.get(selectedKey) : null;
+  const initials = (n) => (n || "?").slice(0, 2).toUpperCase();
+
+  const pick = (p) => { setSelectedKey(p.key); setQ(""); setOpenSub(null); };
 
   return (
     <div className="grid gap-4">
       <Panel className="p-4">
         <div className="relative">
           <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search a member by name or Discord ID…" className="pl-9" />
+          <Input
+            value={q}
+            onChange={(e) => { setQ(e.target.value); if (selectedKey) setSelectedKey(null); }}
+            placeholder="Search a member by name or Discord ID…"
+            className="pl-9"
+          />
+          {term && !selected && (
+            <div className="absolute left-0 right-0 z-20 mt-1 overflow-hidden rounded-xl border border-white/10 bg-[var(--color-surface-2)] shadow-xl">
+              {suggestions.length === 0 ? (
+                <div className="px-3 py-2.5 text-sm text-slate-500">No members match “{q.trim()}”.</div>
+              ) : (
+                suggestions.map((p) => (
+                  <button key={p.key} onClick={() => pick(p)} className="flex w-full items-center gap-3 px-3 py-2 text-left transition hover:bg-white/[0.05]">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/5 text-[11px] font-bold text-slate-300">{initials(p.name)}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold text-white">{p.name}</span>
+                      <span className="block truncate text-xs text-slate-500">{p.discordId || "no Discord ID"} · {p.subs.length} exam{p.subs.length === 1 ? "" : "s"}</span>
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
         </div>
       </Panel>
-      {visible.length === 0 ? (
-        <EmptyState icon={Users} title="No members yet" subtitle="People who submit exams show up here with their full history." />
+
+      {!selected ? (
+        <EmptyState icon={Users} title="Search for a member" subtitle="Start typing a name or Discord ID, then pick someone to load their exam history." />
       ) : (
-        <div className="grid gap-2">
-          {visible.map((p) => {
-            const passed = p.subs.filter((s) => s.status === "passed").length;
-            return (
-              <Panel key={p.key} className="p-0">
-                <button onClick={() => setOpenKey(openKey === p.key ? null : p.key)} className="flex w-full items-center gap-3 px-4 py-3 text-left">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/5 text-xs font-bold text-slate-300">
-                    {(p.name || "?").slice(0, 2).toUpperCase()}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-semibold text-white">{p.name}</div>
-                    <div className="truncate text-xs text-slate-500">{p.discordId || "no Discord ID"} · {p.subs.length} exam{p.subs.length === 1 ? "" : "s"} · {passed} passed</div>
-                  </div>
+        <Panel className="p-0">
+          <div className="flex items-center gap-3 border-b border-white/10 px-4 py-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/5 text-sm font-bold text-slate-300">{initials(selected.name)}</span>
+            <div className="min-w-0 flex-1">
+              <div className="truncate font-semibold text-white">{selected.name}</div>
+              <div className="truncate text-xs text-slate-500">
+                {selected.discordId || "no Discord ID"} · {selected.subs.length} exam{selected.subs.length === 1 ? "" : "s"} · {selected.subs.filter((s) => s.status === "passed").length} passed
+              </div>
+            </div>
+            <Button variant="secondary" className="!py-1.5 text-xs" onClick={() => { setSelectedKey(null); setQ(""); }}>Change</Button>
+          </div>
+          <div className="grid gap-2 p-3">
+            {selected.subs.map((s) => (
+              <div key={s.id} className="rounded-lg border border-white/10 bg-[var(--color-surface-2)]">
+                <button onClick={() => setOpenSub(openSub === s.id ? null : s.id)} className="flex w-full items-center gap-2 px-3 py-2 text-left">
+                  <span className="min-w-0 flex-1 truncate text-sm text-white">{s.examTitle}</span>
+                  <span className="text-xs text-slate-500">{fmtDate(s.at)}</span>
+                  <span className="text-xs text-slate-400">{s.percent}%</span>
+                  <StatusBadge s={s.status} />
                 </button>
-                {openKey === p.key && (
-                  <div className="grid gap-2 border-t border-white/10 p-3">
-                    {p.subs.map((s) => (
-                      <div key={s.id} className="rounded-lg border border-white/10 bg-[var(--color-surface-2)]">
-                        <button onClick={() => setOpenSub(openSub === s.id ? null : s.id)} className="flex w-full items-center gap-2 px-3 py-2 text-left">
-                          <span className="min-w-0 flex-1 truncate text-sm text-white">{s.examTitle}</span>
-                          <span className="text-xs text-slate-500">{fmtDate(s.at)}</span>
-                          <span className="text-xs text-slate-400">{s.percent}%</span>
-                          <StatusBadge s={s.status} />
-                        </button>
-                        {openSub === s.id && (
-                          <div className="border-t border-white/10 p-3">
-                            <SubmissionDetail submission={s} canReview={canReviewSub(s)} onReview={onReview} />
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                {openSub === s.id && (
+                  <div className="border-t border-white/10 p-3">
+                    <SubmissionDetail submission={s} canReview={canReviewSub(s)} onReview={onReview} />
                   </div>
                 )}
-              </Panel>
-            );
-          })}
-        </div>
+              </div>
+            ))}
+          </div>
+        </Panel>
       )}
     </div>
   );
@@ -1014,10 +1037,7 @@ export default function ExamsPage({ page, user }) {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {takeable.map((e) => (
-              <Panel
-                key={e.id}
-                className="group flex flex-col overflow-hidden p-0 transition-all duration-200 ease-out hover:-translate-y-1 hover:border-[color:var(--color-primary)]/60 hover:shadow-[0_12px_34px_-12px_var(--color-primary)]"
-              >
+              <Panel key={e.id} className="hub-card-hover group flex flex-col overflow-hidden p-0">
                 <div className="h-36 w-full overflow-hidden bg-black/30">
                   {safeMediaUrl(e.banner) && (
                     <img src={safeMediaUrl(e.banner)} alt="" onError={(ev) => (ev.currentTarget.style.display = "none")}
