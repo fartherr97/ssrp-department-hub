@@ -1,7 +1,7 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Plus, Trash2, Pencil, GraduationCap, ClipboardList, Search, Check, X,
-  CircleCheck, CircleX, Clock, FileText, Eye, EyeOff, Copy, ExternalLink,
+  CircleCheck, CircleX, Clock, FileText, Eye, EyeOff, Copy, ExternalLink, Link2, Users,
 } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
 import { safeLinkUrl, safeMediaUrl } from "../lib/urls.js";
@@ -15,6 +15,16 @@ import {
 } from "../lib/exams.js";
 
 const who = (u) => u?.displayName || u?.username || "Unknown";
+function formatAnswer(ans) {
+  if (ans == null || ans === "") return "";
+  if (Array.isArray(ans)) return ans.join(", ");
+  if (typeof ans === "object") {
+    return Object.entries(ans)
+      .map(([row, v]) => `${row}: ${Array.isArray(v) ? v.join(", ") : v}`)
+      .join(" · ");
+  }
+  return String(ans);
+}
 const uid = (p) => `${p}-${(crypto?.randomUUID?.() || Math.random().toString(36).slice(2)).slice(0, 8)}`;
 const fmtDate = (iso) => (iso ? new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "");
 
@@ -86,6 +96,75 @@ function AnswerInput({ q, value, onChange }) {
         {(q.options || []).map((o, i) => <option key={i} value={o}>{o}</option>)}
       </Select>
     );
+  if (q.type === "date")
+    return <Input type="date" value={value || ""} onChange={(e) => onChange(e.target.value)} />;
+  if (q.type === "time")
+    return <Input type="time" value={value || ""} onChange={(e) => onChange(e.target.value)} />;
+  if (q.type === "scale") {
+    const min = Number(q.scaleMin ?? 1), max = Number(q.scaleMax ?? 5);
+    const nums = []; for (let n = min; n <= max; n++) nums.push(n);
+    return (
+      <div className="flex items-center gap-2">
+        {q.minLabel && <span className="text-xs text-slate-500">{q.minLabel}</span>}
+        <div className="flex flex-wrap gap-1.5">
+          {nums.map((n) => (
+            <button key={n} type="button" onClick={() => onChange(String(n))}
+              className={`h-9 w-9 rounded-lg border text-sm font-semibold transition ${String(value) === String(n) ? "border-[var(--color-primary)] bg-[color:var(--color-primary)]/15 text-white" : "border-white/10 text-slate-300 hover:border-white/25"}`}>
+              {n}
+            </button>
+          ))}
+        </div>
+        {q.maxLabel && <span className="text-xs text-slate-500">{q.maxLabel}</span>}
+      </div>
+    );
+  }
+  if (q.type === "rating") {
+    const max = Number(q.ratingMax ?? 5);
+    const stars = []; for (let n = 1; n <= max; n++) stars.push(n);
+    return (
+      <div className="flex gap-1">
+        {stars.map((n) => (
+          <button key={n} type="button" onClick={() => onChange(String(n))}
+            className={`text-2xl leading-none transition ${Number(value) >= n ? "text-amber-400" : "text-slate-600 hover:text-slate-400"}`}>★</button>
+        ))}
+      </div>
+    );
+  }
+  if (q.type === "mcgrid" || q.type === "cbgrid") {
+    const cb = q.type === "cbgrid";
+    const val = value || {};
+    const setCell = (row, col) => {
+      if (!cb) return onChange({ ...val, [row]: col });
+      const cur = Array.isArray(val[row]) ? val[row] : [];
+      onChange({ ...val, [row]: cur.includes(col) ? cur.filter((c) => c !== col) : [...cur, col] });
+    };
+    const on = (row, col) => (cb ? (val[row] || []).includes(col) : val[row] === col);
+    return (
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr>
+              <th />
+              {(q.columns || []).map((c, i) => <th key={i} className="px-2 pb-1 text-xs font-semibold text-slate-400">{c}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {(q.rows || []).map((r, ri) => (
+              <tr key={ri}>
+                <td className="py-1 pr-2 text-slate-300">{r}</td>
+                {(q.columns || []).map((c, ci) => (
+                  <td key={ci} className="px-2 text-center">
+                    <button type="button" onClick={() => setCell(r, c)}
+                      className={`h-5 w-5 border ${cb ? "rounded" : "rounded-full"} ${on(r, c) ? "border-[var(--color-primary)] bg-[var(--color-primary)]" : "border-white/25"}`} />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
   // multiple / checkboxes
   const multi = q.type === "checkboxes";
   const arr = Array.isArray(value) ? value : [];
@@ -115,11 +194,23 @@ function AnswerInput({ q, value, onChange }) {
   );
 }
 
+const progressKey = (examId) => `exam-progress:${examId}`;
+
 function TakeExamModal({ open, onClose, exam, user, onSubmit }) {
-  const [answers, setAnswers] = useState({});
-  const [subject, setSubject] = useState({ name: who(user), discordId: user?.id || "" });
+  // Restore any auto-saved progress for this exam.
+  const saved = (() => {
+    try { return JSON.parse(localStorage.getItem(progressKey(exam.id)) || "null"); } catch { return null; }
+  })();
+  const [answers, setAnswers] = useState(saved?.answers || {});
+  const [subject, setSubject] = useState(saved?.subject || { name: who(user), discordId: user?.id || "" });
   const [err, setErr] = useState("");
   const set = (qid, v) => setAnswers((a) => ({ ...a, [qid]: v }));
+
+  // Auto-save progress as they go (Staff Hub style).
+  useEffect(() => {
+    if (exam.anonymous) return; // don't persist anonymous responses
+    try { localStorage.setItem(progressKey(exam.id), JSON.stringify({ answers, subject })); } catch { /* quota */ }
+  }, [answers, subject, exam.id, exam.anonymous]);
   // Scramble the question order once per attempt when enabled.
   const questions = useMemo(() => {
     const qs = exam.questions || [];
@@ -134,20 +225,24 @@ function TakeExamModal({ open, onClose, exam, user, onSubmit }) {
   }, [exam.id]);
 
   function submit() {
-    if (!subject.name.trim()) {
+    if (!exam.anonymous && !subject.name.trim()) {
       setErr("Please enter your name before submitting.");
       return;
     }
     const missing = (exam.questions || []).find((q) => {
       if (!q.required) return false;
       const v = answers[q.id];
-      return v == null || v === "" || (Array.isArray(v) && v.length === 0);
+      return v == null || v === "" || (Array.isArray(v) && v.length === 0) || (typeof v === "object" && !Array.isArray(v) && Object.keys(v).length === 0);
     });
     if (missing) {
       setErr("Please answer every required question before submitting.");
       return;
     }
-    onSubmit(exam, answers, { name: subject.name.trim(), discordId: subject.discordId.trim() });
+    try { localStorage.removeItem(progressKey(exam.id)); } catch { /* ignore */ }
+    const subj = exam.anonymous
+      ? { name: "Anonymous", discordId: "" }
+      : { name: subject.name.trim(), discordId: subject.discordId.trim() };
+    onSubmit(exam, answers, subj);
   }
 
   return (
@@ -170,15 +265,20 @@ function TakeExamModal({ open, onClose, exam, user, onSubmit }) {
         )}
         {exam.description && <RichText text={exam.description} className="text-sm leading-relaxed text-slate-400" />}
         <ResourceButtons links={exam.resourceLinks} />
-        <div className="grid gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3 sm:grid-cols-2">
-          <Field label="Your name" hint="Recorded on the submission.">
-            <Input value={subject.name} onChange={(e) => setSubject((s) => ({ ...s, name: e.target.value }))} />
-          </Field>
-          <Field label="Discord ID">
-            <Input value={subject.discordId} onChange={(e) => setSubject((s) => ({ ...s, discordId: e.target.value }))} className="font-mono" placeholder="000000000000000000" />
-          </Field>
-        </div>
-        <p className="text-xs text-slate-500">Pass mark {exam.passThreshold}%. Required questions are marked with *.</p>
+        {!exam.anonymous && (
+          <div className="grid gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3 sm:grid-cols-2">
+            <Field label="Your name" hint="Recorded on the submission.">
+              <Input value={subject.name} onChange={(e) => setSubject((s) => ({ ...s, name: e.target.value }))} />
+            </Field>
+            <Field label="Discord ID">
+              <Input value={subject.discordId} onChange={(e) => setSubject((s) => ({ ...s, discordId: e.target.value }))} className="font-mono" placeholder="000000000000000000" />
+            </Field>
+          </div>
+        )}
+        <p className="text-xs text-slate-500">
+          {exam.anonymous ? "Anonymous, your name is not recorded. " : `Pass mark ${exam.passThreshold}%. `}
+          Required questions are marked with *. {!exam.anonymous && "Progress auto-saves as you go."}
+        </p>
         {questions.map((q, i) => (
           <div key={q.id} className="rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-3">
             <div className="mb-2 text-sm font-semibold text-white">
@@ -197,18 +297,25 @@ function TakeExamModal({ open, onClose, exam, user, onSubmit }) {
 
 function ResultModal({ open, onClose, result }) {
   if (!result) return null;
-  const review = result.status === "needs-review";
+  const survey = result.maxScore === 0;
+  const review = !survey && result.status === "needs-review";
   return (
-    <Modal open={open} onClose={onClose} title="Exam submitted" size="sm"
+    <Modal open={open} onClose={onClose} title="Submitted" size="sm"
       footer={<Button onClick={onClose}>Done</Button>}>
       <div className="grid gap-3 text-center">
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full"
-          style={{ background: review ? "#f59e0b22" : result.status === "passed" ? "#1eb85422" : "#ef444422" }}>
-          {review ? <Clock size={26} className="text-amber-400" />
+          style={{ background: survey ? "#1eb85422" : review ? "#f59e0b22" : result.status === "passed" ? "#1eb85422" : "#ef444422" }}>
+          {survey ? <CircleCheck size={26} className="text-green-400" />
+            : review ? <Clock size={26} className="text-amber-400" />
             : result.status === "passed" ? <CircleCheck size={26} className="text-green-400" />
             : <CircleX size={26} className="text-red-400" />}
         </div>
-        {review ? (
+        {survey ? (
+          <>
+            <div className="text-lg font-bold text-white">Response submitted</div>
+            <p className="text-sm text-slate-400">Thanks, your response has been recorded.</p>
+          </>
+        ) : review ? (
           <>
             <div className="text-lg font-bold text-white">Submitted for review</div>
             <p className="text-sm text-slate-400">
@@ -256,7 +363,7 @@ function SubmissionDetail({ submission, canReview, onReview }) {
       {(submission.questions || []).map((q, i) => {
         const g = gById(q.id);
         const ans = submission.answers?.[q.id];
-        const ansText = Array.isArray(ans) ? ans.join(", ") : String(ans ?? "");
+        const ansText = formatAnswer(ans);
         return (
           <div key={q.id} className="rounded-lg border border-white/10 bg-[var(--color-surface-2)] p-3">
             <div className="mb-1 flex items-start justify-between gap-2">
@@ -357,6 +464,79 @@ function SubmissionsTab({ exams, submissions, user, config, onReview }) {
   );
 }
 
+// ── Members (a person's exam history) ────────────────────────────────────────
+
+function MembersTab({ exams, submissions, user, config, onReview }) {
+  const [q, setQ] = useState("");
+  const [openKey, setOpenKey] = useState(null);
+  const [openSub, setOpenSub] = useState(null);
+  const examById = (id) => exams.find((e) => e.id === id);
+  const canReviewSub = (s) => { const e = examById(s.examId); return e ? canReviewExam(user, config, e) : canManageExams(user, config); };
+
+  const reviewable = submissions.filter(canReviewSub).filter((s) => s.subject?.name && s.subject.name !== "Anonymous");
+  const map = new Map();
+  for (const s of reviewable) {
+    const key = s.subject.discordId || s.subject.name.toLowerCase();
+    if (!map.has(key)) map.set(key, { key, name: s.subject.name, discordId: s.subject.discordId, subs: [] });
+    map.get(key).subs.push(s);
+  }
+  const people = [...map.values()].sort((a, b) => (b.subs[0]?.at || "").localeCompare(a.subs[0]?.at || ""));
+  const term = q.trim().toLowerCase();
+  const visible = people.filter((p) => !term || `${p.name} ${p.discordId || ""}`.toLowerCase().includes(term));
+
+  return (
+    <div className="grid gap-4">
+      <Panel className="p-4">
+        <div className="relative">
+          <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search a member by name or Discord ID…" className="pl-9" />
+        </div>
+      </Panel>
+      {visible.length === 0 ? (
+        <EmptyState icon={Users} title="No members yet" subtitle="People who submit exams show up here with their full history." />
+      ) : (
+        <div className="grid gap-2">
+          {visible.map((p) => {
+            const passed = p.subs.filter((s) => s.status === "passed").length;
+            return (
+              <Panel key={p.key} className="p-0">
+                <button onClick={() => setOpenKey(openKey === p.key ? null : p.key)} className="flex w-full items-center gap-3 px-4 py-3 text-left">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/5 text-xs font-bold text-slate-300">
+                    {(p.name || "?").slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-semibold text-white">{p.name}</div>
+                    <div className="truncate text-xs text-slate-500">{p.discordId || "no Discord ID"} · {p.subs.length} exam{p.subs.length === 1 ? "" : "s"} · {passed} passed</div>
+                  </div>
+                </button>
+                {openKey === p.key && (
+                  <div className="grid gap-2 border-t border-white/10 p-3">
+                    {p.subs.map((s) => (
+                      <div key={s.id} className="rounded-lg border border-white/10 bg-[var(--color-surface-2)]">
+                        <button onClick={() => setOpenSub(openSub === s.id ? null : s.id)} className="flex w-full items-center gap-2 px-3 py-2 text-left">
+                          <span className="min-w-0 flex-1 truncate text-sm text-white">{s.examTitle}</span>
+                          <span className="text-xs text-slate-500">{fmtDate(s.at)}</span>
+                          <span className="text-xs text-slate-400">{s.percent}%</span>
+                          <StatusBadge s={s.status} />
+                        </button>
+                        {openSub === s.id && (
+                          <div className="border-t border-white/10 p-3">
+                            <SubmissionDetail submission={s} canReview={canReviewSub(s)} onReview={onReview} />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Panel>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Manage / build exams ─────────────────────────────────────────────────────
 
 // A "group and above" tier picker (Staff Hub "Administrator+" style). Groups are
@@ -403,7 +583,7 @@ function ResourceLinksEditor({ links, onChange }) {
   );
 }
 
-function QuestionEditor({ q, onChange, onDelete }) {
+function QuestionEditor({ q, index, total, onMove, onChange, onDelete }) {
   const patch = (p) => onChange({ ...q, ...p });
   const setOptions = (options) => {
     // keep correct answers valid against the new options
@@ -416,6 +596,13 @@ function QuestionEditor({ q, onChange, onDelete }) {
 
   return (
     <div className="rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-3">
+      <div className="mb-2 flex items-center gap-2">
+        <Select value={index} onChange={(e) => onMove(index, Number(e.target.value))} className="w-16">
+          {Array.from({ length: total }, (_, i) => <option key={i} value={i}>{i + 1}</option>)}
+        </Select>
+        <span className="text-[11px] font-bold uppercase tracking-[0.5px] text-cad-muted">of {total}</span>
+        <IconButton icon={Trash2} label="Delete question" onClick={onDelete} className="ml-auto hover:border-red-500/40 hover:text-red-300" />
+      </div>
       <div className="grid gap-2 sm:grid-cols-[1fr_200px]">
         <Field label="Question">
           <Input value={q.prompt} onChange={(e) => patch({ prompt: e.target.value })} placeholder="e.g. What is the 10-code for “out of service”?" />
@@ -478,6 +665,68 @@ function QuestionEditor({ q, onChange, onDelete }) {
         </div>
       )}
 
+      {q.type === "scale" && (
+        <div className="mt-2 grid gap-2 sm:grid-cols-4">
+          <Field label="From"><Input type="number" value={q.scaleMin ?? 1} onChange={(e) => patch({ scaleMin: Number(e.target.value) })} /></Field>
+          <Field label="To"><Input type="number" value={q.scaleMax ?? 5} onChange={(e) => patch({ scaleMax: Number(e.target.value) })} /></Field>
+          <Field label="Low label"><Input value={q.minLabel || ""} onChange={(e) => patch({ minLabel: e.target.value })} placeholder="e.g. Poor" /></Field>
+          <Field label="High label"><Input value={q.maxLabel || ""} onChange={(e) => patch({ maxLabel: e.target.value })} placeholder="e.g. Great" /></Field>
+          <Field label="Correct value" hint="Blank = ungraded (survey)." className="sm:col-span-2"><Input value={q.correct || ""} onChange={(e) => patch({ correct: e.target.value })} placeholder="e.g. 5" /></Field>
+        </div>
+      )}
+
+      {q.type === "rating" && (
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          <Field label="Max stars"><Input type="number" min={2} max={10} value={q.ratingMax ?? 5} onChange={(e) => patch({ ratingMax: Number(e.target.value) })} /></Field>
+          <Field label="Correct value" hint="Blank = ungraded."><Input value={q.correct || ""} onChange={(e) => patch({ correct: e.target.value })} placeholder="e.g. 5" /></Field>
+        </div>
+      )}
+
+      {(q.type === "date" || q.type === "time") && (
+        <Field label="Correct answer" hint="Blank = ungraded (just collects the value)." className="mt-2">
+          <Input type={q.type} value={q.correct || ""} onChange={(e) => patch({ correct: e.target.value })} />
+        </Field>
+      )}
+
+      {(q.type === "mcgrid" || q.type === "cbgrid") && (
+        <div className="mt-2 grid gap-2">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Field label="Rows"><CommaListInput value={q.rows || []} onChange={(rows) => patch({ rows, correct: {} })} placeholder="Row 1, Row 2" /></Field>
+            <Field label="Columns"><CommaListInput value={q.columns || []} onChange={(columns) => patch({ columns, correct: {} })} placeholder="Column 1, Column 2" /></Field>
+          </div>
+          <div className="rounded-lg border border-white/10 bg-white/[0.02] p-2">
+            <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.5px] text-cad-muted">Answer key {q.type === "cbgrid" ? "(tick every correct cell)" : "(tick the correct cell per row)"} · blank = ungraded</div>
+            <div className="overflow-x-auto">
+              <table className="text-xs">
+                <thead><tr><th /> {(q.columns || []).map((c, i) => <th key={i} className="px-2 pb-1 text-slate-400">{c}</th>)}</tr></thead>
+                <tbody>
+                  {(q.rows || []).map((r, ri) => (
+                    <tr key={ri}>
+                      <td className="py-1 pr-2 text-slate-300">{r}</td>
+                      {(q.columns || []).map((c, ci) => {
+                        const key = q.correct || {};
+                        const isCb = q.type === "cbgrid";
+                        const on = isCb ? (key[r] || []).includes(c) : key[r] === c;
+                        const toggle = () => {
+                          if (!isCb) return patch({ correct: { ...key, [r]: c } });
+                          const cur = Array.isArray(key[r]) ? key[r] : [];
+                          patch({ correct: { ...key, [r]: cur.includes(c) ? cur.filter((x) => x !== c) : [...cur, c] } });
+                        };
+                        return (
+                          <td key={ci} className="px-2 text-center">
+                            <button type="button" onClick={toggle} className={`h-4 w-4 border ${isCb ? "rounded" : "rounded-full"} ${on ? "border-green-500 bg-green-500" : "border-white/25"}`} />
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       {q.type === "paragraph" && (
         <p className="mt-2 text-xs text-slate-500">Graded by a reviewer, no answer key.</p>
       )}
@@ -491,7 +740,6 @@ function QuestionEditor({ q, onChange, onDelete }) {
           Points
           <Input type="number" min={0} value={q.points} onChange={(e) => patch({ points: Number(e.target.value) || 0 })} className="w-16" />
         </label>
-        <IconButton icon={Trash2} label="Delete question" onClick={onDelete} className="ml-auto hover:border-red-500/40 hover:text-red-300" />
       </div>
     </div>
   );
@@ -501,6 +749,13 @@ function ExamEditor({ open, onClose, exam, groups, onSave }) {
   const [draft, setDraft] = useState(exam);
   const patch = (p) => setDraft((d) => ({ ...d, ...p }));
   const setQ = (id, q) => patch({ questions: draft.questions.map((x) => (x.id === id ? q : x)) });
+  const moveQ = (from, to) => {
+    if (from === to) return;
+    const qs = [...draft.questions];
+    const [m] = qs.splice(from, 1);
+    qs.splice(to, 0, m);
+    patch({ questions: qs });
+  };
   const total = (draft.questions || []).reduce((s, q) => s + (Number(q.points) || 0), 0);
 
   return (
@@ -526,9 +781,22 @@ function ExamEditor({ open, onClose, exam, groups, onSave }) {
           <TierSelect label="Who can take this exam" hint="That group and everyone above it." groups={groups} value={draft.submitTier} anyoneLabel="Any signed-in member" onChange={(submitTier) => patch({ submitTier })} />
           <TierSelect label="Who can review submissions" hint="That group and above (managers always can)." groups={groups} value={draft.reviewTier} anyoneLabel="Site managers only" onChange={(reviewTier) => patch({ reviewTier })} />
         </div>
+        <Field label="Restrict to Discord role ID (optional)" hint="When set, this exam is gated by a specific Discord role.">
+          <Input value={draft.roleId || ""} onChange={(e) => patch({ roleId: e.target.value })} placeholder="000000000000000000" className="font-mono" />
+        </Field>
+        {draft.roleId && (
+          <label className="flex items-start gap-2 text-sm text-slate-300">
+            <input type="checkbox" checked={draft.roleBypass !== false} onChange={(e) => patch({ roleBypass: e.target.checked })} className="mt-0.5 h-4 w-4 accent-[var(--color-primary)]" />
+            <span>Bypass the rank requirement — anyone holding this role can take it even if they don't meet the rank above. <span className="text-slate-500">Off: they need the rank AND the role.</span></span>
+          </label>
+        )}
         <label className="flex items-center gap-2 text-sm text-slate-300">
           <input type="checkbox" checked={!!draft.scramble} onChange={(e) => patch({ scramble: e.target.checked })} className="h-4 w-4 accent-[var(--color-primary)]" />
           Scramble question order (each test taker sees a randomized order)
+        </label>
+        <label className="flex items-start gap-2 text-sm text-slate-300">
+          <input type="checkbox" checked={!!draft.anonymous} onChange={(e) => patch({ anonymous: e.target.checked })} className="mt-0.5 h-4 w-4 accent-[var(--color-primary)]" />
+          <span>Anonymous — don't collect name or Discord ID (for feedback/surveys). <span className="text-slate-500">Submissions won't be tied to a person.</span></span>
         </label>
 
         <div className="flex items-center justify-between">
@@ -542,8 +810,9 @@ function ExamEditor({ open, onClose, exam, groups, onSave }) {
         </div>
 
         <div className="grid gap-2">
-          {draft.questions.map((q) => (
-            <QuestionEditor key={q.id} q={q} onChange={(nq) => setQ(q.id, nq)} onDelete={() => patch({ questions: draft.questions.filter((x) => x.id !== q.id) })} />
+          {draft.questions.map((q, i) => (
+            <QuestionEditor key={q.id} q={q} index={i} total={draft.questions.length} onMove={moveQ}
+              onChange={(nq) => setQ(q.id, nq)} onDelete={() => patch({ questions: draft.questions.filter((x) => x.id !== q.id) })} />
           ))}
         </div>
         <Button variant="secondary" icon={Plus} onClick={() => patch({ questions: [...draft.questions, blankQuestion("multiple")] })}>Add question</Button>
@@ -570,7 +839,8 @@ export default function ExamsPage({ page, user }) {
   const show = (m) => { setToast(m); clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => setToast(""), 2600); };
 
   const TABS = [{ id: "take", label: "Available exams", icon: GraduationCap }];
-  if (reviewer) TABS.push({ id: "submissions", label: "Submissions", icon: ClipboardList });
+  if (reviewer) TABS.push({ id: "submissions", label: "Recent submissions", icon: ClipboardList });
+  if (reviewer) TABS.push({ id: "members", label: "Members", icon: Users });
   if (isManager) TABS.push({ id: "manage", label: "Manage exams", icon: Pencil });
   const [tab, setTab] = useState("take");
 
@@ -580,6 +850,15 @@ export default function ExamsPage({ page, user }) {
   const [editing, setEditing] = useState(null);
   const editingM = useModalData(editing);
   const [confirmDel, setConfirmDel] = useState(null);
+
+  // Deep link: /exams?exam=<id> opens that exam's take view (if allowed).
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("exam");
+    if (!id) return;
+    const e = exams.find((x) => x.id === id);
+    if (e && canTakeExam(user, config, e)) setTaking(e);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const setCfg = (patch) =>
     mutate((c) => ({ ...c, pages: c.pages.map((p) => (p.id === page.id ? { ...p, config: { ...(p.config || {}), ...patch } } : p)) }));
@@ -649,16 +928,22 @@ export default function ExamsPage({ page, user }) {
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             {takeable.map((e) => (
-              <Panel key={e.id} className="flex flex-col p-4">
-                <div className="mb-1 flex items-center gap-2">
-                  <GraduationCap size={16} className="text-[var(--color-primary)]" />
-                  <div className="font-semibold text-white">{e.title}</div>
-                  {!e.published && <Badge>Draft</Badge>}
-                </div>
-                {e.description && <p className="mb-3 text-sm text-slate-400">{e.description}</p>}
-                <div className="mt-auto flex items-center justify-between pt-2">
-                  <span className="text-xs text-slate-500">{e.questions.length} question{e.questions.length === 1 ? "" : "s"} · pass {e.passThreshold}%</span>
-                  <Button className="!py-1.5 text-xs" onClick={() => setTaking(e)}>Take exam</Button>
+              <Panel key={e.id} className="flex flex-col overflow-hidden p-0">
+                {safeMediaUrl(e.banner) && (
+                  <img src={safeMediaUrl(e.banner)} alt="" onError={(ev) => (ev.currentTarget.style.display = "none")}
+                    className="h-28 w-full object-cover" />
+                )}
+                <div className="flex flex-1 flex-col p-4">
+                  <div className="mb-1 flex items-center gap-2">
+                    <GraduationCap size={16} className="text-[var(--color-primary)]" />
+                    <div className="font-semibold text-white">{e.title}</div>
+                    {e.anonymous && <Badge>Anonymous</Badge>}
+                  </div>
+                  {e.description && <p className="mb-3 line-clamp-2 text-sm text-slate-400">{e.description.replace(/\*\*/g, "")}</p>}
+                  <div className="mt-auto flex items-center justify-between pt-2">
+                    <span className="text-xs text-slate-500">{e.questions.length} question{e.questions.length === 1 ? "" : "s"}{e.anonymous ? "" : ` · pass ${e.passThreshold}%`}</span>
+                    <Button className="!py-1.5 text-xs" onClick={() => setTaking(e)}>{e.anonymous ? "Start form" : "Take exam"}</Button>
+                  </div>
                 </div>
               </Panel>
             ))}
@@ -668,6 +953,10 @@ export default function ExamsPage({ page, user }) {
 
       {tab === "submissions" && reviewer && (
         <SubmissionsTab exams={exams} submissions={submissions} user={user} config={config} onReview={reviewSubmission} />
+      )}
+
+      {tab === "members" && reviewer && (
+        <MembersTab exams={exams} submissions={submissions} user={user} config={config} onReview={reviewSubmission} />
       )}
 
       {tab === "manage" && isManager && (
@@ -688,6 +977,8 @@ export default function ExamsPage({ page, user }) {
                     {" "}review: {e.reviewTier ? `${groups.find((g) => g.id === e.reviewTier)?.label || e.reviewTier}+` : "managers"}
                   </div>
                 </div>
+                <IconButton icon={Link2} label="Copy link"
+                  onClick={() => { try { navigator.clipboard?.writeText(`${window.location.origin}${window.location.pathname}?exam=${e.id}`); show("Link copied"); } catch { show("Couldn't copy"); } }} />
                 <IconButton icon={e.published ? Eye : EyeOff} label={e.published ? "Unpublish" : "Publish"}
                   onClick={() => setExams(exams.map((x) => (x.id === e.id ? { ...x, published: !x.published } : x)))} />
                 <IconButton icon={Copy} label="Duplicate"

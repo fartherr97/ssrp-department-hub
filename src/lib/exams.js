@@ -22,15 +22,24 @@ import {
   groupLevel,
 } from "./permissions.js";
 
-// The question palette, Google-Forms style. `auto` = machine-gradable.
+// The question palette, Google-Forms style. `auto` = can machine-grade (some,
+// like scale/date, only auto-grade when an answer key is set, else they defer to
+// a reviewer). `grid` types collect a value per row.
 export const QUESTION_TYPES = [
-  { type: "multiple", label: "Multiple choice (one answer)", auto: true, hasOptions: true },
-  { type: "checkboxes", label: "Checkboxes (multiple answers)", auto: true, hasOptions: true },
+  { type: "short", label: "Short answer", auto: true, hasOptions: false },
+  { type: "paragraph", label: "Paragraph", auto: false, hasOptions: false },
+  { type: "multiple", label: "Multiple choice", auto: true, hasOptions: true },
+  { type: "checkboxes", label: "Checkboxes", auto: true, hasOptions: true },
   { type: "dropdown", label: "Dropdown", auto: true, hasOptions: true },
   { type: "truefalse", label: "True / False", auto: true, hasOptions: false },
-  { type: "short", label: "Short answer", auto: true, hasOptions: false },
-  { type: "paragraph", label: "Paragraph (reviewed by a person)", auto: false, hasOptions: false },
+  { type: "scale", label: "Linear scale", auto: true, hasOptions: false },
+  { type: "rating", label: "Rating", auto: true, hasOptions: false },
+  { type: "mcgrid", label: "Multiple-choice grid", auto: true, hasOptions: false },
+  { type: "cbgrid", label: "Checkbox grid", auto: true, hasOptions: false },
+  { type: "date", label: "Date", auto: true, hasOptions: false },
+  { type: "time", label: "Time", auto: true, hasOptions: false },
 ];
+export const isGrid = (type) => type === "mcgrid" || type === "cbgrid";
 
 export function isAutoGradable(type) {
   return QUESTION_TYPES.find((t) => t.type === type)?.auto ?? false;
@@ -55,6 +64,21 @@ export function blankQuestion(type = "multiple") {
   } else if (type === "short") {
     q.correct = [];
     q.matchMode = "exact"; // "exact" | "keywords"
+  } else if (type === "scale") {
+    q.scaleMin = 1;
+    q.scaleMax = 5;
+    q.minLabel = "";
+    q.maxLabel = "";
+    q.correct = ""; // blank = ungraded survey field
+  } else if (type === "rating") {
+    q.ratingMax = 5;
+    q.correct = "";
+  } else if (type === "mcgrid" || type === "cbgrid") {
+    q.rows = ["Row 1", "Row 2"];
+    q.columns = ["Column 1", "Column 2"];
+    q.correct = {}; // { [rowLabel]: colLabel } or { [rowLabel]: [colLabels] }
+  } else if (type === "date" || type === "time") {
+    q.correct = ""; // blank = ungraded
   }
   return q;
 }
@@ -70,6 +94,9 @@ export function blankExam() {
     passThreshold: 80,
     submitTier: "", // group id; that group AND ABOVE may take it. "" = anyone signed in
     reviewTier: "", // group id; that group AND ABOVE may review. "" = site managers only
+    roleId: "", // optional Discord role gate
+    roleBypass: true, // true: role OR rank; false: role AND rank
+    anonymous: false, // no name/Discord recorded (surveys/feedback)
     scramble: false, // randomize question order per attempt
     published: false,
     questions: [blankQuestion("multiple")],
@@ -117,6 +144,43 @@ export function gradeAnswer(question, value) {
     }
     if (question.matchMode === "keywords") ok = accepted.every((k) => v.includes(k));
     else ok = accepted.some((a) => a === v);
+    return { awarded: ok ? max : 0, max, needsReview: false, correct: ok };
+  }
+
+  // scale / rating / date / time: auto-grade only if an answer key is set;
+  // otherwise they're survey fields (0 points) or deferred to a reviewer.
+  if (t === "scale" || t === "rating" || t === "date" || t === "time") {
+    const key = question.correct;
+    if (key === undefined || key === null || key === "") {
+      return max > 0
+        ? { awarded: 0, max, needsReview: true, correct: null }
+        : { awarded: 0, max: 0, needsReview: false, correct: null };
+    }
+    const ok = norm(value) === norm(key);
+    return { awarded: ok ? max : 0, max, needsReview: false, correct: ok };
+  }
+
+  // grids: all-or-nothing across every row.
+  if (t === "mcgrid" || t === "cbgrid") {
+    const rows = question.rows || [];
+    const key = question.correct || {};
+    const hasKey = Object.keys(key).length > 0;
+    if (!hasKey) {
+      return max > 0
+        ? { awarded: 0, max, needsReview: true, correct: null }
+        : { awarded: 0, max: 0, needsReview: false, correct: null };
+    }
+    const val = value || {};
+    let ok;
+    if (t === "mcgrid") {
+      ok = rows.every((r) => norm(val[r]) === norm(key[r]));
+    } else {
+      ok = rows.every((r) => {
+        const want = new Set((key[r] || []).map(norm));
+        const got = new Set((Array.isArray(val[r]) ? val[r] : []).map(norm));
+        return want.size === got.size && [...want].every((w) => got.has(w));
+      });
+    }
     return { awarded: ok ? max : 0, max, needsReview: false, correct: ok };
   }
 
@@ -171,12 +235,17 @@ export function meetsTier(user, config, groupId) {
   return userLevel(user, config) >= groupLevel(config, groupId);
 }
 
-// May take/submit this exam.
+// May take/submit this exam. Optional Discord-role gate: with roleBypass the role
+// OR the rank qualifies; without it, both are required. (Role checks need the
+// session to carry the member's roleIds — see buildSessionUser.)
 export function canTakeExam(user, config, exam) {
   if (!user || !exam) return false;
   if (canManageSite(user, config)) return true;
   if (!exam.published) return false;
-  return meetsTier(user, config, exam.submitTier);
+  const tierOk = meetsTier(user, config, exam.submitTier);
+  if (!exam.roleId) return tierOk;
+  const hasRole = (user.roleIds || []).map(String).includes(String(exam.roleId));
+  return exam.roleBypass ? tierOk || hasRole : tierOk && hasRole;
 }
 
 // May review/grade submissions for this exam. Empty reviewTier = managers only.

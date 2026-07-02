@@ -50,6 +50,8 @@ export function buildSessionUser(config, profile) {
     avatarUrl: profile.avatarUrl || "",
     group: group?.id || null,
     isAdmin: !!group?.manageSite,
+    // Kept so features can gate on a specific Discord role (e.g. exam access).
+    roleIds: (profile.roleIds || []).map(String),
   };
 }
 
