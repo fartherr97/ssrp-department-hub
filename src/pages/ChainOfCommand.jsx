@@ -41,24 +41,56 @@ function newNode(title = "New Position") {
 }
 
 // ── Auto-import an org chart from the roster ─────────────────────────────────
-// Reads the ranks (top-to-bottom = the hierarchy) and builds a tree: one box per
-// rank (a single holder shows as the box's name; several collapse into a member
-// list), grouped into tiers by the rank's base name. Where a rank name carries a
-// position (e.g. "Lieutenant - Patrol Operations A"), it's nested under the
-// senior with the matching position ("Captain - Patrol Operations A"); otherwise
-// it round-robins under the tier above. Editors rearrange from there.
+// Builds a COMPACT leadership pyramid, not the whole roster: it takes only the
+// top few rank tiers (Colonel → Captains for a typical dept) so the chart stays
+// readable and the rest is filled in by hand. Ranks are grouped into tiers by
+// their base name (rank order = seniority), and each box is placed under the
+// senior in the tier above that shares the most of its "position" words — so a
+// "Captain - Patrol Operations A" lands under "Major - Operations Bureau" rather
+// than scattering. Unmatched boxes go under the first senior, keeping a bureau's
+// units together instead of round-robining them across the chart.
 
-const STOP_WORDS = new Set(["and","the","of","for","operations","division","bureau","unit","section","troop","office","department"]);
+// How many rank tiers to import. Keeps the auto-chart a compact top-of-house
+// pyramid; editors grow the lower ranks manually from there.
+const MAX_IMPORT_TIERS = 4;
+
 const baseOf = (name) => String(name || "").split(" - ")[0].trim();
 const positionOf = (name) => {
   const i = String(name || "").indexOf(" - ");
   return i >= 0 ? name.slice(i + 3).trim().toLowerCase() : "";
 };
-function positionsMatch(a, b) {
-  if (!a || !b) return false;
-  if (a === b || a.includes(b) || b.includes(a)) return true;
-  const wb = new Set(b.split(/[^a-z0-9]+/).filter((w) => w.length > 2 && !STOP_WORDS.has(w)));
-  return a.split(/[^a-z0-9]+/).some((w) => w.length > 2 && !STOP_WORDS.has(w) && wb.has(w));
+
+// The distinguishing words of a position ("patrol operations a" → patrol,
+// operations). Only bare connectors are dropped — unlike the old matcher we KEEP
+// unit words like "operations"/"bureau"/"troop"/"division", because those are
+// exactly what tie a captain to the right bureau.
+const CONNECTORS = new Set(["and", "the", "of", "for", "a", "an", "to", "at", "in"]);
+function positionWords(pos) {
+  return new Set(
+    String(pos || "")
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((w) => w.length > 1 && !CONNECTORS.has(w))
+  );
+}
+
+// Pick the senior box whose position shares the most words with `pos`. Returns
+// null when there's no overlap at all (caller then falls back to the first).
+function bestSeniorFor(seniors, pos) {
+  const want = positionWords(pos);
+  if (!want.size) return null;
+  let best = null;
+  let bestScore = 0;
+  for (const s of seniors) {
+    const have = positionWords(positionOf(s.title));
+    let score = 0;
+    for (const w of want) if (have.has(w)) score++;
+    if (score > bestScore) {
+      bestScore = score;
+      best = s;
+    }
+  }
+  return best;
 }
 
 export function buildTreeFromRoster(config, subId) {
@@ -73,8 +105,22 @@ export function buildTreeFromRoster(config, subId) {
         if (!holdersByRank.has(m.rank)) holdersByRank.set(m.rank, []);
         holdersByRank.get(m.rank).push(m.name || "Unnamed");
       }
-  const orderedRanks = (sub.ranks || []).filter((r) => (holdersByRank.get(r.id) || []).length);
-  if (!orderedRanks.length) return { root: null, count: 0, subName: sub.name };
+  const withHolders = (sub.ranks || []).filter((r) => (holdersByRank.get(r.id) || []).length);
+  if (!withHolders.length) return { root: null, count: 0, subName: sub.name };
+
+  // Group the held ranks into tiers by base rank name (seniority order), then
+  // keep only the top few so the chart stays a compact leadership pyramid.
+  const tiers = [];
+  let curBase = null;
+  for (const r of withHolders) {
+    const base = baseOf(r.name);
+    if (base !== curBase) {
+      tiers.push([]);
+      curBase = base;
+    }
+    tiers[tiers.length - 1].push(r);
+  }
+  const kept = tiers.slice(0, MAX_IMPORT_TIERS);
 
   const mk = (title, holders) => ({
     id: uid("node"),
@@ -88,25 +134,21 @@ export function buildTreeFromRoster(config, subId) {
 
   const root = mk(sub.name || "Command", []);
   let count = 1;
-  let prevTier = [root];
-  let curTier = [];
-  let curBase = null;
+  let seniors = [root];
 
-  for (const r of orderedRanks) {
-    const base = baseOf(r.name);
-    if (curBase === null) curBase = base;
-    if (base !== curBase) {
-      if (curTier.length) prevTier = curTier;
-      curTier = [];
-      curBase = base;
-    }
-    const node = mk(r.name, holdersByRank.get(r.id) || []);
-    count++;
-    const pos = positionOf(r.name);
-    let parent = pos ? prevTier.find((p) => positionsMatch(positionOf(p.title), pos)) : null;
-    if (!parent) parent = prevTier[curTier.length % prevTier.length] || root;
-    parent.children.push(node);
-    curTier.push(node);
+  for (const tier of kept) {
+    const nodes = tier.map((r) => {
+      count++;
+      return mk(r.name, holdersByRank.get(r.id) || []);
+    });
+    tier.forEach((r, i) => {
+      // A single senior owns the whole tier below it (boxes fan out as siblings);
+      // with several seniors, group each box under the best bureau/troop match.
+      let parent = seniors.length > 1 ? bestSeniorFor(seniors, positionOf(r.name)) : null;
+      if (!parent) parent = seniors[0];
+      parent.children.push(nodes[i]);
+    });
+    seniors = nodes;
   }
   return { root, count, subName: sub.name };
 }
@@ -696,7 +738,10 @@ export default function ChainOfCommand({ page, user }) {
     const built = buildTreeFromRoster(config);
     if (!built.root) return;
     if (root) setConfirmImport(built); // replacing an existing chart → confirm
-    else setRoot(built.root);
+    else {
+      setRoot(built.root);
+      setZoom(1); // compact chart fits at full size
+    }
   }
 
   return (
@@ -900,13 +945,14 @@ export default function ChainOfCommand({ page, user }) {
       <ConfirmDialog
         open={Boolean(confirmImport)}
         title="Import from roster?"
-        message={`Replace the current chart with ${confirmImport?.count || 0} boxes built from ${
+        message={`Replace the current chart with ${confirmImport?.count || 0} boxes: the top leadership tiers of ${
           confirmImport?.subName || "the roster"
-        }'s ranks. Positions with a name (e.g. "Lieutenant - Patrol Operations A") nest under the matching senior; you can rearrange everything afterward.`}
+        } (down to captains), grouped by bureau or troop. It's a compact starting pyramid, add the lower ranks by hand or drag boxes to rearrange.`}
         confirmLabel="Import & replace"
         onCancel={() => setConfirmImport(null)}
         onConfirm={() => {
           setRoot(confirmImport.root);
+          setZoom(1); // compact chart fits at full size
           setConfirmImport(null);
         }}
       />
