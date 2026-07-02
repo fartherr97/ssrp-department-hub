@@ -195,6 +195,20 @@ export function canEditRosterStructure(user, config) {
   return hasCapability(user, config, "editRoster") || canManageSite(user, config);
 }
 
+// ── Membership tier ──────────────────────────────────────────────────────────
+// A Department Member is anyone who resolves to a permission group — i.e. one of
+// their Discord roles is mapped to a group on this site (or they're explicitly
+// assigned, or they're a backend admin). Everyone else who's merely signed in is
+// a Visitor: they only see pages a builder has opted in for visitors.
+export function isDepartmentMember(user, config) {
+  if (!user) return false;
+  if (user.isAdmin) return true;
+  return !!userGroup(config, user);
+}
+export function isVisitor(user, config) {
+  return !!user && !isDepartmentMember(user, config);
+}
+
 export function canAccessPage(user, page, config) {
   if (!user || !page) return false;
   if (page.type === "builder") return canManageSite(user, config);
@@ -213,11 +227,17 @@ export function canAccessPage(user, page, config) {
   // Content pages may opt in to group restrictions (page.restricted + access
   // list of group ids). Site managers and backend admins always see every page
   // so a Department Head can't lock themselves out of something they built.
+  const member = isDepartmentMember(user, config);
   if (page.restricted && Array.isArray(page.access) && page.access.length) {
     if (user.isAdmin || canManageSite(user, config)) return true;
-    return page.access.includes(user.group);
+    // Group-restricted pages are for members in those groups; visitors (no group)
+    // never match.
+    return member && page.access.includes(user.group);
   }
-  return true; // every other page is viewable by any signed-in member
+  // Default: Department Members see every content page. Visitors (signed in but
+  // not in the department) only see pages a builder has opted in for them.
+  if (!member) return !!page.visitorVisible;
+  return true;
 }
 
 export function groupLabel(config, groupId) {

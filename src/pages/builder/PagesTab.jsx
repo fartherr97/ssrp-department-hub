@@ -242,7 +242,7 @@ function PageModal({ open, onClose, config, page, onSave }) {
                   onChange={(e) => setDraft({ ...draft, restricted: !e.target.checked })}
                   className="h-4 w-4 accent-[var(--color-primary)]"
                 />
-                Everyone who is signed in
+                All department members
               </label>
               {draft.restricted && (
                 <div className="ml-6 grid gap-1.5">
@@ -266,6 +266,20 @@ function PageModal({ open, onClose, config, page, onSave }) {
                     </p>
                   )}
                 </div>
+              )}
+              {!draft.restricted && (
+                <label className="flex items-start gap-2 border-t border-white/5 pt-2 text-sm text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={!!draft.visitorVisible}
+                    onChange={(e) => setDraft({ ...draft, visitorVisible: e.target.checked })}
+                    className="mt-0.5 h-4 w-4 accent-[var(--color-primary)]"
+                  />
+                  <span>
+                    Also visible to visitors
+                    <span className="text-slate-500"> — people signed in but not in the department. Off by default; turn on for public pages like recruitment or applications.</span>
+                  </span>
+                </label>
               )}
             </div>
           </Field>

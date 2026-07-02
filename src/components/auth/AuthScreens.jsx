@@ -39,11 +39,11 @@ function DiscordButton({ className = "" }) {
 // ─── Dev login (front-end only) ──────────────────────────────────────────────
 
 function DevLogin({ groups, onDevLogin }) {
-  // "Regular member" previews someone in no permission group at all —
-  // they can view member pages but edit nothing.
+  // "Visitor" previews someone in no permission group at all — a signed-in
+  // outsider who only sees pages a builder opted in for visitors.
   const options = [
     ...(groups || []),
-    { id: "viewer", label: "Regular member (view only)" },
+    { id: "viewer", label: "Visitor (outside the department)" },
   ];
   // Default to the highest-privilege group so a quick "Enter" previews the hub
   // with full access (Builder, Access & Roles, etc.) rather than the lowest tier.

@@ -23,13 +23,19 @@ export function buildNav(config, user) {
     .filter((group) => group.pages.length > 0);
 }
 
-export function getInitialPageId(config) {
-  if (typeof window === "undefined") return config?.pages?.[0]?.id || "home";
+export function getInitialPageId(config, user) {
+  const pages = config?.pages || [];
+  // Prefer the first page the user can actually see (a visitor may not see the
+  // first page), falling back to the first page so callers always get an id.
+  const accessible = user ? pages.filter((p) => canAccessPage(user, p, config)) : pages;
+  const firstId = (accessible[0] || pages[0])?.id || "home";
+  if (typeof window === "undefined") return firstId;
   const fromPath = decodeURIComponent(
     window.location.pathname.replace(/^\/+/, "").split("/")[0] || ""
   );
-  if (config?.pages?.some((p) => p.id === fromPath)) return fromPath;
-  return config?.pages?.[0]?.id || "home";
+  const target = pages.find((p) => p.id === fromPath);
+  if (target && (!user || canAccessPage(user, target, config))) return fromPath;
+  return firstId;
 }
 
 export function getPagePath(pageId, config) {

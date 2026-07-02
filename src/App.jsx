@@ -163,17 +163,17 @@ export default function App() {
   // before picking a landing page — otherwise we'd lock in "home" prematurely.
   useEffect(() => {
     if (ready && Array.isArray(config?.pages) && activePageId == null) {
-      setActivePageId(getInitialPageId(config));
+      setActivePageId(getInitialPageId(config, user));
     }
-  }, [ready, config, activePageId]);
+  }, [ready, config, activePageId, user]);
 
   useEffect(() => {
     function onPop() {
-      if (config) setActivePageId(getInitialPageId(config));
+      if (config) setActivePageId(getInitialPageId(config, user));
     }
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
-  }, [config]);
+  }, [config, user]);
 
   useEffect(() => {
     // Only meaningful once the full config (with pages) is loaded; the pre-login
