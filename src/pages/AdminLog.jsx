@@ -77,10 +77,6 @@ export function defaultLogBooks() {
         "Resignation",
         "Transfer In",
         "Transfer Out",
-        "Verbal DA / Coaching",
-        "Non-Verbal DA",
-        "Strike",
-        "Other",
       ],
       fields: [{ id: uid("lf"), label: "Notes", type: "textarea" }],
     },
@@ -172,9 +168,6 @@ export function sampleEntries(books) {
   push(admin, "Hired, Application", ortiz, farson, 38, notes("Application #214 approved."));
   push(admin, "Hired, Open Interview", nguyen, brooks, 31, notes("Walk-up interview, passed."));
   push(admin, "Transfer In", harrison, welch, 27, notes("Transfer from HCSO, rank matched at Officer."));
-  push(admin, "Verbal DA / Coaching", ortiz, brooks, 21, notes("Coached on radio discipline during pursuit."));
-  push(admin, "Non-Verbal DA", brown, farson, 17, notes("Written warning, missed two mandatory meetings."));
-  push(admin, "Strike", brown, welch, 9, notes("Strike 1 of 3, unprofessional conduct on scene."));
   push(admin, "Transfer Out", vega, farson, 7, notes("Transferred to FHP on good terms."));
   push(admin, "Resignation", walsh, brooks, 3, notes("Resigned, school commitments. Eligible for rehire."));
 
