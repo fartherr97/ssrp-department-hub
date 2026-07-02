@@ -733,6 +733,65 @@ function BookBreakdown({ entries }) {
   );
 }
 
+// Rank people by how many entries they appear on (as logger or as subject),
+// with their most-common entry type. Powers the "Top members" leaderboards.
+const personKey = (p) => p?.discordId || (p?.name || "").toLowerCase();
+function leaderboard(entries, pick) {
+  const map = new Map();
+  for (const e of entries) {
+    const p = pick(e);
+    if (!p || !p.name) continue;
+    const key = personKey(p);
+    if (!map.has(key)) map.set(key, { key, name: p.name, discordId: p.discordId || "", count: 0, types: new Map() });
+    const r = map.get(key);
+    r.count += 1;
+    r.types.set(e.type, (r.types.get(e.type) || 0) + 1);
+  }
+  return [...map.values()]
+    .map((r) => ({ ...r, topType: [...r.types.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || "" }))
+    .sort((a, b) => b.count - a.count);
+}
+const initialsOf = (name) => (name || "?").split(/\s+/).map((w) => w[0] || "").join("").slice(0, 2).toUpperCase();
+
+function Leaderboard({ title, subtitle, rows, onPick, accent = "var(--color-primary)" }) {
+  const max = rows[0]?.count || 1;
+  return (
+    <Panel className="p-4">
+      <div className="mb-3">
+        <div className="text-sm font-bold text-white">{title}</div>
+        {subtitle && <div className="text-xs text-slate-500">{subtitle}</div>}
+      </div>
+      {rows.length === 0 ? (
+        <p className="text-sm text-slate-500">No entries yet.</p>
+      ) : (
+        <div className="grid gap-1.5">
+          {rows.slice(0, 8).map((r, i) => (
+            <button
+              key={r.key}
+              onClick={() => onPick(r.discordId || r.name)}
+              title="Show this member's activity"
+              className="group flex items-center gap-3 rounded-lg px-1.5 py-1 text-left transition hover:bg-white/[0.04]"
+            >
+              <span className="w-4 shrink-0 text-center text-xs font-bold text-slate-500">{i + 1}</span>
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/5 text-[11px] font-bold text-slate-300">
+                {initialsOf(r.name)}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold text-white group-hover:text-[var(--color-primary)]">{r.name}</span>
+                {r.topType && <span className="block truncate text-[11px] text-slate-500">mostly {r.topType}</span>}
+              </span>
+              <span className="hidden h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-white/[0.06] sm:block">
+                <span className="block h-full rounded-full" style={{ width: `${Math.max(8, (r.count / max) * 100)}%`, background: accent }} />
+              </span>
+              <span className="w-7 shrink-0 text-right text-sm font-bold tabular-nums text-white">{r.count}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
 function StatsView({ entries }) {
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
@@ -749,11 +808,14 @@ function StatsView({ entries }) {
     };
   }, [entries, q]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const books = useMemo(() => groupBy(entries, (e) => e.bookName), [entries]);
-  const last30 = useMemo(() => {
-    const cutoff = Date.now() - 30 * 86400000;
+  const within = (days) => {
+    const cutoff = Date.now() - days * 86400000;
     return entries.filter((e) => new Date(e.at || e.date).getTime() >= cutoff).length;
-  }, [entries]);
+  };
+  const last7 = useMemo(() => within(7), [entries]);
+  const last30 = useMemo(() => within(30), [entries]);
+  const topLoggers = useMemo(() => leaderboard(entries, (e) => e.by), [entries]);
+  const topSubjects = useMemo(() => leaderboard(entries, (e) => e.subject), [entries]);
 
   return (
     <div className="grid gap-4">
@@ -796,19 +858,31 @@ function StatsView({ entries }) {
         </>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
             <StatBox label="All entries" value={entries.length} />
-            <StatBox label="Last 30 days" value={last30} color="#22c55e" />
-            {books.slice(0, 2).map(([name, list]) => (
-              <StatBox key={name} label={name} value={list.length} color="#a855f7" />
-            ))}
+            <StatBox label="Last 7 days" value={last7} color="#22c55e" />
+            <StatBox label="Last 30 days" value={last30} color="#3b82f6" />
+            <StatBox label="Staff logging" value={topLoggers.length} color="#a855f7" />
+            <StatBox label="Members logged" value={topSubjects.length} color="#f59e0b" />
           </div>
           {entries.length === 0 ? (
             <p className="rounded-xl border border-dashed border-white/10 p-8 text-center text-sm text-slate-500">
               Statistics appear here as entries are logged.
             </p>
           ) : (
-            <BookBreakdown entries={entries} />
+            <>
+              <div>
+                <div className="mb-2 text-sm font-bold text-white">Top members</div>
+                <div className="grid items-start gap-4 lg:grid-cols-2">
+                  <Leaderboard title="Top staff activity" subtitle="Who's logging the most entries" rows={topLoggers} onPick={setQuery} accent="#22c55e" />
+                  <Leaderboard title="Most logged about" subtitle="Members with the most entries about them" rows={topSubjects} onPick={setQuery} accent="#f59e0b" />
+                </div>
+              </div>
+              <div>
+                <div className="mb-2 text-sm font-bold text-white">By logbook &amp; type</div>
+                <BookBreakdown entries={entries} />
+              </div>
+            </>
           )}
         </>
       )}
@@ -1108,13 +1182,16 @@ export default function AdminLog({ page, user }) {
             </span>
           </button>
         ))}
+        <div className="ml-auto mx-1 my-0.5 w-px shrink-0 self-stretch bg-white/10" />
         <button
           onClick={() => setTab("stats")}
-          className={`ml-auto flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-            tab === "stats" ? "bg-[color:var(--color-primary)]/18 text-white" : "text-slate-400 hover:text-white"
+          className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-3.5 py-1.5 text-xs font-bold transition ${
+            tab === "stats"
+              ? "border-[var(--color-primary)] bg-[color:var(--color-primary)]/20 text-white"
+              : "border-[color:var(--color-primary)]/45 text-[var(--color-primary)] hover:bg-[color:var(--color-primary)]/12"
           }`}
         >
-          <BarChart3 size={13} className={tab === "stats" ? "text-[var(--color-primary)]" : ""} />
+          <BarChart3 size={14} />
           Statistics
         </button>
       </div>
