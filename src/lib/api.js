@@ -173,9 +173,26 @@ function migrateConfig(saved) {
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 
+// Ensure department-independent "system" pages exist in the loaded config. The
+// backend returns a stored config verbatim (no client migration), so a newly
+// added page type like Help would never appear for existing departments; inject
+// it in memory on every load instead. Idempotent, and not persisted unless the
+// config is later saved. Skipped for the pre-login public subset (no pages).
+function ensureSystemPages(config) {
+  if (!config || !Array.isArray(config.pages)) return config;
+  if (config.pages.some((p) => p.type === "help")) return config;
+  const id = config.pages.some((p) => p.id === "help") ? "sys-help" : "help";
+  const helpPage = { id, label: "Help", navGroup: "Administration", icon: "HelpCircle", type: "help", config: {} };
+  const navGroups =
+    !Array.isArray(config.navGroups) || config.navGroups.includes("Administration")
+      ? config.navGroups
+      : [...config.navGroups, "Administration"];
+  return { ...config, pages: [...config.pages, helpPage], navGroups: navGroups || config.navGroups };
+}
+
 export async function getConfig() {
-  if (USE_BACKEND) return http("/config");
-  return migrateConfig(readJSON(CONFIG_KEY, null));
+  const raw = USE_BACKEND ? await http("/config") : migrateConfig(readJSON(CONFIG_KEY, null));
+  return ensureSystemPages(raw);
 }
 
 export async function saveConfig(config) {
