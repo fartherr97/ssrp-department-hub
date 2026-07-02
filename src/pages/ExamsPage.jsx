@@ -67,6 +67,30 @@ function ResourceButtons({ links }) {
 
 // ── Take an exam ─────────────────────────────────────────────────────────────
 
+// Google-Forms-style star rating: real stars that fill on hover and click.
+function StarRating({ max, value, onChange }) {
+  const [hover, setHover] = useState(0);
+  const stars = [];
+  for (let n = 1; n <= max; n++) stars.push(n);
+  const active = hover || Number(value) || 0;
+  return (
+    <div className="flex gap-1" onMouseLeave={() => setHover(0)}>
+      {stars.map((n) => (
+        <button
+          key={n}
+          type="button"
+          onMouseEnter={() => setHover(n)}
+          onClick={() => onChange(String(n))}
+          aria-label={`${n} star${n === 1 ? "" : "s"}`}
+          className={`text-3xl leading-none transition-transform hover:scale-110 ${n <= active ? "text-amber-400" : "text-slate-600"}`}
+        >
+          ★
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function AnswerInput({ q, value, onChange }) {
   if (q.type === "paragraph")
     return <Textarea rows={4} value={value || ""} onChange={(e) => onChange(e.target.value)} />;
@@ -104,32 +128,26 @@ function AnswerInput({ q, value, onChange }) {
     const min = Number(q.scaleMin ?? 1), max = Number(q.scaleMax ?? 5);
     const nums = []; for (let n = min; n <= max; n++) nums.push(n);
     return (
-      <div className="flex items-center gap-2">
-        {q.minLabel && <span className="text-xs text-slate-500">{q.minLabel}</span>}
-        <div className="flex flex-wrap gap-1.5">
-          {nums.map((n) => (
-            <button key={n} type="button" onClick={() => onChange(String(n))}
-              className={`h-9 w-9 rounded-lg border text-sm font-semibold transition ${String(value) === String(n) ? "border-[var(--color-primary)] bg-[color:var(--color-primary)]/15 text-white" : "border-white/10 text-slate-300 hover:border-white/25"}`}>
-              {n}
-            </button>
-          ))}
+      <div className="flex items-end gap-3">
+        {q.minLabel && <span className="shrink-0 pb-0.5 text-right text-xs text-slate-500">{q.minLabel}</span>}
+        <div className="flex flex-1 items-start justify-between gap-1">
+          {nums.map((n) => {
+            const on = String(value) === String(n);
+            return (
+              <button key={n} type="button" onClick={() => onChange(String(n))} className="flex flex-col items-center gap-1.5">
+                <span className={`text-xs font-semibold tabular-nums ${on ? "text-white" : "text-slate-500"}`}>{n}</span>
+                <span className={`flex h-5 w-5 items-center justify-center rounded-full border-2 transition ${on ? "border-[var(--color-primary)]" : "border-white/30 hover:border-white/50"}`}>
+                  {on && <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-primary)]" />}
+                </span>
+              </button>
+            );
+          })}
         </div>
-        {q.maxLabel && <span className="text-xs text-slate-500">{q.maxLabel}</span>}
+        {q.maxLabel && <span className="shrink-0 pb-0.5 text-xs text-slate-500">{q.maxLabel}</span>}
       </div>
     );
   }
-  if (q.type === "rating") {
-    const max = Number(q.ratingMax ?? 5);
-    const stars = []; for (let n = 1; n <= max; n++) stars.push(n);
-    return (
-      <div className="flex gap-1">
-        {stars.map((n) => (
-          <button key={n} type="button" onClick={() => onChange(String(n))}
-            className={`text-2xl leading-none transition ${Number(value) >= n ? "text-amber-400" : "text-slate-600 hover:text-slate-400"}`}>★</button>
-        ))}
-      </div>
-    );
-  }
+  if (q.type === "rating") return <StarRating max={Number(q.ratingMax ?? 5)} value={value} onChange={onChange} />;
   if (q.type === "mcgrid" || q.type === "cbgrid") {
     const cb = q.type === "cbgrid";
     const val = value || {};
