@@ -102,15 +102,67 @@ export function isManagerOfAny(user, config) {
 
 // Change a group's capabilities / delete it, needs manageAccess AND the group
 // must be at or below the user's own level (no editing groups above your own).
+// The level rule applies to EVERYONE, including "manage site" users — you can
+// never administer a rank/group above your own. The only bypass is a genuine
+// backend super-admin with no group of their own (e.g. a break-glass account).
 export function canAdministerGroup(user, config, group) {
   if (!group) return false;
-  if (user?.isAdmin) return true; // backend super-admin bypasses the hierarchy
+  if (user?.isAdmin && !userGroup(config, user)) return true; // groupless super-admin
   return canManageAccess(user, config) && (group.level ?? 0) <= userLevel(user, config);
 }
 
 // Add/remove a group's members, admins of it, or a manager of it.
 export function canManageGroupMembers(user, config, group) {
   return canAdministerGroup(user, config, group) || isManagerOf(user, config, group);
+}
+
+/*
+ * Whole-config authorization for group/role hierarchy — the backend calls this so
+ * the client checks can't be bypassed. Given the current config and an incoming
+ * one, it rejects any change that would let someone act above their own rank:
+ *   • creating/editing/deleting a group above their level (before OR after),
+ *   • raising a group they can touch above their own level,
+ *   • granting a capability they don't personally hold,
+ *   • mapping a Discord role to a group above their level.
+ * Returns a human-readable reason string, or null if the change is allowed.
+ * A groupless backend super-admin (isAdmin, no group) bypasses all of it.
+ */
+export function authorizeGroupHierarchy(user, current, incoming) {
+  if (user?.isAdmin && !userGroup(current, user)) return null;
+  const myLevel = userLevel(user, current);
+  const canAccess = canManageAccess(user, current);
+  const curById = new Map((current?.groups || []).map((g) => [g.id, g]));
+  const incById = new Map((incoming?.groups || []).map((g) => [g.id, g]));
+
+  for (const id of new Set([...curById.keys(), ...incById.keys()])) {
+    const before = curById.get(id);
+    const after = incById.get(id);
+    if (JSON.stringify(before) === JSON.stringify(after)) continue; // unchanged
+    if (!canAccess) return "groups or access settings";
+    if (before && (before.level ?? 0) > myLevel) return "a group above your level";
+    if (after && (after.level ?? 0) > myLevel) return "a group above your level";
+    if (after) {
+      for (const cap of CAPABILITIES) {
+        if (after[cap.key] && !before?.[cap.key] && !hasCapability(user, current, cap.key)) {
+          return `a permission you don't have (${cap.title})`;
+        }
+      }
+    }
+  }
+
+  // Role → group mappings can't be pointed at a group above your level.
+  const curMaps = current?.auth?.roleMappings || [];
+  const incMaps = incoming?.auth?.roleMappings || [];
+  if (JSON.stringify(curMaps) !== JSON.stringify(incMaps)) {
+    if (!canAccess) return "role mappings";
+    const seen = new Set(curMaps.map((m) => JSON.stringify(m)));
+    const levelOf = (gid) => incById.get(gid)?.level ?? curById.get(gid)?.level ?? 0;
+    for (const m of incMaps) {
+      if (seen.has(JSON.stringify(m))) continue; // unchanged mapping
+      if (levelOf(m.group) > myLevel) return "a role mapping to a group above your level";
+    }
+  }
+  return null;
 }
 
 // Who can open the Builder Portal at all (some tabs may still be hidden inside).

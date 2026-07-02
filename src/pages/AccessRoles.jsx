@@ -10,6 +10,8 @@ import {
   canAdministerGroup,
   canManageGroupMembers,
   hasCapability,
+  userLevel,
+  userGroup,
 } from "../lib/permissions.js";
 import {
   Panel,
@@ -218,6 +220,10 @@ function GroupCard({ group, user }) {
   const canAdmin = canAdministerGroup(user, config, group);
   const canMembers = canManageGroupMembers(user, config, group);
   const isOwnGroup = group.id === user?.group;
+  // You can't raise a group above your own rank — clamp the level field to it.
+  // A groupless backend super-admin isn't bounded.
+  const superAdmin = user?.isAdmin && !userGroup(config, user);
+  const maxLevel = superAdmin ? 999 : userLevel(user, config);
 
   const update = (patch) =>
     mutate((cfg) => ({
@@ -254,9 +260,11 @@ function GroupCard({ group, user }) {
           <span className="text-[10px] font-bold uppercase tracking-wide text-cad-muted">Lvl</span>
           <Input
             type="number"
+            min={0}
+            max={maxLevel}
             value={group.level ?? 0}
             disabled={!canAdmin}
-            onChange={(e) => update({ level: Number(e.target.value) || 0 })}
+            onChange={(e) => update({ level: Math.min(maxLevel, Math.max(0, Number(e.target.value) || 0)) })}
             className="w-14 disabled:opacity-70"
           />
         </div>

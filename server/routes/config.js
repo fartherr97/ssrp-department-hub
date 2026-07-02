@@ -19,6 +19,7 @@ import {
   hasCapability,
   canManageCalendar,
   canWriteLogs,
+  authorizeGroupHierarchy,
 } from "../../src/lib/permissions.js";
 import { publicConfig, redactSensitive, mergeRedactedBack } from "../configView.js";
 
@@ -91,11 +92,15 @@ function changedPageTypes(current, incoming) {
 }
 
 function authorizeConfigChange(user, current, incoming) {
-  // Groups / auth (role mappings, capability grants) → manage-access or above.
+  // Groups / auth (role mappings, capability grants) → manage-access or above,
+  // AND the rank hierarchy: you can never create, edit, delete, or map a role to a
+  // group above your own level, or grant a capability you don't hold yourself.
   if (changed(current, incoming, "groups") || changed(current, incoming, "auth")) {
     if (!canManageAccess(user, current) && !canManageSite(user, current)) {
       return "groups or access settings";
     }
+    const blockedHierarchy = authorizeGroupHierarchy(user, current, incoming);
+    if (blockedHierarchy) return blockedHierarchy;
   }
   // Branding / navigation / page structure → manage-site only.
   if (
