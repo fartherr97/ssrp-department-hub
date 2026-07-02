@@ -926,23 +926,34 @@ export default function ExamsPage({ page, user }) {
         takeable.length === 0 ? (
           <EmptyState icon={FileText} title="No exams available" subtitle={isManager ? "Create one under Manage exams, then publish it." : "Nothing has been assigned to you yet."} />
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {takeable.map((e) => (
-              <Panel key={e.id} className="flex flex-col overflow-hidden p-0">
-                {safeMediaUrl(e.banner) && (
-                  <img src={safeMediaUrl(e.banner)} alt="" onError={(ev) => (ev.currentTarget.style.display = "none")}
-                    className="h-28 w-full object-cover" />
-                )}
-                <div className="flex flex-1 flex-col p-4">
-                  <div className="mb-1 flex items-center gap-2">
-                    <GraduationCap size={16} className="text-[var(--color-primary)]" />
+              <Panel
+                key={e.id}
+                className="group flex flex-col overflow-hidden p-0 transition-all duration-200 ease-out hover:-translate-y-1 hover:border-[color:var(--color-primary)]/60 hover:shadow-[0_12px_34px_-12px_var(--color-primary)]"
+              >
+                <div className="h-36 w-full overflow-hidden bg-black/30">
+                  {safeMediaUrl(e.banner) && (
+                    <img src={safeMediaUrl(e.banner)} alt="" onError={(ev) => (ev.currentTarget.style.display = "none")}
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
+                  )}
+                </div>
+                <div className="flex flex-1 flex-col p-5">
+                  <div className="mb-1.5 flex items-center gap-2">
+                    <GraduationCap size={16} className="shrink-0 text-[var(--color-primary)]" />
                     <div className="font-semibold text-white">{e.title}</div>
                     {e.anonymous && <Badge>Anonymous</Badge>}
                   </div>
-                  {e.description && <p className="mb-3 line-clamp-2 text-sm text-slate-400">{e.description.replace(/\*\*/g, "")}</p>}
-                  <div className="mt-auto flex items-center justify-between pt-2">
-                    <span className="text-xs text-slate-500">{e.questions.length} question{e.questions.length === 1 ? "" : "s"}{e.anonymous ? "" : ` · pass ${e.passThreshold}%`}</span>
-                    <Button className="!py-1.5 text-xs" onClick={() => setTaking(e)}>{e.anonymous ? "Start form" : "Take exam"}</Button>
+                  {e.description && (
+                    <p className="mb-4 line-clamp-3 text-sm leading-relaxed text-slate-400">{e.description.replace(/\*\*/g, "")}</p>
+                  )}
+                  <div className="mt-auto">
+                    <div className="mb-2 text-xs text-slate-500">
+                      {e.questions.length} question{e.questions.length === 1 ? "" : "s"}{e.anonymous ? "" : ` · pass ${e.passThreshold}%`}
+                    </div>
+                    <Button className="w-full justify-center" onClick={() => setTaking(e)}>
+                      {e.anonymous ? "Start form" : "Take exam"}
+                    </Button>
                   </div>
                 </div>
               </Panel>
