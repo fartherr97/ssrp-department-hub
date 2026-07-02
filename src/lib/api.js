@@ -190,9 +190,28 @@ function ensureSystemPages(config) {
   return { ...config, pages: [...config.pages, helpPage], navGroups: navGroups || config.navGroups };
 }
 
+// Entry types retired from the default Admin Log (strikes/DAs come from the SSRP
+// Records portal, not here). Strip them from any saved admin-log book so old
+// pages stop offering them; historical entries already logged are untouched.
+const REMOVED_LOG_TYPES = new Set(["Verbal DA / Coaching", "Non-Verbal DA", "Strike", "Other"]);
+function stripRemovedLogTypes(config) {
+  if (!config || !Array.isArray(config.pages)) return config;
+  const pages = config.pages.map((p) => {
+    if (p.type !== "adminlog" || !Array.isArray(p.config?.books)) return p;
+    let touched = false;
+    const books = p.config.books.map((b) => {
+      if (!Array.isArray(b.types) || !b.types.some((t) => REMOVED_LOG_TYPES.has(t))) return b;
+      touched = true;
+      return { ...b, types: b.types.filter((t) => !REMOVED_LOG_TYPES.has(t)) };
+    });
+    return touched ? { ...p, config: { ...p.config, books } } : p;
+  });
+  return { ...config, pages };
+}
+
 export async function getConfig() {
   const raw = USE_BACKEND ? await http("/config") : migrateConfig(readJSON(CONFIG_KEY, null));
-  return ensureSystemPages(raw);
+  return stripRemovedLogTypes(ensureSystemPages(raw));
 }
 
 export async function saveConfig(config) {
