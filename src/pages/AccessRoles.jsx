@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Trash2, UserPlus, Users, Lock } from "lucide-react";
+import { Plus, Trash2, UserPlus, Users, Lock, Hash } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
 import { uid } from "../lib/roster.js";
 import { initials } from "../lib/user.js";
@@ -131,6 +131,88 @@ function GroupMembers({ group, update, canEdit, canSetRole }) {
   );
 }
 
+// Per-group Discord role links. These write to the SAME config.auth.roleMappings
+// the backend reads on login (resolveUserGroup): anyone who holds one of these
+// roles in the guild is auto-assigned to this group when they sign in with
+// Discord, on top of anyone added by hand above. Highest-level group wins if a
+// member matches several.
+function GroupDiscordRoles({ group, config, mutate, canEdit }) {
+  const [roleName, setRoleName] = useState("");
+  const [roleId, setRoleId] = useState("");
+  const all = config.auth?.roleMappings || [];
+  const mine = all.filter((m) => m.group === group.id);
+
+  const setAll = (next) =>
+    mutate((cfg) => ({ ...cfg, auth: { ...(cfg.auth || {}), roleMappings: next } }));
+  const add = () => {
+    const rid = roleId.trim();
+    if (!rid) return;
+    setAll([...all, { id: uid("map"), roleId: rid, roleName: roleName.trim(), group: group.id }]);
+    setRoleName("");
+    setRoleId("");
+  };
+  const remove = (mid) => setAll(all.filter((m) => m.id !== mid));
+
+  return (
+    <div>
+      <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.5px] text-cad-muted">
+        Discord roles, {mine.length}
+      </div>
+      <p className="mb-2 text-xs text-slate-500">
+        Anyone with one of these guild roles is put in this group automatically when they sign in
+        with Discord.
+      </p>
+      <div className="grid gap-2">
+        {mine.map((m) => (
+          <div
+            key={m.id}
+            className="flex items-center gap-3 rounded-xl border border-white/10 bg-[var(--color-surface-2)] px-3 py-2"
+          >
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/5 text-slate-300">
+              <Hash size={15} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-semibold text-white">{m.roleName || "Discord role"}</div>
+              <div className="truncate font-mono text-[11px] text-slate-500">{m.roleId}</div>
+            </div>
+            {canEdit && (
+              <IconButton
+                icon={Trash2}
+                label="Unlink role"
+                onClick={() => remove(m.id)}
+                className="hover:border-red-500/40 hover:text-red-300"
+              />
+            )}
+          </div>
+        ))}
+        {mine.length === 0 && (
+          <p className="text-sm text-slate-500">No roles linked. Add one to auto-assign by Discord role.</p>
+        )}
+      </div>
+      {canEdit && (
+        <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+          <Input
+            value={roleName}
+            placeholder="Role name (optional)"
+            onChange={(e) => setRoleName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && add()}
+          />
+          <Input
+            value={roleId}
+            placeholder="Discord role ID"
+            onChange={(e) => setRoleId(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && add()}
+            className="font-mono"
+          />
+          <Button variant="secondary" icon={Plus} onClick={add}>
+            Link
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function GroupCard({ group, user }) {
   const { config, mutate } = useConfig();
   const canAdmin = canAdministerGroup(user, config, group);
@@ -240,7 +322,10 @@ function GroupCard({ group, user }) {
           </div>
         </div>
 
-        <GroupMembers group={group} update={update} canEdit={canMembers} canSetRole={canAdmin} />
+        <div className="grid gap-5">
+          <GroupMembers group={group} update={update} canEdit={canMembers} canSetRole={canAdmin} />
+          <GroupDiscordRoles group={group} config={config} mutate={mutate} canEdit={canAdmin} />
+        </div>
       </div>
     </Panel>
   );
@@ -249,32 +334,17 @@ function GroupCard({ group, user }) {
 function DiscordSettings() {
   const { config, mutate } = useConfig();
   const auth = config.auth || {};
-  const mappings = auth.roleMappings || [];
+  const linkedCount = (auth.roleMappings || []).length;
 
   const setAuth = (patch) => mutate((cfg) => ({ ...cfg, auth: { ...cfg.auth, ...patch } }));
-  const updateRow = (id, patch) =>
-    setAuth({ roleMappings: mappings.map((m) => (m.id === id ? { ...m, ...patch } : m)) });
-  const addRow = () =>
-    setAuth({
-      roleMappings: [
-        ...mappings,
-        { id: uid("map"), roleId: "", roleName: "", group: config.groups[0]?.id || "" },
-      ],
-    });
-  const removeRow = (id) => setAuth({ roleMappings: mappings.filter((m) => m.id !== id) });
 
   return (
     <Panel className="p-5">
       <SectionHeader
         title="Discord sign-in (optional)"
-        subtitle="Server settings, plus optional auto-assignment that maps a Discord role to a group on login."
-        actions={
-          <Button icon={Plus} onClick={addRow}>
-            Add role rule
-          </Button>
-        }
+        subtitle="Server-wide sign-in settings. Link Discord roles to a specific group on each group's card above."
       />
-      <div className="mb-4 grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Discord guild (server) ID">
           <Input
             value={auth.discordGuildId || ""}
@@ -292,42 +362,11 @@ function DiscordSettings() {
           </Select>
         </Field>
       </div>
-
-      <div className="grid gap-2">
-        {mappings.map((m) => (
-          <div
-            key={m.id}
-            className="grid grid-cols-1 items-end gap-2 rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-3 sm:grid-cols-[1fr_1fr_160px_auto]"
-          >
-            <Field label="Role name">
-              <Input value={m.roleName} onChange={(e) => updateRow(m.id, { roleName: e.target.value })} />
-            </Field>
-            <Field label="Discord role ID">
-              <Input value={m.roleId} onChange={(e) => updateRow(m.id, { roleId: e.target.value })} />
-            </Field>
-            <Field label="Maps to group">
-              <Select value={m.group} onChange={(e) => updateRow(m.id, { group: e.target.value })}>
-                {config.groups.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.label}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <IconButton
-              icon={Trash2}
-              label="Delete rule"
-              onClick={() => removeRow(m.id)}
-              className="mb-0.5 hover:border-red-500/40 hover:text-red-300"
-            />
-          </div>
-        ))}
-        {mappings.length === 0 && (
-          <p className="text-sm text-slate-500">
-            No role rules. People are assigned directly to groups above.
-          </p>
-        )}
-      </div>
+      <p className="mt-4 text-xs text-slate-500">
+        {linkedCount > 0
+          ? `${linkedCount} Discord role${linkedCount === 1 ? "" : "s"} linked to groups. On login, members with a linked role join that group automatically; the highest-level match wins.`
+          : "Tip: on each group above, add a Discord role ID to auto-assign members to that group when they sign in."}
+      </p>
     </Panel>
   );
 }
@@ -363,7 +402,7 @@ export default function AccessRoles({ user }) {
       <PageHeader
         kicker="Administration"
         title="Access & Roles"
-        subtitle="Set what each group can do, then assign people by name + Discord ID. You can only manage groups at or below your own level."
+        subtitle="Set what each group can do, then add people by name + Discord ID, or link Discord roles so members are assigned automatically on login. You can only manage groups at or below your own level."
         actions={
           mayAdd && (
             <Button icon={Plus} onClick={addGroup}>
