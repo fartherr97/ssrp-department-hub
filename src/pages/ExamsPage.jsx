@@ -396,69 +396,137 @@ function SubmissionDetail({ submission, canReview, onReview }) {
   );
 }
 
+function StatPill({ icon: Icon, value, label }) {
+  return (
+    <div className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-[var(--color-surface-2)] px-3.5 py-2">
+      <Icon size={18} className="text-[var(--color-primary)]" />
+      <div>
+        <div className="text-lg font-black leading-none tabular-nums text-white">{value}</div>
+        <div className="text-[10px] font-bold uppercase tracking-wide text-cad-muted">{label}</div>
+      </div>
+    </div>
+  );
+}
+
+function Chip({ active, onClick, children }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+        active ? "bg-[var(--color-primary)] text-white" : "text-slate-400 hover:text-white"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function SubmissionRow({ s, onOpen }) {
+  return (
+    <button onClick={onOpen} className="flex items-center gap-3 bg-[var(--color-surface-1)] px-4 py-2.5 text-left transition hover:bg-white/[0.03]">
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-sm font-semibold text-white">{s.subject?.name || "Anonymous"}</div>
+        <div className="truncate text-xs text-slate-500">{s.examTitle}</div>
+      </div>
+      <div className="shrink-0 text-sm tabular-nums">
+        <span className="font-bold text-white">{s.score}</span>
+        <span className="text-slate-500"> / {s.maxScore}</span>
+      </div>
+      <StatusBadge s={s.status} />
+    </button>
+  );
+}
+
 function SubmissionsTab({ exams, submissions, user, config, onReview }) {
   const [q, setQ] = useState("");
-  const [examFilter, setExamFilter] = useState("all");
-  const [openId, setOpenId] = useState(null);
+  const [filter, setFilter] = useState("all"); // "all" or an exam id
+  const [detail, setDetail] = useState(null); // submission open in the review modal
   const examById = (id) => exams.find((e) => e.id === id);
   const canReviewSub = (s) => {
     const e = examById(s.examId);
     return e ? canReviewExam(user, config, e) : canManageExams(user, config);
   };
+  const reviewableExams = exams.filter((e) => canReviewExam(user, config, e));
+
   const term = q.trim().toLowerCase();
-  const visible = submissions
-    .filter(canReviewSub)
-    .filter((s) => examFilter === "all" || s.examId === examFilter)
-    .filter((s) => !term || `${s.subject?.name || ""} ${s.subject?.discordId || ""}`.toLowerCase().includes(term));
+  const matchTerm = (s) => !term || `${s.subject?.name || ""} ${s.subject?.discordId || ""}`.toLowerCase().includes(term);
+  const all = submissions.filter(canReviewSub).filter(matchTerm);
+
+  // Group by exam, newest first within each.
+  const byExam = new Map(reviewableExams.map((e) => [e.id, []]));
+  for (const s of all) if (byExam.has(s.examId)) byExam.get(s.examId).push(s);
+  for (const arr of byExam.values()) arr.sort((a, b) => (b.at || "").localeCompare(a.at || ""));
+
+  let shownExams = filter === "all" ? reviewableExams : reviewableExams.filter((e) => e.id === filter);
+  if (term) shownExams = shownExams.filter((e) => (byExam.get(e.id) || []).length > 0);
 
   return (
     <div className="grid gap-4">
-      <Panel className="p-4">
-        <div className="grid gap-3 sm:grid-cols-[1fr_220px]">
-          <div className="relative">
-            <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search a name or Discord ID for their exam history…" className="pl-9" />
-          </div>
-          <Select value={examFilter} onChange={(e) => setExamFilter(e.target.value)}>
-            <option value="all">All exams</option>
-            {exams.map((e) => <option key={e.id} value={e.id}>{e.title}</option>)}
-          </Select>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="text-lg font-bold text-white">Recent submissions</div>
+          <div className="text-xs text-slate-500">Latest exam submissions, grouped by exam.</div>
         </div>
-        {term && (
-          <p className="mt-2 text-xs text-slate-500">
-            {visible.length} submission{visible.length === 1 ? "" : "s"} for “{q.trim()}” ·
-            {" "}{visible.filter((s) => s.status === "passed").length} passed, {visible.filter((s) => s.status === "failed").length} failed
-          </p>
-        )}
-      </Panel>
+        <div className="flex gap-2">
+          <StatPill icon={ClipboardList} value={all.length} label="Submissions" />
+          <StatPill icon={GraduationCap} value={reviewableExams.length} label="Exam types" />
+        </div>
+      </div>
 
-      {visible.length === 0 ? (
-        <EmptyState icon={ClipboardList} title="No submissions" subtitle="Submissions people make will show here, newest first." />
-      ) : (
-        <div className="grid gap-2">
-          {visible.map((s) => (
-            <Panel key={s.id} className="p-0">
-              <button onClick={() => setOpenId(openId === s.id ? null : s.id)} className="flex w-full items-center gap-3 px-4 py-3 text-left">
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-semibold text-white">{s.subject?.name || "—"}
-                    <span className="ml-2 font-normal text-slate-400">{s.examTitle}</span>
-                  </div>
-                  <div className="truncate text-xs text-slate-500">
-                    {fmtDate(s.at)}{s.subject?.discordId ? ` · ${s.subject.discordId}` : ""}
-                    {s.reviewedBy ? ` · reviewed by ${s.reviewedBy}` : ""}
-                  </div>
-                </div>
-                <span className="text-sm text-slate-400">{s.percent}%</span>
-                <StatusBadge s={s.status} />
-              </button>
-              {openId === s.id && (
-                <div className="border-t border-white/10 p-4">
-                  <SubmissionDetail submission={s} canReview={canReviewSub(s)} onReview={onReview} />
-                </div>
-              )}
-            </Panel>
+      <Panel className="p-3">
+        <div className="relative mb-2">
+          <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name or Discord ID…" className="pl-9" />
+        </div>
+        <div className="flex gap-1 overflow-x-auto">
+          <Chip active={filter === "all"} onClick={() => setFilter("all")}>All exams</Chip>
+          {reviewableExams.map((e) => (
+            <Chip key={e.id} active={filter === e.id} onClick={() => setFilter(e.id)}>{e.title}</Chip>
           ))}
         </div>
+      </Panel>
+
+      {reviewableExams.length === 0 ? (
+        <EmptyState icon={ClipboardList} title="Nothing to review" subtitle="You don't review submissions for any exam yet." />
+      ) : (
+        <div className="grid items-start gap-4 lg:grid-cols-2 xl:grid-cols-3">
+          {shownExams.map((e) => {
+            const list = byExam.get(e.id) || [];
+            const capped = filter === "all" ? list.slice(0, 5) : list;
+            return (
+              <Panel key={e.id} className="flex flex-col overflow-hidden p-0">
+                <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
+                  <GraduationCap size={16} className="shrink-0 text-[var(--color-primary)]" />
+                  <span className="min-w-0 flex-1 truncate font-semibold text-white">{e.title}</span>
+                  <Badge>{list.length}</Badge>
+                </div>
+                {list.length === 0 ? (
+                  <div className="px-4 py-10 text-center text-sm text-slate-500">No submissions.</div>
+                ) : (
+                  <div className="grid gap-px bg-white/5">
+                    {capped.map((s) => <SubmissionRow key={s.id} s={s} onOpen={() => setDetail(s)} />)}
+                  </div>
+                )}
+                {filter === "all" && list.length > 5 && (
+                  <button onClick={() => setFilter(e.id)} className="border-t border-white/10 px-4 py-2.5 text-center text-xs font-semibold text-slate-400 transition hover:text-white">
+                    View all submissions
+                  </button>
+                )}
+              </Panel>
+            );
+          })}
+        </div>
+      )}
+
+      {detail && (
+        <Modal open onClose={() => setDetail(null)} title="Submission" size="lg"
+          footer={<Button variant="secondary" onClick={() => setDetail(null)}>Close</Button>}>
+          <SubmissionDetail
+            submission={detail}
+            canReview={canReviewSub(detail)}
+            onReview={(s, a) => { onReview(s, a); setDetail(null); }}
+          />
+        </Modal>
       )}
     </div>
   );
