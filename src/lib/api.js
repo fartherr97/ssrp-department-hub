@@ -244,6 +244,21 @@ export async function appendAuditLog(entry) {
   return entry;
 }
 
+// ─── ADMIN LOG → RECORDS PORTAL (migration seam) ─────────────────────────────
+// Admin-log entries are stored in the config today. The plan (see
+// docs/admin-logs-migration.md) is to also send each new entry to the backend so
+// Steve can persist it to the Records DB and attach it to the member's background
+// via subject.discordId. This is the switch point: when the UI is flipped to call
+// submitLog() on save, entries start flowing. The server stamps who logged it and
+// the department, so only send the subject + book + type + date + values. No-op in
+// the mock so nothing breaks until the backend is wired.
+export async function submitLog(entry) {
+  if (USE_BACKEND) {
+    return http("/logs", { method: "POST", body: JSON.stringify(entry) });
+  }
+  return { entry, forwarded: false };
+}
+
 // ─── VERSION HISTORY ─────────────────────────────────────────────────────────
 // Google-Docs-style snapshots: each save records the full config so any past
 // version can be restored. The mock caps the count (snapshots are large) and

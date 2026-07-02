@@ -28,6 +28,7 @@ import { auditRouter } from "./routes/audit.js";
 import { rosterRouter } from "./routes/roster.js";
 import { versionsRouter } from "./routes/versions.js";
 import { hoursRouter } from "./routes/hours.js";
+import { logsRouter } from "./routes/logs.js";
 import { tenantMiddleware } from "./tenant.js";
 import { isSameOrigin } from "./security.js";
 
@@ -197,6 +198,7 @@ async function main() {
   api.use(rosterRouter());
   api.use(versionsRouter());
   api.use(hoursRouter());
+  api.use(logsRouter());
   app.use("/api", api);
 
   app.get("/api/health", (_req, res) => res.json({ ok: true, data: "up" }));
