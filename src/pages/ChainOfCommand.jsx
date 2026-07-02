@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Plus, Network, ZoomIn, ZoomOut, Maximize2, Minimize2, DownloadCloud } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Plus, Network, ZoomIn, ZoomOut, Maximize2, Minimize2, DownloadCloud, Link2, AlertTriangle } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
 import { canEditFleet } from "../lib/permissions.js";
 import { uid } from "../lib/roster.js";
@@ -12,6 +12,7 @@ import {
   ConfirmDialog,
   Field,
   Input,
+  Select,
   Textarea,
   ColorInput,
   MediaInput,
@@ -93,6 +94,57 @@ function bestSeniorFor(seniors, pos) {
   return best;
 }
 
+// ── Live roster links ────────────────────────────────────────────────────────
+// A box may carry a `link` describing what roster data it mirrors, so the chart
+// stays in sync as the roster changes. Kinds (department-agnostic — the picker
+// reads each dept's own ranks/columns/categories):
+//   { subId, kind: "rank",     rankId }            → holders of a rank/position
+//   { subId, kind: "field",    fieldId, value }    → members whose column = value
+//   { subId, kind: "category", categoryId }        → members in a category band
+// Resolution never throws; a link whose target was renamed/deleted reports
+// ok:false so the box can fall back to its last-known cached name/members.
+export function resolveNodeLink(config, link) {
+  const subs = config?.roster?.subdivisions || [];
+  const sub = subs.find((s) => s.id === link?.subId) || subs.find((s) => s.main) || subs[0];
+  if (!sub || !link) return { ok: false, names: [] };
+  const all = [];
+  for (const cat of sub.categories || [])
+    for (const m of cat.members || []) all.push({ name: m.name, rank: m.rank, fields: m.fields, _cat: cat.id });
+
+  let ok = true;
+  let matched = [];
+  if (link.kind === "rank") {
+    ok = (sub.ranks || []).some((r) => r.id === link.rankId);
+    matched = all.filter((m) => m.rank === link.rankId);
+  } else if (link.kind === "field") {
+    ok = (config?.roster?.memberFields || []).some((f) => f.id === link.fieldId);
+    matched = all.filter((m) => String(m.fields?.[link.fieldId] ?? "") === String(link.value));
+  } else if (link.kind === "category") {
+    ok = (sub.categories || []).some((c) => c.id === link.categoryId);
+    matched = all.filter((m) => m._cat === link.categoryId);
+  } else {
+    return { ok: false, names: [] };
+  }
+  return { ok, names: matched.map((m) => m.name).filter(Boolean) };
+}
+
+// What a box should actually display: live names when linked (falling back to the
+// cached snapshot if the link is broken), or the hand-typed values otherwise.
+export function resolveNodeDisplay(config, node) {
+  if (!node?.link) {
+    return { name: node?.name || "", members: node?.members || [], linked: false, broken: false, vacant: false };
+  }
+  const r = resolveNodeLink(config, node.link);
+  if (!r.ok) {
+    // Target rank/column/category no longer exists — show the last-known snapshot
+    // so the chart never goes blank, and flag it so the editor can warn.
+    return { name: node.name || "", members: node.members || [], linked: true, broken: true, vacant: false };
+  }
+  if (r.names.length === 0) return { name: "", members: [], linked: true, broken: false, vacant: true };
+  if (r.names.length === 1) return { name: r.names[0], members: [], linked: true, broken: false, vacant: false };
+  return { name: "", members: r.names, linked: true, broken: false, vacant: false };
+}
+
 export function buildTreeFromRoster(config, subId) {
   const subs = config?.roster?.subdivisions || [];
   const sub = subs.find((s) => s.id === subId) || subs.find((s) => s.main) || subs[0];
@@ -139,7 +191,10 @@ export function buildTreeFromRoster(config, subId) {
   for (const tier of kept) {
     const nodes = tier.map((r) => {
       count++;
-      return mk(r.name, holdersByRank.get(r.id) || []);
+      // Auto-link each imported box to its rank so it stays live: rename or
+      // reassign the holder on the roster and the chart follows. The copied
+      // name/members stay as a fallback if the rank is later deleted.
+      return { ...mk(r.name, holdersByRank.get(r.id) || []), link: { subId: sub.id, kind: "rank", rankId: r.id } };
     });
     tier.forEach((r, i) => {
       // A single senior owns the whole tier below it (boxes fan out as siblings);
@@ -266,7 +321,7 @@ function moveNodeTo(root, dragId, targetId, mode) {
 
 // ── Rendering ────────────────────────────────────────────────────────────────
 
-function NodeCard({ node, accent, canEdit, isRoot, onEdit, dropHint, setDropHint, onDropNode, canDropOn, setDragId }) {
+function NodeCard({ node, disp, accent, canEdit, isRoot, onEdit, dropHint, setDropHint, onDropNode, canDropOn, setDragId }) {
   const color = node.color || accent;
   const myHint = dropHint?.targetId === node.id ? dropHint.mode : null;
 
@@ -326,10 +381,26 @@ function NodeCard({ node, accent, canEdit, isRoot, onEdit, dropHint, setDropHint
         backgroundColor: `color-mix(in srgb, ${color} 12%, var(--color-surface-2))`,
         ...hintStyle,
       }}
-      className={`w-44 rounded-lg border px-2 py-1.5 text-center ${
+      className={`relative w-44 rounded-lg border px-2 py-1.5 text-center ${
         canEdit ? "press cursor-pointer hover:brightness-125" : "cursor-default"
       }`}
     >
+      {disp?.linked && (
+        <span
+          className="absolute right-1 top-1"
+          title={
+            disp.broken
+              ? "Roster link broken (its rank/column was removed). Showing the last known name; re-link or edit this box."
+              : "Filled from the roster, updates automatically."
+          }
+        >
+          {disp.broken ? (
+            <AlertTriangle size={11} className="text-amber-400" />
+          ) : (
+            <Link2 size={11} className="text-slate-500" />
+          )}
+        </span>
+      )}
       <div
         className="truncate text-[11px] font-bold uppercase tracking-wide"
         style={{ color }}
@@ -337,22 +408,24 @@ function NodeCard({ node, accent, canEdit, isRoot, onEdit, dropHint, setDropHint
       >
         {node.title || "Untitled"}
       </div>
-      {node.name && (
-        <div className="truncate text-[13px] font-bold text-white" title={node.name}>
-          {node.name}
+      {disp?.vacant ? (
+        <div className="truncate text-[13px] font-semibold italic text-slate-500">Vacant</div>
+      ) : disp?.name ? (
+        <div className="truncate text-[13px] font-bold text-white" title={disp.name}>
+          {disp.name}
         </div>
-      )}
+      ) : null}
     </button>
   );
 }
 
-function MemberColumn({ node, accent }) {
-  const members = (node.members || []).filter(Boolean);
-  if (!members.length) return null;
-  const color = node.color || accent;
+function MemberColumn({ members, color: colorProp, accent }) {
+  const list = (members || []).filter(Boolean);
+  if (!list.length) return null;
+  const color = colorProp || accent;
   return (
     <div className="mt-1.5 grid w-44 gap-1">
-      {members.map((m, i) => (
+      {list.map((m, i) => (
         <div
           key={i}
           style={{ borderColor: `color-mix(in srgb, ${color} 30%, transparent)` }}
@@ -436,8 +509,9 @@ function SlotButton({ title, dragging, valid, hinted, setHint, onDropId, onAdd, 
   );
 }
 
-function NodeTree({ node, accent, canEdit, isRoot = true, onEdit, onAddChild, dropHint, setDropHint, onDropNode, canDropOn, setDragId, dragId }) {
+function NodeTree({ node, resolve, accent, canEdit, isRoot = true, onEdit, onAddChild, dropHint, setDropHint, onDropNode, canDropOn, setDragId, dragId }) {
   const children = node.children || [];
+  const disp = resolve(node);
   // Only real boxes count for layout/centering, the editor's "+" slot hangs
   // off to the side with zero width so parents center over their children.
   const total = children.length;
@@ -469,6 +543,7 @@ function NodeTree({ node, accent, canEdit, isRoot = true, onEdit, onAddChild, dr
       )}
       <NodeCard
         node={node}
+        disp={disp}
         accent={accent}
         canEdit={canEdit}
         isRoot={isRoot}
@@ -479,7 +554,7 @@ function NodeTree({ node, accent, canEdit, isRoot = true, onEdit, onAddChild, dr
         canDropOn={canDropOn}
         setDragId={setDragId}
       />
-      <MemberColumn node={node} accent={accent} />
+      <MemberColumn members={disp.members} color={node.color} accent={accent} />
       {showRow && (
         <>
           <span className="h-3 w-px bg-white/15" />
@@ -512,6 +587,7 @@ function NodeTree({ node, accent, canEdit, isRoot = true, onEdit, onAddChild, dr
                 <span className="h-3 w-px bg-white/15" />
                 <NodeTree
                   node={child}
+                  resolve={resolve}
                   accent={accent}
                   canEdit={canEdit}
                   isRoot={false}
@@ -570,9 +646,134 @@ function NodeTree({ node, accent, canEdit, isRoot = true, onEdit, onAddChild, dr
 
 // ── Box editor modal ─────────────────────────────────────────────────────────
 
-function NodeModal({ open, onClose, node, isRoot, onSave, onAddChild, onMove, onDelete }) {
+// Picks what live roster data (if any) a box mirrors. Reads the department's own
+// ranks / columns / categories, so it works whatever they're called (FHP
+// "troops" live in rank names, HCSO uses a "Division" column, etc.).
+function LinkEditor({ config, link, onChange }) {
+  const subs = config?.roster?.subdivisions || [];
+  const fields = config?.roster?.memberFields || [];
+  const kind = link?.kind || "";
+  const subId = link?.subId || (subs.find((s) => s.main) || subs[0])?.id || "";
+  const sub = subs.find((s) => s.id === subId) || subs.find((s) => s.main) || subs[0] || null;
+  const field = fields.find((f) => f.id === link?.fieldId);
+  const preview = link ? resolveNodeLink(config, link) : null;
+
+  const patch = (p) => onChange({ ...link, ...p });
+  const setKind = (k) => {
+    if (!k) return onChange(null);
+    const base = { subId };
+    if (k === "rank") onChange({ ...base, kind: "rank", rankId: sub?.ranks?.[0]?.id || "" });
+    else if (k === "field") {
+      const f = fields[0];
+      onChange({ ...base, kind: "field", fieldId: f?.id || "", value: f?.options?.[0] || "" });
+    } else onChange({ ...base, kind: "category", categoryId: sub?.categories?.[0]?.id || "" });
+  };
+  const setSub = (id) => {
+    const ns = subs.find((s) => s.id === id);
+    const p = { subId: id };
+    if (kind === "rank") p.rankId = ns?.ranks?.[0]?.id || "";
+    if (kind === "category") p.categoryId = ns?.categories?.[0]?.id || "";
+    onChange({ ...link, ...p });
+  };
+
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+      <Field
+        label="Fill from roster"
+        hint="Link this box to live roster data so it updates automatically when the roster changes."
+      >
+        <Select value={kind} onChange={(e) => setKind(e.target.value)}>
+          <option value="">Not linked — type the name(s) by hand</option>
+          <option value="rank">A rank / position — shows its current holder(s)</option>
+          <option value="field">A roster column value — e.g. Division = District 3</option>
+          <option value="category">A category / grouping band</option>
+        </Select>
+      </Field>
+
+      {kind && (kind === "rank" || kind === "category") && subs.length > 1 && (
+        <Field label="Roster" className="mt-2">
+          <Select value={subId} onChange={(e) => setSub(e.target.value)}>
+            {subs.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </Select>
+        </Field>
+      )}
+
+      {kind === "rank" && (
+        <Field label="Rank / position" className="mt-2">
+          <Select value={link.rankId || ""} onChange={(e) => patch({ rankId: e.target.value })}>
+            <option value="">Select a rank…</option>
+            {(sub?.ranks || []).map((r) => (
+              <option key={r.id} value={r.id}>{r.name}</option>
+            ))}
+          </Select>
+        </Field>
+      )}
+
+      {kind === "field" && (
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          <Field label="Column">
+            <Select
+              value={link.fieldId || ""}
+              onChange={(e) => {
+                const f = fields.find((x) => x.id === e.target.value);
+                patch({ fieldId: e.target.value, value: f?.options?.[0] || "" });
+              }}
+            >
+              <option value="">Select a column…</option>
+              {fields.map((f) => (
+                <option key={f.id} value={f.id}>{f.label}</option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Equals">
+            {field?.options?.length ? (
+              <Select value={link.value || ""} onChange={(e) => patch({ value: e.target.value })}>
+                <option value="">Select a value…</option>
+                {field.options.map((o) => (
+                  <option key={o} value={o}>{o}</option>
+                ))}
+              </Select>
+            ) : (
+              <Input
+                value={link.value || ""}
+                onChange={(e) => patch({ value: e.target.value })}
+                placeholder="Value to match"
+              />
+            )}
+          </Field>
+        </div>
+      )}
+
+      {kind === "category" && (
+        <Field label="Category" className="mt-2">
+          <Select value={link.categoryId || ""} onChange={(e) => patch({ categoryId: e.target.value })}>
+            <option value="">Select a category…</option>
+            {(sub?.categories || []).map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </Select>
+        </Field>
+      )}
+
+      {link && (
+        <p className="mt-2 text-xs text-slate-400">
+          {!preview.ok
+            ? "⚠ Link target not found on the roster. The box keeps its last saved name until you re-link it."
+            : preview.names.length === 0
+            ? "Currently vacant — no one on the roster matches yet."
+            : `Currently: ${preview.names.join(", ")}`}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function NodeModal({ open, onClose, node, isRoot, config, onSave, onAddChild, onMove, onDelete }) {
   const [draft, setDraft] = useState(node);
   const membersText = (draft.members || []).join("\n");
+  const linked = Boolean(draft.link);
 
   return (
     <Modal
@@ -602,13 +803,20 @@ function NodeModal({ open, onClose, node, isRoot, onSave, onAddChild, onMove, on
               autoFocus
             />
           </Field>
-          <Field label="Name(s)" hint="Who holds it, e.g. J. Welch. Blank = vacant.">
-            <Input
-              value={draft.name || ""}
-              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-            />
-          </Field>
+          {!linked && (
+            <Field label="Name(s)" hint="Who holds it, e.g. J. Welch. Blank = vacant.">
+              <Input
+                value={draft.name || ""}
+                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+              />
+            </Field>
+          )}
         </div>
+        <LinkEditor
+          config={config}
+          link={draft.link || null}
+          onChange={(link) => setDraft({ ...draft, link: link || undefined })}
+        />
         <Field label="Box color" hint="Blank uses the page accent.">
           <ColorInput value={draft.color || ""} onChange={(color) => setDraft({ ...draft, color })} />
         </Field>
@@ -622,17 +830,19 @@ function NodeModal({ open, onClose, node, isRoot, onSave, onAddChild, onMove, on
             onChange={(imageUrl) => setDraft({ ...draft, imageUrl })}
           />
         </Field>
-        <Field
-          label="Member list"
-          hint="Optional, one per line. Shows as a column under the box, like the Cpl/Officer lists at the bottom of the chart."
-        >
-          <Textarea
-            rows={4}
-            value={membersText}
-            placeholder={"Cpl. D. Smith\nN. Brown\nJ. Carter"}
-            onChange={(e) => setDraft({ ...draft, members: e.target.value.split("\n") })}
-          />
-        </Field>
+        {!linked && (
+          <Field
+            label="Member list"
+            hint="Optional, one per line. Shows as a column under the box, like the Cpl/Officer lists at the bottom of the chart."
+          >
+            <Textarea
+              rows={4}
+              value={membersText}
+              placeholder={"Cpl. D. Smith\nN. Brown\nJ. Carter"}
+              onChange={(e) => setDraft({ ...draft, members: e.target.value.split("\n") })}
+            />
+          </Field>
+        )}
 
         <div className="grid gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-3 sm:grid-cols-3">
           <Button variant="secondary" icon={Plus} onClick={() => onAddChild(draft)}>
@@ -662,6 +872,10 @@ export default function ChainOfCommand({ page, user }) {
   const cfg = page?.config || {};
   const root = cfg.root || null;
   const accent = cfg.accent || "var(--color-primary)";
+
+  // Resolve a box's live display (linked roster names, or its hand-typed values).
+  // Memoized on config so a roster edit re-renders the chart with fresh names.
+  const resolve = useCallback((node) => resolveNodeDisplay(config, node), [config]);
 
   const [editing, setEditing] = useState(null); // node being edited
   const [confirmDelete, setConfirmDelete] = useState(null);
@@ -881,6 +1095,7 @@ export default function ChainOfCommand({ page, user }) {
             <div style={{ zoom }} className="mx-auto w-max">
               <NodeTree
                 node={root}
+                resolve={resolve}
                 accent={accent}
                 canEdit={canEdit}
                 onEdit={setEditing}
@@ -924,6 +1139,7 @@ export default function ChainOfCommand({ page, user }) {
           onClose={() => setEditing(null)}
           node={editingM.data}
           isRoot={root?.id === editingM.data.id}
+          config={config}
           onSave={saveNode}
           onAddChild={addBelow}
           onMove={move}
