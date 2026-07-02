@@ -18,7 +18,8 @@
  */
 import {
   canManageSite,
-  userGroup,
+  userLevel,
+  groupLevel,
 } from "./permissions.js";
 
 // The question palette, Google-Forms style. `auto` = machine-gradable.
@@ -62,10 +63,14 @@ export function blankExam() {
   return {
     id: localId("exam"),
     title: "New Exam",
-    description: "",
+    description: "", // supports \n newlines and **bold**
+    banner: "", // header image URL
+    resourceLinks: [], // [{ label, url }] shown as buttons on the form
+    completionMessage: "", // shown after submitting (blank = default)
     passThreshold: 80,
-    submitGroups: [], // empty = any signed-in member may take it
-    reviewGroups: [], // empty = site managers only
+    submitTier: "", // group id; that group AND ABOVE may take it. "" = anyone signed in
+    reviewTier: "", // group id; that group AND ABOVE may review. "" = site managers only
+    scramble: false, // randomize question order per attempt
     published: false,
     questions: [blankQuestion("multiple")],
   };
@@ -151,17 +156,19 @@ export function applyReview(exam, submission, overrides = {}) {
 }
 
 // ── Permissions ──────────────────────────────────────────────────────────────
-// Gated by permission groups (the app's access model). Site managers can always
-// manage, take, and review; that mirrors how every other admin surface behaves.
+// Rank-tier gating, mirroring the Staff Hub's "Administrator+" style: a setting
+// names a group, and that group AND EVERY GROUP ABOVE IT (higher level) qualifies.
+// Site managers can always manage, take, and review.
 
 export function canManageExams(user, config) {
   return canManageSite(user, config);
 }
 
-function inGroups(user, config, groupIds) {
-  if (!groupIds || groupIds.length === 0) return true; // empty = everyone signed in
-  const g = userGroup(config, user);
-  return !!g && groupIds.includes(g.id);
+// Does the user's group level meet the tier (a group id, meaning "this group and
+// above")? An empty tier means no floor — anyone qualifies.
+export function meetsTier(user, config, groupId) {
+  if (!groupId) return true;
+  return userLevel(user, config) >= groupLevel(config, groupId);
 }
 
 // May take/submit this exam.
@@ -169,15 +176,15 @@ export function canTakeExam(user, config, exam) {
   if (!user || !exam) return false;
   if (canManageSite(user, config)) return true;
   if (!exam.published) return false;
-  return inGroups(user, config, exam.submitGroups);
+  return meetsTier(user, config, exam.submitTier);
 }
 
-// May review/grade submissions for this exam.
+// May review/grade submissions for this exam. Empty reviewTier = managers only.
 export function canReviewExam(user, config, exam) {
   if (!user || !exam) return false;
   if (canManageSite(user, config)) return true;
-  const g = userGroup(config, user);
-  return !!g && (exam.reviewGroups || []).includes(g.id);
+  if (!exam.reviewTier) return false;
+  return meetsTier(user, config, exam.reviewTier);
 }
 
 // Can this user review submissions for ANY exam on the page (drives whether the

@@ -1,9 +1,10 @@
 import { useMemo, useRef, useState } from "react";
 import {
   Plus, Trash2, Pencil, GraduationCap, ClipboardList, Search, Check, X,
-  CircleCheck, CircleX, Clock, FileText, Eye, EyeOff, Copy,
+  CircleCheck, CircleX, Clock, FileText, Eye, EyeOff, Copy, ExternalLink,
 } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
+import { safeLinkUrl, safeMediaUrl } from "../lib/urls.js";
 import {
   Panel, PageHeader, SectionHeader, Button, IconButton, Field, Input, Select,
   Textarea, Badge, EmptyState, Modal, ConfirmDialog, useModalData, Toast, CommaListInput,
@@ -21,6 +22,37 @@ function StatusBadge({ s }) {
   if (s === "passed") return <Badge color="#1eb854">Passed</Badge>;
   if (s === "failed") return <Badge color="#ef4444">Failed</Badge>;
   return <Badge color="#f59e0b">Needs review</Badge>;
+}
+
+// Render a description that supports \n newlines and **bold** (Staff Hub style).
+function RichText({ text, className = "" }) {
+  if (!text) return null;
+  return (
+    <div className={className}>
+      {String(text).split("\n").map((line, i) => (
+        <p key={i} className={line.trim() ? "" : "h-2"}>
+          {line.split(/(\*\*[^*]+\*\*)/g).map((part, j) =>
+            /^\*\*[^*]+\*\*$/.test(part) ? <strong key={j} className="font-semibold text-white">{part.slice(2, -2)}</strong> : part
+          )}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+function ResourceButtons({ links }) {
+  const items = (links || []).filter((l) => l.label && l.url);
+  if (!items.length) return null;
+  return (
+    <div className="flex flex-wrap gap-2">
+      {items.map((l, i) => (
+        <a key={i} href={safeLinkUrl(l.url)} target="_blank" rel="noreferrer"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-[color:var(--color-primary)]/40 bg-[color:var(--color-primary)]/10 px-2.5 py-1 text-xs font-semibold text-[var(--color-primary)] transition hover:bg-[color:var(--color-primary)]/20">
+          {l.label} <ExternalLink size={12} />
+        </a>
+      ))}
+    </div>
+  );
 }
 
 // ── Take an exam ─────────────────────────────────────────────────────────────
@@ -85,10 +117,27 @@ function AnswerInput({ q, value, onChange }) {
 
 function TakeExamModal({ open, onClose, exam, user, onSubmit }) {
   const [answers, setAnswers] = useState({});
+  const [subject, setSubject] = useState({ name: who(user), discordId: user?.id || "" });
   const [err, setErr] = useState("");
   const set = (qid, v) => setAnswers((a) => ({ ...a, [qid]: v }));
+  // Scramble the question order once per attempt when enabled.
+  const questions = useMemo(() => {
+    const qs = exam.questions || [];
+    if (!exam.scramble) return qs;
+    const a = [...qs];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exam.id]);
 
   function submit() {
+    if (!subject.name.trim()) {
+      setErr("Please enter your name before submitting.");
+      return;
+    }
     const missing = (exam.questions || []).find((q) => {
       if (!q.required) return false;
       const v = answers[q.id];
@@ -98,7 +147,7 @@ function TakeExamModal({ open, onClose, exam, user, onSubmit }) {
       setErr("Please answer every required question before submitting.");
       return;
     }
-    onSubmit(exam, answers);
+    onSubmit(exam, answers, { name: subject.name.trim(), discordId: subject.discordId.trim() });
   }
 
   return (
@@ -115,11 +164,22 @@ function TakeExamModal({ open, onClose, exam, user, onSubmit }) {
       }
     >
       <div className="grid gap-4">
-        {exam.description && <p className="text-sm text-slate-400">{exam.description}</p>}
-        <p className="text-xs text-slate-500">
-          Submitting as <span className="font-semibold text-slate-300">{who(user)}</span>. Pass mark {exam.passThreshold}%.
-        </p>
-        {(exam.questions || []).map((q, i) => (
+        {safeMediaUrl(exam.banner) && (
+          <img src={safeMediaUrl(exam.banner)} alt="" onError={(e) => (e.currentTarget.style.display = "none")}
+            className="h-28 w-full rounded-xl object-cover" />
+        )}
+        {exam.description && <RichText text={exam.description} className="text-sm leading-relaxed text-slate-400" />}
+        <ResourceButtons links={exam.resourceLinks} />
+        <div className="grid gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3 sm:grid-cols-2">
+          <Field label="Your name" hint="Recorded on the submission.">
+            <Input value={subject.name} onChange={(e) => setSubject((s) => ({ ...s, name: e.target.value }))} />
+          </Field>
+          <Field label="Discord ID">
+            <Input value={subject.discordId} onChange={(e) => setSubject((s) => ({ ...s, discordId: e.target.value }))} className="font-mono" placeholder="000000000000000000" />
+          </Field>
+        </div>
+        <p className="text-xs text-slate-500">Pass mark {exam.passThreshold}%. Required questions are marked with *.</p>
+        {questions.map((q, i) => (
           <div key={q.id} className="rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-3">
             <div className="mb-2 text-sm font-semibold text-white">
               {i + 1}. {q.prompt || <span className="italic text-slate-500">Untitled question</span>}
@@ -160,6 +220,9 @@ function ResultModal({ open, onClose, result }) {
             <div className="text-lg font-bold text-white">{result.percent}% — {result.status === "passed" ? "Passed" : "Failed"}</div>
             <p className="text-sm text-slate-400">You scored {result.score} of {result.maxScore} points.</p>
           </>
+        )}
+        {result.completionMessage && (
+          <RichText text={result.completionMessage} className="mt-1 text-sm leading-relaxed text-slate-400" />
         )}
       </div>
     </Modal>
@@ -296,23 +359,47 @@ function SubmissionsTab({ exams, submissions, user, config, onReview }) {
 
 // ── Manage / build exams ─────────────────────────────────────────────────────
 
-function GroupPicker({ label, hint, groups, selected, onChange }) {
-  const sel = selected || [];
-  const toggle = (id) => onChange(sel.includes(id) ? sel.filter((x) => x !== id) : [...sel, id]);
+// A "group and above" tier picker (Staff Hub "Administrator+" style). Groups are
+// listed high → low; picking one means that group and everyone above it qualifies.
+function TierSelect({ label, hint, groups, value, anyoneLabel, onChange }) {
+  const ordered = [...groups].sort((a, b) => (b.level ?? 0) - (a.level ?? 0));
   return (
     <Field label={label} hint={hint}>
-      <div className="flex flex-wrap gap-1.5">
-        {groups.map((g) => (
-          <button key={g.id} type="button" onClick={() => toggle(g.id)}
-            className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition ${
-              sel.includes(g.id) ? "border-[var(--color-primary)] bg-[color:var(--color-primary)]/15 text-white" : "border-white/15 text-slate-400 hover:text-white"
-            }`}>
-            {g.label}
-          </button>
+      <Select value={value || ""} onChange={(e) => onChange(e.target.value)}>
+        <option value="">{anyoneLabel}</option>
+        {ordered.map((g) => (
+          <option key={g.id} value={g.id}>{g.label} and above</option>
         ))}
-        {groups.length === 0 && <span className="text-xs text-slate-500">No groups defined yet.</span>}
-      </div>
+      </Select>
     </Field>
+  );
+}
+
+function ResourceLinksEditor({ links, onChange }) {
+  const list = links || [];
+  const [label, setLabel] = useState("");
+  const [url, setUrl] = useState("");
+  return (
+    <div>
+      <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-cad-muted">Resource links</div>
+      <div className="grid gap-1.5">
+        {list.map((l, i) => (
+          <div key={i} className="flex items-center gap-2 rounded-lg border border-white/10 bg-[var(--color-surface-2)] px-3 py-1.5 text-sm">
+            <span className="font-semibold text-white">{l.label}</span>
+            <span className="truncate font-mono text-xs text-slate-500">{l.url}</span>
+            <IconButton icon={Trash2} label="Remove link" onClick={() => onChange(list.filter((_, j) => j !== i))} className="ml-auto hover:border-red-500/40 hover:text-red-300" />
+          </div>
+        ))}
+      </div>
+      <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+        <Input value={label} placeholder="Label (e.g. Module 1)" onChange={(e) => setLabel(e.target.value)} />
+        <Input value={url} placeholder="https://…" onChange={(e) => setUrl(e.target.value)} className="font-mono" />
+        <Button variant="secondary" icon={Plus} disabled={!label.trim() || !url.trim()}
+          onClick={() => { onChange([...list, { label: label.trim(), url: url.trim() }]); setLabel(""); setUrl(""); }}>
+          Add
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -424,12 +511,25 @@ function ExamEditor({ open, onClose, exam, groups, onSave }) {
           <Field label="Exam title"><Input value={draft.title} onChange={(e) => patch({ title: e.target.value })} autoFocus /></Field>
           <Field label="Pass mark %"><Input type="number" min={0} max={100} value={draft.passThreshold} onChange={(e) => patch({ passThreshold: Number(e.target.value) || 0 })} /></Field>
         </div>
-        <Field label="Description" hint="Shown to the person before they start."><Textarea rows={2} value={draft.description} onChange={(e) => patch({ description: e.target.value })} /></Field>
+        <Field label="Banner image" hint="Optional header image shown on the form.">
+          <Input value={draft.banner || ""} onChange={(e) => patch({ banner: e.target.value })} placeholder="https://… (direct image link)" />
+        </Field>
+        <Field label="Description" hint="Shown before they start. Use \n for new lines and **bold** for bold.">
+          <Textarea rows={3} value={draft.description} onChange={(e) => patch({ description: e.target.value })} />
+        </Field>
+        <ResourceLinksEditor links={draft.resourceLinks} onChange={(resourceLinks) => patch({ resourceLinks })} />
+        <Field label="Completion message" hint="Shown after submitting. Blank uses the default score message.">
+          <Textarea rows={2} value={draft.completionMessage || ""} onChange={(e) => patch({ completionMessage: e.target.value })} />
+        </Field>
 
         <div className="grid gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3 sm:grid-cols-2">
-          <GroupPicker label="Who can take this exam" hint="None selected = any signed-in member." groups={groups} selected={draft.submitGroups} onChange={(submitGroups) => patch({ submitGroups })} />
-          <GroupPicker label="Who can review submissions" hint="None selected = site managers only." groups={groups} selected={draft.reviewGroups} onChange={(reviewGroups) => patch({ reviewGroups })} />
+          <TierSelect label="Who can take this exam" hint="That group and everyone above it." groups={groups} value={draft.submitTier} anyoneLabel="Any signed-in member" onChange={(submitTier) => patch({ submitTier })} />
+          <TierSelect label="Who can review submissions" hint="That group and above (managers always can)." groups={groups} value={draft.reviewTier} anyoneLabel="Site managers only" onChange={(reviewTier) => patch({ reviewTier })} />
         </div>
+        <label className="flex items-center gap-2 text-sm text-slate-300">
+          <input type="checkbox" checked={!!draft.scramble} onChange={(e) => patch({ scramble: e.target.checked })} className="h-4 w-4 accent-[var(--color-primary)]" />
+          Scramble question order (each test taker sees a randomized order)
+        </label>
 
         <div className="flex items-center justify-between">
           <div className="text-[11px] font-bold uppercase tracking-[0.5px] text-cad-muted">
@@ -486,14 +586,14 @@ export default function ExamsPage({ page, user }) {
   const setExams = (next) => setCfg({ exams: next });
   const setSubmissions = (next) => setCfg({ submissions: next });
 
-  function submitExam(exam, answers) {
+  function submitExam(exam, answers, subject) {
     const grade = gradeSubmission(exam, answers);
     const submission = {
       id: uid("sub"),
       examId: exam.id,
       examTitle: exam.title,
       passThreshold: exam.passThreshold,
-      subject: { name: who(user), discordId: user?.id || "" },
+      subject: subject || { name: who(user), discordId: user?.id || "" },
       by: { name: who(user), discordId: user?.id || "" },
       at: new Date().toISOString(),
       questions: (exam.questions || []).map((q) => ({ id: q.id, prompt: q.prompt, type: q.type, options: q.options, points: q.points })),
@@ -502,7 +602,7 @@ export default function ExamsPage({ page, user }) {
     };
     setSubmissions([submission, ...submissions]);
     setTaking(null);
-    setResult(grade);
+    setResult({ ...grade, completionMessage: exam.completionMessage });
   }
 
   function reviewSubmission(sub, awards) {
@@ -584,8 +684,8 @@ export default function ExamsPage({ page, user }) {
                   </div>
                   <div className="truncate text-xs text-slate-500">
                     {e.questions.length} question{e.questions.length === 1 ? "" : "s"} · pass {e.passThreshold}% ·
-                    {" "}take: {e.submitGroups?.length ? e.submitGroups.map((id) => groups.find((g) => g.id === id)?.label || id).join(", ") : "anyone"} ·
-                    {" "}review: {e.reviewGroups?.length ? e.reviewGroups.map((id) => groups.find((g) => g.id === id)?.label || id).join(", ") : "managers"}
+                    {" "}take: {e.submitTier ? `${groups.find((g) => g.id === e.submitTier)?.label || e.submitTier}+` : "anyone"} ·
+                    {" "}review: {e.reviewTier ? `${groups.find((g) => g.id === e.reviewTier)?.label || e.reviewTier}+` : "managers"}
                   </div>
                 </div>
                 <IconButton icon={e.published ? Eye : EyeOff} label={e.published ? "Unpublish" : "Publish"}
