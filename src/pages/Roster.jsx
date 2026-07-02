@@ -825,13 +825,27 @@ function ColumnsEditor() {
             )}
           </div>
         ))}
-        <Button
-          variant="secondary"
-          icon={Plus}
-          onClick={() => mutate(R.addMemberField(config, { label: "New Field", type: "text" }))}
-        >
-          Add column
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="secondary"
+            icon={Plus}
+            onClick={() => mutate(R.addMemberField(config, { label: "New Field", type: "text" }))}
+          >
+            Add column
+          </Button>
+          {!fields.some((f) => f.type === "date" && /deadline/i.test(f.label)) && (
+            <Button
+              variant="secondary"
+              icon={Plus}
+              onClick={() =>
+                mutate(R.addMemberField(config, { label: "Cadet / Recruit Deadline", type: "date" }))
+              }
+              title="A date column for cadet/recruit training deadlines. Grant Extension in FTO / Cadets writes to it."
+            >
+              Add Cadet / Recruit Deadline
+            </Button>
+          )}
+        </div>
       </div>
   );
 }
@@ -968,6 +982,8 @@ function FTOBody({ initialSubId, user, onToast }) {
   const [passRank, setPassRank] = useState("");
   const [passProb, setPassProb] = useState("");
   const [confirmFail, setConfirmFail] = useState(null);
+  const [extending, setExtending] = useState(null); // cadet mid "grant extension"
+  const [extendDate, setExtendDate] = useState("");
   const [hireName, setHireName] = useState("");
   const [hireDiscord, setHireDiscord] = useState("");
   const [hireCat, setHireCat] = useState("");
@@ -1006,6 +1022,29 @@ function FTOBody({ initialSubId, user, onToast }) {
     mutate((cfg) =>
       R.updateMember(cfg, sub.id, m.catId, m.id, { fields: { ...(m.fields || {}), [trainingField.id]: value } })
     );
+  }
+
+  // A "Cadet / Recruit Deadline" date column, if the department has one. Grant
+  // Extension writes the new deadline here; if no such column exists yet it's
+  // created on the fly so the button always works.
+  const deadlineField = rosterFields.find((f) => f.type === "date" && /deadline/i.test(f.label));
+  function grantExtension(m, date) {
+    if (!date) return;
+    mutate((cfg) => {
+      let next = cfg;
+      let fieldId = deadlineField?.id;
+      if (!fieldId) {
+        next = R.addMemberField(cfg, { label: "Cadet / Recruit Deadline", type: "date" });
+        const fields = next.roster.memberFields;
+        fieldId = fields[fields.length - 1].id;
+      }
+      return R.updateMember(next, sub.id, m.catId, m.id, {
+        fields: { ...(m.fields || {}), [fieldId]: date },
+      });
+    });
+    onToast?.(`Extension granted, ${m.name}'s deadline set to ${date}`);
+    setExtending(null);
+    setExtendDate("");
   }
 
   // Promote + (optionally) move the cadet into the graduation category, using the
@@ -1312,6 +1351,9 @@ function FTOBody({ initialSubId, user, onToast }) {
                     <div className="truncate text-xs text-slate-500">
                       {m.catName}
                       {csId && m.fields?.[csId] ? ` · ${m.fields[csId]}` : ""}
+                      {deadlineField && m.fields?.[deadlineField.id]
+                        ? ` · Deadline ${m.fields[deadlineField.id]}`
+                        : ""}
                     </div>
                   </div>
                   {trainingField?.options?.length > 0 && (
@@ -1339,6 +1381,18 @@ function FTOBody({ initialSubId, user, onToast }) {
                     variant="secondary"
                     className="!py-1.5 text-xs"
                     onClick={() => {
+                      const opening = extending?.id !== m.id;
+                      setExtending(opening ? m : null);
+                      setExtendDate(opening ? m.fields?.[deadlineField?.id] || "" : "");
+                    }}
+                    title="Set or extend this cadet's training deadline"
+                  >
+                    Grant extension
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="!py-1.5 text-xs"
+                    onClick={() => {
                       setPassing(passing?.id === m.id ? null : m);
                       setPassRank("");
                       setPassProb("");
@@ -1354,6 +1408,23 @@ function FTOBody({ initialSubId, user, onToast }) {
                     Failed training
                   </Button>
                 </div>
+                {extending?.id === m.id && (
+                  <div className="mt-2 grid items-end gap-2 rounded-lg border border-white/10 bg-white/[0.02] p-2 sm:grid-cols-[1fr_auto]">
+                    <Field
+                      label="New deadline"
+                      hint={
+                        deadlineField
+                          ? "Extends the Cadet / Recruit Deadline column."
+                          : "Creates a Cadet / Recruit Deadline column and sets it."
+                      }
+                    >
+                      <Input type="date" value={extendDate} onChange={(e) => setExtendDate(e.target.value)} />
+                    </Field>
+                    <Button disabled={!extendDate} onClick={() => grantExtension(m, extendDate)}>
+                      Grant
+                    </Button>
+                  </div>
+                )}
                 {passing?.id === m.id && (
                   <div className="mt-2 grid items-end gap-2 rounded-lg border border-white/10 bg-white/[0.02] p-2 sm:grid-cols-[1fr_1fr_auto]">
                     <Field label="Promote to">
