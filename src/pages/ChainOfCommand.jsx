@@ -457,6 +457,13 @@ function NodeTree({ node, accent, canEdit, isRoot = true, onEdit, onAddChild, dr
         <img
           src={safeMediaUrl(node.imageUrl)}
           alt={node.title}
+          // Hide instead of showing a broken-image icon if the link doesn't load.
+          onError={(e) => {
+            e.currentTarget.style.display = "none";
+          }}
+          onLoad={(e) => {
+            e.currentTarget.style.display = "";
+          }}
           className="mb-1.5 h-14 w-14 object-contain"
         />
       )}

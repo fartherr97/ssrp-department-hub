@@ -9,6 +9,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown, X, Upload } from "lucide-react";
+import { normalizeMediaUrl } from "../../lib/urls.js";
 
 // ─── Brand ───────────────────────────────────────────────────────────────────
 
@@ -512,7 +513,15 @@ function downscaleImage(file, maxDim) {
 export function MediaInput({ value, onChange, kind = "image", maxDim = 1024, placeholder = "https://… or upload a file" }) {
   const fileRef = useRef(null);
   const [error, setError] = useState("");
+  const [previewFailed, setPreviewFailed] = useState(false);
   const isUploaded = (value || "").startsWith("data:");
+
+  // Convert a pasted share-page link (Drive/Dropbox/Imgur/GitHub) into the direct
+  // image URL once the field loses focus, so it actually renders.
+  function normalizeOnBlur() {
+    const next = normalizeMediaUrl(value);
+    if (next !== value) onChange(next);
+  }
 
   async function onFile(e) {
     const file = e.target.files?.[0];
@@ -541,10 +550,12 @@ export function MediaInput({ value, onChange, kind = "image", maxDim = 1024, pla
   return (
     <div>
       <div className="flex items-center gap-2">
-        {kind === "image" && value && (
+        {kind === "image" && value && !previewFailed && (
           <img
             src={value}
             alt=""
+            onError={() => setPreviewFailed(true)}
+            onLoad={() => setPreviewFailed(false)}
             className="h-9 w-9 shrink-0 rounded-lg border border-white/10 object-cover"
           />
         )}
@@ -566,7 +577,11 @@ export function MediaInput({ value, onChange, kind = "image", maxDim = 1024, pla
           <Input
             value={value || ""}
             placeholder={placeholder}
-            onChange={(e) => onChange(e.target.value)}
+            onChange={(e) => {
+              setPreviewFailed(false);
+              onChange(e.target.value);
+            }}
+            onBlur={normalizeOnBlur}
             className="min-w-0 flex-1"
           />
         )}
@@ -588,6 +603,12 @@ export function MediaInput({ value, onChange, kind = "image", maxDim = 1024, pla
         </Button>
       </div>
       {error && <p className="mt-1 text-xs text-red-300">{error}</p>}
+      {!error && previewFailed && !isUploaded && value && (
+        <p className="mt-1 text-xs text-amber-300/90">
+          That link didn't load as an image. Use a direct link to the image file (it should end in
+          .png, .jpg, .gif, or .webp), or click Upload. Discord links expire, upload those.
+        </p>
+      )}
     </div>
   );
 }
