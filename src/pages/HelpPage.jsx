@@ -123,7 +123,7 @@ function Assistant() {
         <div>
           <div className="text-sm font-bold text-white">Hub Assistant</div>
           <div className="text-[11px] text-slate-500">
-            Free guided help, walks you through building. It can't answer security questions.
+            Free guided help, walks you through building anything in the hub.
           </div>
         </div>
       </div>
