@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Plus,
-  Pin,
   Pencil,
   Trash2,
   ChevronUp,
@@ -1802,7 +1801,6 @@ function SubRoster({
   onEditCategory,
   onDeleteCategory,
   compact = false,
-  freeze = false,
 }) {
   const categories = sub.categories || [];
   const rankById = useMemo(
@@ -1812,10 +1810,12 @@ function SubRoster({
   const colCount = 2 + fields.length + (canEdit ? 1 : 0);
   const visible = categories.filter((c) => categoryFilter === "all" || c.id === categoryFilter);
   const thBase = "whitespace-nowrap px-3 py-2.5 font-semibold";
-  const thFreeze = freeze ? " sticky top-0 z-20 bg-[var(--color-surface-1)]" : "";
+  // The header always freezes (sticky) so column labels stay visible while
+  // scrolling a long roster — this used to be an optional toggle.
+  const thFreeze = " sticky top-0 z-20 bg-[var(--color-surface-1)]";
 
   return (
-    <div className={freeze ? "max-h-[70vh] overflow-auto" : "overflow-x-auto"}>
+    <div className="max-h-[70vh] overflow-auto">
       <table
         className={`w-full border-collapse text-left ${compact ? "min-w-[520px]" : "min-w-[760px]"}`}
       >
@@ -1834,7 +1834,7 @@ function SubRoster({
               </th>
             ))}
             {canEdit && (
-              <th className={`${thBase} sticky right-0 z-[22] bg-[var(--color-surface-1)]${freeze ? " top-0" : ""}`} />
+              <th className={`${thBase} sticky right-0 top-0 z-[22] bg-[var(--color-surface-1)]`} />
             )}
           </tr>
         </thead>
@@ -2316,7 +2316,6 @@ export default function Roster({ user, page }) {
     fields,
     statusField,
     probationFieldId: probationId,
-    freeze: Boolean(config.roster.freezeHeader),
     matches,
     filtering,
     dragOverCat,
@@ -2494,25 +2493,6 @@ export default function Roster({ user, page }) {
                     <option value="off">Not on probation</option>
                   </Select>
                 </div>
-              )}
-              {canEditActive && (
-                <button
-                  onClick={() =>
-                    mutate((cfg) => ({
-                      ...cfg,
-                      roster: { ...cfg.roster, freezeHeader: !cfg.roster.freezeHeader },
-                    }))
-                  }
-                  title="Keep the header row visible while scrolling"
-                  className={`press inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition ${
-                    config.roster.freezeHeader
-                      ? "border-[color:var(--color-border-strong)] bg-[color:var(--color-primary)]/15 text-white"
-                      : "border-white/10 bg-white/[0.03] text-slate-400 hover:text-white"
-                  }`}
-                >
-                  <Pin size={14} />
-                  Freeze header
-                </button>
               )}
             </div>
           </div>
