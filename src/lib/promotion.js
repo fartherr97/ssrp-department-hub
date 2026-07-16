@@ -58,6 +58,19 @@ const daFieldActive = (type, v) => {
   return s !== "" && s !== "0" && s !== "none" && s !== "n/a" && s !== "no" && s !== "false";
 };
 
+// The value of the first active DA member column, to show as the reason detail
+// (e.g. a "Strikes" column reading "Strike I"). null when no DA column is set.
+function activeDaValue(config, member) {
+  const fields = config?.roster?.memberFields || [];
+  for (const f of daFieldIds(config)) {
+    const v = member.fields?.[f.id];
+    if (!daFieldActive(f.type, v)) continue;
+    if (f.type === "checkbox") return fields.find((x) => x.id === f.id)?.label || "on file";
+    return String(v).trim();
+  }
+  return null;
+}
+
 const DAY = 86400000;
 const keyOf = (p) => (p?.discordId || "").trim() || (p?.name || "").trim().toLowerCase();
 
@@ -96,12 +109,12 @@ export function evaluateMember(config, sub, member, das, hours, settings, now = 
           return Number.isNaN(t) ? true : now - t <= windowMs;
         })
     : [];
-  const fieldDa = daFieldIds(config).some((f) => daFieldActive(f.type, member.fields?.[f.id]));
-  if (recent.length || fieldDa) {
+  const fieldDa = activeDaValue(config, member); // string value, or null
+  if (recent.length || fieldDa != null) {
     const newest = recent.length
       ? recent.reduce((a, b) => (new Date(a.at || a.date) > new Date(b.at || b.date) ? a : b))
       : null;
-    reasons.push({ key: "da", label: "Active DA", detail: newest ? newest.type : "on file" });
+    reasons.push({ key: "da", label: "Active DA", detail: newest ? newest.type : fieldDa || "on file" });
   }
 
   if (s.minDaysInGrade > 0) {
