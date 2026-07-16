@@ -344,8 +344,8 @@ function VoteModal({ vote, colors, user, canManage, canSee, pubStatus, now, onCl
                         const on = choice === c.id;
                         return (
                           <button key={c.id} onClick={() => setChoice(c.id)}
-                            className="flex flex-col items-center gap-1 rounded-xl border py-3 text-sm font-semibold transition"
-                            style={on ? { borderColor: c.color, background: `color-mix(in srgb, ${c.color} 15%, transparent)`, color: "#fff" } : { borderColor: "rgba(255,255,255,0.1)", color: "#cbd5e1" }}>
+                            className={`vote-choice flex flex-col items-center gap-1 rounded-xl border py-3 text-sm font-semibold ${on ? "text-white" : "border-white/10 text-slate-300"}`}
+                            style={{ "--c": c.color, ...(on ? { borderColor: c.color, background: `color-mix(in srgb, ${c.color} 15%, transparent)` } : {}) }}>
                             <Icon size={16} style={{ color: c.color }} />{c.label}
                           </button>
                         );

@@ -277,6 +277,33 @@ body::-webkit-scrollbar-thumb {
   animation-delay: calc(var(--i, 0) * 0.04s);
 }
 
+/* Every interactive control reads as clickable. Browsers default <button> to the
+ * arrow cursor; make buttons (and role=button / tabs / summaries) show a pointer,
+ * and disabled ones show not-allowed. */
+button:not(:disabled):not([aria-disabled="true"]),
+[role="button"]:not([aria-disabled="true"]),
+[role="tab"],
+label[for],
+summary,
+select:not(:disabled) {
+  cursor: pointer;
+}
+button:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+/* Vote choice buttons (Approve / Deny / Abstain): tint toward their own color on
+ * hover. The choice color is passed in as --c. */
+.vote-choice {
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+.vote-choice:hover {
+  border-color: var(--c);
+  background-color: color-mix(in srgb, var(--c) 15%, transparent);
+  color: #fff;
+}
+
 /* ─── SSRP CAD interaction utilities (the signature feel) ───────────────────── */
 .press { transition: transform 0.09s var(--ease-soft); } /* tap feedback */
 .press:active { transform: scale(0.94); }
