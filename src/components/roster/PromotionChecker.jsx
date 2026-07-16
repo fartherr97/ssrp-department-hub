@@ -165,14 +165,14 @@ export default function PromotionChecker({ open, onClose, config, mutate, subdiv
                         {r.eligible ? (
                           <Badge color="#1eb854">
                             <Check size={11} className="mr-0.5 inline" />
-                            Eligible{r.nextRankName ? ` → ${r.nextRankName}` : ""}
+                            Eligible
                           </Badge>
                         ) : (
                           <div className="flex flex-wrap justify-end gap-1">
                             {r.reasons.map((reason) => (
                               <span key={reason.key} title={reason.detail || ""}
                                 className="rounded-full border border-red-500/25 bg-red-500/10 px-2 py-0.5 text-[11px] font-semibold text-red-300">
-                                {reason.label}
+                                {reason.label}{reason.key === "da" && reason.detail ? ` - ${reason.detail}` : ""}
                               </span>
                             ))}
                           </div>
