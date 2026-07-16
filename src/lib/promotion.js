@@ -21,10 +21,13 @@ import {
 export const DEFAULT_PROMO = {
   minDaysInGrade: 14, // days since last promotion required (0 = don't check)
   daWindowDays: 30, // a DA/strike this recent counts as active (0 = ever)
+  minWeekHours: 0, // on-duty hours required this week (0 = don't check)
+  minMonthHours: 0, // on-duty hours required this month (0 = don't check)
   requireOffProbation: true,
   excludeLoa: true,
   excludeTopRank: true,
 };
+const hrs = (n) => (n % 1 ? (Math.round(n * 10) / 10).toFixed(1) : String(n));
 export function promoSettings(config) {
   return { ...DEFAULT_PROMO, ...(config?.roster?.promoEligibility || {}) };
 }
@@ -58,8 +61,10 @@ const daFieldActive = (type, v) => {
 const DAY = 86400000;
 const keyOf = (p) => (p?.discordId || "").trim() || (p?.name || "").trim().toLowerCase();
 
-// Evaluate one member. Returns { eligible, reasons: [{key,label,detail?}], nextRankName }.
-export function evaluateMember(config, sub, member, das, settings, now = Date.now()) {
+// Evaluate one member. `hours` is a Map(discordId → {weekHours, monthHours}) or
+// null when the activity feed hasn't loaded (then activity is skipped, never a
+// false negative). Returns { eligible, reasons: [{key,label,detail?}], nextRankName }.
+export function evaluateMember(config, sub, member, das, hours, settings, now = Date.now()) {
   const s = settings;
   const reasons = [];
   const ranks = sub?.ranks || [];
@@ -107,6 +112,16 @@ export function evaluateMember(config, sub, member, das, settings, now = Date.no
       const days = Math.floor((now - t) / DAY);
       if (days < s.minDaysInGrade) reasons.push({ key: "tig", label: `${days}/${s.minDaysInGrade} days in grade` });
     }
+  }
+
+  // Activity — on-duty hours from the Duty Hub feed. Only checked once the feed
+  // has loaded (hours != null) so a slow/absent feed never fails anyone falsely.
+  if (hours && (s.minWeekHours > 0 || s.minMonthHours > 0)) {
+    const h = hours.get(String(member.discordId || "")) || { weekHours: 0, monthHours: 0 };
+    if (s.minWeekHours > 0 && h.weekHours < s.minWeekHours)
+      reasons.push({ key: "hoursWk", label: `${hrs(h.weekHours)}/${hrs(s.minWeekHours)}h this week` });
+    if (s.minMonthHours > 0 && h.monthHours < s.minMonthHours)
+      reasons.push({ key: "hoursMo", label: `${hrs(h.monthHours)}/${hrs(s.minMonthHours)}h this month` });
   }
 
   return { eligible: reasons.length === 0, reasons, nextRankName };

@@ -1,7 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Award, Search, SlidersHorizontal, Check } from "lucide-react";
 import { Modal, Button, Input, Select, Badge, Field } from "../common/index.jsx";
 import { callsignFieldId } from "../../lib/roster.js";
+import { promoSettings, collectDAs, evaluateMember, DEFAULT_PROMO } from "../../lib/promotion.js";
+import * as api from "../../lib/api.js";
 
 // Initials from the name segment of a "callsign | rank | Surname" roster name.
 const initials = (name) => {
@@ -9,7 +11,6 @@ const initials = (name) => {
   const w = seg.split(/\s+/).filter(Boolean);
   return (w.length >= 2 ? w[0][0] + w[1][0] : seg.slice(0, 2) || "?").toUpperCase();
 };
-import { promoSettings, collectDAs, evaluateMember, DEFAULT_PROMO } from "../../lib/promotion.js";
 
 /*
  * Promotion Eligibility Checker. Shows the whole roster for a subdivision and
@@ -27,14 +28,27 @@ export default function PromotionChecker({ open, onClose, config, mutate, subdiv
   const das = useMemo(() => collectDAs(config), [config]);
   const csId = callsignFieldId(config);
   const rankName = (id) => (sub?.ranks || []).find((r) => r.id === id)?.name || "";
+  const needsHours = settings.minWeekHours > 0 || settings.minMonthHours > 0;
+
+  // On-duty hours feed (only fetched when an activity requirement is set).
+  const [hours, setHours] = useState(null);
+  useEffect(() => {
+    if (!needsHours) { setHours(null); return; }
+    let alive = true;
+    api.getDutyHours().then((feed) => {
+      if (!alive) return;
+      setHours(new Map((feed?.members || []).map((h) => [String(h.discordId), { weekHours: Number(h.weekHours) || 0, monthHours: Number(h.monthHours) || 0 }])));
+    }).catch(() => alive && setHours(new Map()));
+    return () => { alive = false; };
+  }, [needsHours]);
 
   const groups = useMemo(() => {
     const now = Date.now();
     return (sub?.categories || []).map((cat) => ({
       cat,
-      rows: (cat.members || []).map((m) => ({ m, ...evaluateMember(config, sub, m, das, settings, now) })),
+      rows: (cat.members || []).map((m) => ({ m, ...evaluateMember(config, sub, m, das, hours, settings, now) })),
     }));
-  }, [config, sub, das, settings]);
+  }, [config, sub, das, hours, settings]);
 
   const allRows = groups.flatMap((g) => g.rows);
   const eligibleCount = allRows.filter((r) => r.eligible).length;
@@ -69,6 +83,10 @@ export default function PromotionChecker({ open, onClose, config, mutate, subdiv
           </Button>
         </div>
 
+        {needsHours && !hours && (
+          <p className="text-xs text-amber-300/80">Loading on-duty hours… activity isn't applied until it loads.</p>
+        )}
+
         {/* Criteria */}
         {showCriteria && (
           <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
@@ -81,6 +99,14 @@ export default function PromotionChecker({ open, onClose, config, mutate, subdiv
                 <Field label="Active-DA window (days)" hint="A DA/strike this recent counts. 0 = ever.">
                   <Input type="number" min={0} value={settings.daWindowDays}
                     onChange={(e) => setSetting({ daWindowDays: Math.max(0, Number(e.target.value) || 0) })} />
+                </Field>
+                <Field label="Min. hours this week" hint="On-duty hours from the Duty Hub. 0 = skip.">
+                  <Input type="number" min={0} step="0.5" value={settings.minWeekHours}
+                    onChange={(e) => setSetting({ minWeekHours: Math.max(0, Number(e.target.value) || 0) })} />
+                </Field>
+                <Field label="Min. hours this month" hint="On-duty hours from the Duty Hub. 0 = skip.">
+                  <Input type="number" min={0} step="0.5" value={settings.minMonthHours}
+                    onChange={(e) => setSetting({ minMonthHours: Math.max(0, Number(e.target.value) || 0) })} />
                 </Field>
                 <div className="flex flex-col gap-1.5 sm:col-span-2">
                   {[
@@ -102,6 +128,8 @@ export default function PromotionChecker({ open, onClose, config, mutate, subdiv
               <p className="text-xs text-slate-400">
                 Eligible = {settings.requireOffProbation ? "off probation, " : ""}no DA/strike in the last {settings.daWindowDays || "∞"} days
                 {settings.minDaysInGrade ? `, ≥ ${settings.minDaysInGrade} days in grade` : ""}
+                {settings.minWeekHours ? `, ≥ ${settings.minWeekHours}h this week` : ""}
+                {settings.minMonthHours ? `, ≥ ${settings.minMonthHours}h this month` : ""}
                 {settings.excludeLoa ? ", not on LOA" : ""}{settings.excludeTopRank ? ", not at the top rank" : ""}. Only structure editors can change these.
               </p>
             )}
