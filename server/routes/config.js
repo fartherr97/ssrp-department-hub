@@ -102,14 +102,16 @@ function authorizeConfigChange(user, current, incoming) {
     const blockedHierarchy = authorizeGroupHierarchy(user, current, incoming);
     if (blockedHierarchy) return blockedHierarchy;
   }
-  // Branding / navigation / page structure → manage-site only.
+  // Branding / navigation / page structure / webhooks → manage-site only.
+  // (A webhook URL is a Discord write credential, so only managers may set it.)
   if (
     !canManageSite(user, current) &&
     (changed(current, incoming, "branding") ||
       changed(current, incoming, "navGroups") ||
-      changed(current, incoming, "dropdownGroups"))
+      changed(current, incoming, "dropdownGroups") ||
+      changed(current, incoming, "webhooks"))
   ) {
-    return "site branding or navigation";
+    return "site branding, navigation, or webhooks";
   }
   // Roster edits: full roster editors are fine; a limited (junior-ranks) editor
   // may only touch the MAIN subdivision, and only within their rank ceiling —

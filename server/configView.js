@@ -58,7 +58,14 @@ export function redactSensitive(config) {
       },
     };
   });
-  return { ...config, pages };
+  // Site-level webhooks map: { promotion: { url, … }, … }.
+  const out = { ...config, pages };
+  if (config.webhooks && typeof config.webhooks === "object") {
+    out.webhooks = Object.fromEntries(
+      Object.entries(config.webhooks).map(([k, w]) => [k, w && w.url ? { ...w, url: REDACTED } : w])
+    );
+  }
+  return out;
 }
 
 // Before persisting an incoming config from a non-manager, restore any webhook
@@ -75,5 +82,16 @@ export function mergeRedactedBack(incoming, stored) {
       config: { ...page.config, webhook: { ...page.config.webhook, url: realUrl } },
     };
   });
-  return { ...incoming, pages };
+  const out = { ...incoming, pages };
+  // Restore any redacted site-level webhook URL from the stored config, so a
+  // routine save from someone who received it redacted can never blank it.
+  if (incoming.webhooks && typeof incoming.webhooks === "object") {
+    out.webhooks = Object.fromEntries(
+      Object.entries(incoming.webhooks).map(([k, w]) => {
+        if (w?.url !== REDACTED) return [k, w];
+        return [k, { ...w, url: stored?.webhooks?.[k]?.url || "" }];
+      })
+    );
+  }
+  return out;
 }

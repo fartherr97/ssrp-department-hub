@@ -6,6 +6,8 @@ import {
 import { useConfig } from "../lib/configContext.jsx";
 import { canManageSite } from "../lib/permissions.js";
 import * as api from "../lib/api.js";
+import { promoWebhook, sendPromotionWebhook } from "../lib/webhooks.js";
+import { getPagePath } from "../lib/navigation.js";
 import {
   Panel, PageHeader, Button, IconButton, Field, Input, Select, Textarea, Badge,
   EmptyState, Modal, ConfirmDialog, useModalData, Toast,
@@ -456,6 +458,17 @@ export default function PromotionBoard({ page, user }) {
     setVotes([...created, ...votes]);
     setCreating(false);
     show(created.length > 1 ? `${created.length} votes opened` : "Vote opened");
+    // One Discord ping for the whole batch (fire-and-forget).
+    const wh = promoWebhook(config);
+    if (wh.enabled && wh.url) {
+      const boardUrl = typeof window !== "undefined" ? `${window.location.origin}${getPagePath(page.id, config)}` : "";
+      sendPromotionWebhook(wh, {
+        members: created.map((v) => ({ name: v.name, currentRank: v.currentRank, proposedRank: v.proposedRank, discordId: v.discordId })),
+        boardUrl,
+        durationLabel: `${DEFAULT_VOTE_HOURS} hours`,
+        now: Date.now(),
+      });
+    }
   }
   function castVote(voteId, choice, reason) {
     const k = String(user?.id || "");

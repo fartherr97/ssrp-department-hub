@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Palette, LayoutList, Users, Database, Check, Compass, Undo2, BookOpen } from "lucide-react";
+import { Palette, LayoutList, Users, Database, Check, Compass, Undo2, BookOpen, Webhook } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
 import { canManageSite } from "../lib/permissions.js";
 import { getSubPagePath, buildSubPath } from "../lib/navigation.js";
@@ -10,6 +10,7 @@ import PagesTab from "./builder/PagesTab.jsx";
 import RosterTab from "./builder/RosterTab.jsx";
 import AdvancedTab from "./builder/AdvancedTab.jsx";
 import KeyGuideTab from "./builder/KeyGuideTab.jsx";
+import WebhooksTab from "./builder/WebhooksTab.jsx";
 
 // All Builder tabs are site configuration, they require the manageSite
 // capability. Access & Roles lives on its own page under Administration.
@@ -18,6 +19,7 @@ const TABS = [
   { id: "branding", label: "Branding", desc: "Name, logo & colors", icon: Palette, Component: BrandingTab },
   { id: "pages", label: "Pages & Menu", desc: "Pages & navigation bar", icon: LayoutList, Component: PagesTab },
   { id: "roster", label: "Roster Setup", desc: "Subdivisions & columns", icon: Users, Component: RosterTab },
+  { id: "webhooks", label: "Webhooks", desc: "Promotion-vote Discord webhook", icon: Webhook, Component: WebhooksTab },
   { id: "advanced", label: "Backup & Restore", desc: "Save or restore everything", icon: Database, Component: AdvancedTab },
   { id: "guide", label: "Key Guide", desc: "Every term, in plain words", icon: BookOpen, Component: KeyGuideTab },
 ];
