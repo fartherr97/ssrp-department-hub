@@ -178,6 +178,8 @@ function PageModal({ open, onClose, config, page, onSave }) {
                     ? { books: defaultLogBooks(), entries: [] }
                     : type === "exams"
                     ? { exams: [], submissions: [] }
+                    : type === "promotion"
+                    ? { votes: [], rankColors: {} }
                     : type === "uniformtabs"
                     ? { tabs: [] }
                     : type === "calendar"
@@ -197,6 +199,7 @@ function PageModal({ open, onClose, config, page, onSave }) {
               <option value="chain">Chain of command (org chart)</option>
               <option value="adminlog">Administrative log (logbooks + stats)</option>
               <option value="exams">Exams (Google-Forms style, auto-graded)</option>
+              <option value="promotion">Promotion board (nominations + voting)</option>
               <option value="calendar">Department calendar</option>
               <option value="activity">Activity feed (recent changes)</option>
               <option value="hours">Duty hours + leaderboard</option>
@@ -204,9 +207,11 @@ function PageModal({ open, onClose, config, page, onSave }) {
           </Field>
         )}
 
-        {["fleet", "calendar", "uniforms", "uniformtabs", "chain", "adminlog", "exams", "activity", "hours"].includes(draft.type) && (
+        {["fleet", "calendar", "uniforms", "uniformtabs", "chain", "adminlog", "exams", "promotion", "activity", "hours"].includes(draft.type) && (
           <p className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm text-slate-400">
-            {draft.type === "uniformtabs"
+            {draft.type === "promotion"
+              ? "A staff promotion board: managers open a timed nomination vote for a member to a rank; members vote approve/deny/abstain with a reason. Shows live counts, approval %, a per-voter tracker (anonymous to regular viewers until it closes), and pass/fail. Managers publish or cancel. Restrict who can VIEW the page below."
+              : draft.type === "uniformtabs"
               ? "Like the Uniform Roster, but split into tabs per subdivision (SWAT, TED, K9…). Site managers add tabs and choose which group(s) — e.g. each subdivision's heads — may edit each tab. Full roster editors and site managers can edit any tab."
               : draft.type === "exams"
               ? "A Google-Forms-style exam center built on the page itself: create exams with multiple-choice, checkbox, dropdown, true/false, short-answer, and paragraph questions. Objective answers auto-grade; paragraphs are flagged for a reviewer. Per exam you choose which groups can take it and which can review submissions. Managers build exams; restrict who can VIEW the page below."
@@ -237,7 +242,7 @@ function PageModal({ open, onClose, config, page, onSave }) {
         </Field>
 
         {/* Any custom page type can be restricted to chosen groups. */}
-        {["content", "home", "fleet", "uniforms", "uniformtabs", "chain", "calendar", "adminlog", "exams", "activity", "hours"].includes(draft.type) && (
+        {["content", "home", "fleet", "uniforms", "uniformtabs", "chain", "calendar", "adminlog", "exams", "promotion", "activity", "hours"].includes(draft.type) && (
           <Field label="Who can see this page">
             <div className="grid gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-3">
               <label className="flex items-center gap-2 text-sm text-slate-300">
