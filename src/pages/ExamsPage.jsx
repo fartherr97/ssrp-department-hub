@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Plus, Trash2, Pencil, GraduationCap, ClipboardList, Search, Check, X,
-  CircleCheck, CircleX, Clock, FileText, Eye, EyeOff, Copy, ExternalLink, Link2, Users,
+  CircleCheck, CircleX, Clock, FileText, Eye, EyeOff, Copy, ExternalLink, Link2, Users, RotateCcw,
 } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
 import { safeLinkUrl, safeMediaUrl } from "../lib/urls.js";
@@ -27,6 +27,25 @@ function formatAnswer(ans) {
 }
 const uid = (p) => `${p}-${(crypto?.randomUUID?.() || Math.random().toString(36).slice(2)).slice(0, 8)}`;
 const fmtDate = (iso) => (iso ? new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "");
+const fmtDateTime = (iso) => (iso ? new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "");
+
+// A submission's result bucket: survey (no points) → "noscore".
+const resultOf = (s) => (s.maxScore === 0 ? "noscore" : s.status === "needs-review" ? "review" : s.status === "passed" ? "passed" : "failed");
+const RESULT_META = {
+  passed: { label: "Pass", color: "#1eb854" },
+  failed: { label: "Fail", color: "#ef4444" },
+  review: { label: "Needs Review", color: "#f59e0b" },
+  noscore: { label: "No Score", color: "#64748b" },
+};
+function ResultPill({ s }) {
+  const m = RESULT_META[resultOf(s)];
+  return (
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold"
+      style={{ borderColor: `${m.color}44`, color: m.color, background: `${m.color}14` }}>
+      <span className="h-1.5 w-1.5 rounded-full" style={{ background: m.color }} />{m.label}
+    </span>
+  );
+}
 
 function StatusBadge({ s }) {
   if (s === "passed") return <Badge color="#1eb854">Passed</Badge>;
@@ -439,26 +458,37 @@ function Chip({ active, onClick, children }) {
   );
 }
 
-function SubmissionRow({ s, onOpen }) {
+function RecycleBinModal({ deleted, onClose, onRestore, onPurge }) {
   return (
-    <button onClick={onOpen} className="flex items-center gap-3 bg-[var(--color-surface-1)] px-4 py-2.5 text-left transition hover:bg-white/[0.03]">
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-semibold text-white">{s.subject?.name || "Anonymous"}</div>
-        <div className="truncate text-xs text-slate-500">{s.examTitle}</div>
-      </div>
-      <div className="shrink-0 text-sm tabular-nums">
-        <span className="font-bold text-white">{s.score}</span>
-        <span className="text-slate-500"> / {s.maxScore}</span>
-      </div>
-      <StatusBadge s={s.status} />
-    </button>
+    <Modal open onClose={onClose} title={`Recycle bin (${deleted.length})`} size="lg"
+      footer={<Button onClick={onClose}>Done</Button>}>
+      {deleted.length === 0 ? (
+        <p className="py-6 text-center text-sm text-slate-500">The recycle bin is empty.</p>
+      ) : (
+        <div className="grid grid-cols-1 gap-1.5">
+          {deleted.map((s) => (
+            <div key={s.id} className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-semibold text-white">{s.subject?.name || "Anonymous"}</div>
+                <div className="truncate text-xs text-slate-500">{s.examTitle} · {s.maxScore ? `${s.percent}%` : "—"} · deleted {fmtDateTime(s.deletedAt)}</div>
+              </div>
+              <ResultPill s={s} />
+              <IconButton icon={RotateCcw} label="Restore" onClick={() => onRestore(s.id)} />
+              <IconButton icon={Trash2} label="Delete permanently" onClick={() => onPurge(s.id)} className="hover:border-red-500/40 hover:text-red-300" />
+            </div>
+          ))}
+        </div>
+      )}
+    </Modal>
   );
 }
 
-function SubmissionsTab({ exams, submissions, user, config, onReview }) {
+function SubmissionsTab({ exams, submissions, user, config, onReview, onTrash, onPurge, isManager }) {
   const [q, setQ] = useState("");
-  const [filter, setFilter] = useState("all"); // "all" or an exam id
-  const [detail, setDetail] = useState(null); // submission open in the review modal
+  const [examFilter, setExamFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [detail, setDetail] = useState(null);
+  const [binOpen, setBinOpen] = useState(false);
   const examById = (id) => exams.find((e) => e.id === id);
   const canReviewSub = (s) => {
     const e = examById(s.examId);
@@ -466,85 +496,118 @@ function SubmissionsTab({ exams, submissions, user, config, onReview }) {
   };
   const reviewableExams = exams.filter((e) => canReviewExam(user, config, e));
 
+  const mine = submissions.filter(canReviewSub);
+  const live = mine.filter((s) => !s.deleted);
+  const deleted = mine.filter((s) => s.deleted);
+  const scoped = live.filter((s) => examFilter === "all" || s.examId === examFilter);
+  const counts = {
+    all: scoped.length,
+    review: scoped.filter((s) => resultOf(s) === "review").length,
+    passed: scoped.filter((s) => resultOf(s) === "passed").length,
+    failed: scoped.filter((s) => resultOf(s) === "failed").length,
+    noscore: scoped.filter((s) => resultOf(s) === "noscore").length,
+  };
   const term = q.trim().toLowerCase();
-  const matchTerm = (s) => !term || `${s.subject?.name || ""} ${s.subject?.discordId || ""}`.toLowerCase().includes(term);
-  const all = submissions.filter(canReviewSub).filter(matchTerm);
+  const rows = scoped
+    .filter((s) => statusFilter === "all" || resultOf(s) === statusFilter)
+    .filter((s) => !term || `${s.subject?.name || ""} ${s.subject?.discordId || ""}`.toLowerCase().includes(term))
+    .sort((a, b) => (b.at || "").localeCompare(a.at || ""));
+  const examCount = (id) => live.filter((s) => s.examId === id).length;
 
-  // Group by exam, newest first within each.
-  const byExam = new Map(reviewableExams.map((e) => [e.id, []]));
-  for (const s of all) if (byExam.has(s.examId)) byExam.get(s.examId).push(s);
-  for (const arr of byExam.values()) arr.sort((a, b) => (b.at || "").localeCompare(a.at || ""));
-
-  let shownExams = filter === "all" ? reviewableExams : reviewableExams.filter((e) => e.id === filter);
-  if (term) shownExams = shownExams.filter((e) => (byExam.get(e.id) || []).length > 0);
+  if (reviewableExams.length === 0) {
+    return <EmptyState icon={ClipboardList} title="Nothing to review" subtitle="You don't review submissions for any exam yet." />;
+  }
 
   return (
-    <div className="grid gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="grid grid-cols-1 gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="text-lg font-bold text-white">Recent submissions</div>
-          <div className="text-xs text-slate-500">Latest exam submissions, grouped by exam.</div>
+          <div className="text-lg font-bold text-white">Submission Center</div>
+          <div className="text-xs text-slate-500">Review, search, and grade exam submissions.</div>
         </div>
-        <div className="flex gap-2">
-          <StatPill icon={ClipboardList} value={all.length} label="Submissions" />
-          <StatPill icon={GraduationCap} value={reviewableExams.length} label="Exam types" />
-        </div>
+        {isManager && deleted.length > 0 && (
+          <Button variant="secondary" icon={Trash2} onClick={() => setBinOpen(true)}>Recycle Bin ({deleted.length})</Button>
+        )}
       </div>
 
-      <Panel className="p-3">
-        <div className="relative mb-2">
-          <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name or Discord ID…" className="pl-9" />
-        </div>
-        <div className="flex gap-1 overflow-x-auto">
-          <Chip active={filter === "all"} onClick={() => setFilter("all")}>All exams</Chip>
-          {reviewableExams.map((e) => (
-            <Chip key={e.id} active={filter === e.id} onClick={() => setFilter(e.id)}>{e.title}</Chip>
-          ))}
-        </div>
-      </Panel>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[240px_minmax(0,1fr)]">
+        {/* Exam list */}
+        <Panel className="h-fit p-2">
+          <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-cad-muted">Exams</div>
+          <div className="grid grid-cols-1 gap-0.5">
+            <button onClick={() => setExamFilter("all")}
+              className={`flex items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm transition ${examFilter === "all" ? "bg-[color:var(--color-primary)]/15 text-white" : "text-slate-300 hover:bg-white/[0.04]"}`}>
+              <span>All exams</span><span className="text-xs text-slate-500">{live.length}</span>
+            </button>
+            {reviewableExams.map((e) => (
+              <button key={e.id} onClick={() => setExamFilter(e.id)}
+                className={`flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${examFilter === e.id ? "bg-[color:var(--color-primary)]/15 text-white" : "text-slate-300 hover:bg-white/[0.04]"}`}>
+                <span className="min-w-0 truncate">{e.title}</span><span className="shrink-0 text-xs text-slate-500">{examCount(e.id)}</span>
+              </button>
+            ))}
+          </div>
+        </Panel>
 
-      {reviewableExams.length === 0 ? (
-        <EmptyState icon={ClipboardList} title="Nothing to review" subtitle="You don't review submissions for any exam yet." />
-      ) : (
-        <div className="grid items-start gap-4 lg:grid-cols-2 xl:grid-cols-3">
-          {shownExams.map((e) => {
-            const list = byExam.get(e.id) || [];
-            const capped = filter === "all" ? list.slice(0, 5) : list;
-            return (
-              <Panel key={e.id} className="flex flex-col overflow-hidden p-0">
-                <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
-                  <GraduationCap size={16} className="shrink-0 text-[var(--color-primary)]" />
-                  <span className="min-w-0 flex-1 truncate font-semibold text-white">{e.title}</span>
-                  <Badge>{list.length}</Badge>
-                </div>
-                {list.length === 0 ? (
-                  <div className="px-4 py-10 text-center text-sm text-slate-500">No submissions.</div>
-                ) : (
-                  <div className="grid gap-px bg-white/5">
-                    {capped.map((s) => <SubmissionRow key={s.id} s={s} onOpen={() => setDetail(s)} />)}
-                  </div>
-                )}
-                {filter === "all" && list.length > 5 && (
-                  <button onClick={() => setFilter(e.id)} className="border-t border-white/10 px-4 py-2.5 text-center text-xs font-semibold text-slate-400 transition hover:text-white">
-                    View all submissions
-                  </button>
-                )}
-              </Panel>
-            );
-          })}
+        {/* Main */}
+        <div className="grid grid-cols-1 gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex gap-1 overflow-x-auto">
+              {[["all", "All"], ["review", "Needs Review"], ["passed", "Passed"], ["failed", "Failed"], ["noscore", "No Score"]].map(([k, label]) => (
+                <Chip key={k} active={statusFilter === k} onClick={() => setStatusFilter(k)}>{label} ({counts[k]})</Chip>
+              ))}
+            </div>
+            <div className="relative ml-auto min-w-48 flex-1 sm:max-w-xs">
+              <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name or Discord ID…" className="pl-9" />
+            </div>
+          </div>
+
+          <Panel className="overflow-hidden p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[660px] border-collapse text-left text-sm">
+                <thead>
+                  <tr className="border-b border-white/10 text-[10px] uppercase tracking-wider text-slate-500">
+                    <th className="px-4 py-2.5 font-semibold">Cadet</th>
+                    <th className="px-4 py-2.5 font-semibold">Discord ID</th>
+                    <th className="px-4 py-2.5 font-semibold">Score</th>
+                    <th className="px-4 py-2.5 font-semibold">%</th>
+                    <th className="px-4 py-2.5 font-semibold">Submitted</th>
+                    <th className="px-4 py-2.5 font-semibold">Result</th>
+                    <th className="px-2 py-2.5" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((s) => (
+                    <tr key={s.id} onClick={() => setDetail(s)} className="cursor-pointer border-b border-white/5 transition last:border-0 hover:bg-white/[0.03]">
+                      <td className="px-4 py-2.5 font-semibold text-white">{s.subject?.name || "Anonymous"}</td>
+                      <td className="px-4 py-2.5 font-mono text-xs text-slate-500">{s.subject?.discordId || "—"}</td>
+                      <td className="whitespace-nowrap px-4 py-2.5 tabular-nums"><span className="font-semibold text-white">{s.score}</span> <span className="text-slate-500">/ {s.maxScore}</span></td>
+                      <td className="px-4 py-2.5 font-bold tabular-nums text-[var(--color-primary)]">{s.maxScore ? `${s.percent}%` : "—"}</td>
+                      <td className="whitespace-nowrap px-4 py-2.5 text-xs text-slate-400">{fmtDateTime(s.at)}</td>
+                      <td className="px-4 py-2.5"><ResultPill s={s} /></td>
+                      <td className="px-2 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
+                        {isManager && <IconButton icon={Trash2} label="Move to recycle bin" onClick={() => onTrash(s.id, true)} className="h-8 w-8 hover:border-red-500/40 hover:text-red-300" />}
+                      </td>
+                    </tr>
+                  ))}
+                  {rows.length === 0 && (
+                    <tr><td colSpan={7} className="px-4 py-12 text-center text-sm text-slate-500">No submissions match.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Panel>
         </div>
-      )}
+      </div>
 
       {detail && (
         <Modal open onClose={() => setDetail(null)} title="Submission" size="lg"
           footer={<Button variant="secondary" onClick={() => setDetail(null)}>Close</Button>}>
-          <SubmissionDetail
-            submission={detail}
-            canReview={canReviewSub(detail)}
-            onReview={(s, a) => { onReview(s, a); setDetail(null); }}
-          />
+          <SubmissionDetail submission={detail} canReview={canReviewSub(detail)} onReview={(s, a) => { onReview(s, a); setDetail(null); }} />
         </Modal>
+      )}
+      {binOpen && (
+        <RecycleBinModal deleted={deleted} onClose={() => setBinOpen(false)} onRestore={(id) => onTrash(id, false)} onPurge={onPurge} />
       )}
     </div>
   );
@@ -560,7 +623,7 @@ function MembersTab({ exams, submissions, user, config, onReview }) {
   const canReviewSub = (s) => { const e = examById(s.examId); return e ? canReviewExam(user, config, e) : canManageExams(user, config); };
 
   // Build the member index live (so a review updates the open profile too).
-  const reviewable = submissions.filter(canReviewSub).filter((s) => s.subject?.name && s.subject.name !== "Anonymous");
+  const reviewable = submissions.filter(canReviewSub).filter((s) => !s.deleted && s.subject?.name && s.subject.name !== "Anonymous");
   const map = new Map();
   for (const s of reviewable) {
     const key = s.subject.discordId || s.subject.name.toLowerCase();
@@ -1009,6 +1072,16 @@ export default function ExamsPage({ page, user }) {
     show("Exam saved");
   }
 
+  // Soft-delete a submission to the recycle bin, and restore/purge from it.
+  function trashSubmission(id, deleted) {
+    setSubmissions(submissions.map((s) => (s.id === id ? { ...s, deleted, deletedAt: deleted ? new Date().toISOString() : undefined } : s)));
+    show(deleted ? "Moved to recycle bin" : "Restored");
+  }
+  function purgeSubmission(id) {
+    setSubmissions(submissions.filter((s) => s.id !== id));
+    show("Deleted permanently");
+  }
+
   return (
     <div>
       <PageHeader
@@ -1069,7 +1142,8 @@ export default function ExamsPage({ page, user }) {
       )}
 
       {tab === "submissions" && reviewer && (
-        <SubmissionsTab exams={exams} submissions={submissions} user={user} config={config} onReview={reviewSubmission} />
+        <SubmissionsTab exams={exams} submissions={submissions} user={user} config={config}
+          onReview={reviewSubmission} onTrash={trashSubmission} onPurge={purgeSubmission} isManager={isManager} />
       )}
 
       {tab === "members" && reviewer && (
