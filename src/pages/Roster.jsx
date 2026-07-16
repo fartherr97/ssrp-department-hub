@@ -56,6 +56,7 @@ import {
 import useToast from "../hooks/useToast.js";
 import * as R from "../lib/roster.js";
 import StatsEditor from "./builder/StatsEditor.jsx";
+import PromotionChecker from "../components/roster/PromotionChecker.jsx";
 
 // True when the active drag is a roster member (ignore files/text drags).
 const hasMemberDrag = (e) =>
@@ -2042,6 +2043,7 @@ export default function Roster({ user, page }) {
   );
   const [memberModal, setMemberModal] = useState(null);
   const [categoryModal, setCategoryModal] = useState(null);
+  const [promoOpen, setPromoOpen] = useState(false);
   const [subModal, setSubModal] = useState(null);
   // One tabbed controller for ranks / columns / stats / terminations.
   const [controller, setController] = useState(null); // { tab, subId? }
@@ -2371,7 +2373,18 @@ export default function Roster({ user, page }) {
             : "No subdivisions yet."
         }
         actions={
-          (canEditStructure || canEditActive) && (
+          <>
+            {subdivisions.length > 0 && (
+              <Button
+                variant="secondary"
+                icon={Award}
+                onClick={() => setPromoOpen(true)}
+                title="See who is eligible for promotion (off probation, no active DA, time in grade…)"
+              >
+                Promotions
+              </Button>
+            )}
+            {(canEditStructure || canEditActive) && (
             <>
               <Button
                 variant="secondary"
@@ -2410,7 +2423,8 @@ export default function Roster({ user, page }) {
                 </Button>
               )}
             </>
-          )
+            )}
+          </>
         }
       />
 
@@ -2815,6 +2829,18 @@ export default function Roster({ user, page }) {
           allowedTabs={controllerM.data.allowedTabs}
           user={user}
           onToast={show}
+        />
+      )}
+
+      {promoOpen && subdivisions.length > 0 && (
+        <PromotionChecker
+          open
+          onClose={() => setPromoOpen(false)}
+          config={config}
+          mutate={mutate}
+          subdivisions={subdivisions}
+          initialSubId={subId}
+          canEditStructure={canEditStructure}
         />
       )}
 
