@@ -2838,6 +2838,7 @@ export default function Roster({ user, page }) {
           onClose={() => setPromoOpen(false)}
           config={config}
           mutate={mutate}
+          user={user}
           subdivisions={subdivisions}
           initialSubId={subId}
           canEditStructure={canEditStructure}

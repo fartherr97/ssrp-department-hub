@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { Award, Search, SlidersHorizontal, Check } from "lucide-react";
+import { Award, Search, SlidersHorizontal, Check, Vote } from "lucide-react";
 import { Modal, Button, Input, Select, Badge, Field } from "../common/index.jsx";
 import { callsignFieldId } from "../../lib/roster.js";
+import { canManageSite } from "../../lib/permissions.js";
 import { promoSettings, collectDAs, evaluateMember, DEFAULT_PROMO } from "../../lib/promotion.js";
+import { newVote, voteStatus } from "../../lib/promotionBoard.js";
+import { promoWebhook, sendPromotionWebhook } from "../../lib/webhooks.js";
+import { getPagePath } from "../../lib/navigation.js";
 import * as api from "../../lib/api.js";
 
 // Initials from the name segment of a "callsign | rank | Surname" roster name.
@@ -18,10 +22,13 @@ const initials = (name) => {
  * why (on probation, active DA, not enough time in grade, on LOA, top rank).
  * Criteria are configurable and persisted to config.roster.promoEligibility.
  */
-export default function PromotionChecker({ open, onClose, config, mutate, subdivisions, initialSubId, canEditStructure }) {
+export default function PromotionChecker({ open, onClose, config, mutate, user, subdivisions, initialSubId, canEditStructure }) {
   const [subId, setSubId] = useState(initialSubId || subdivisions[0]?.id);
   const [q, setQ] = useState("");
+  const [catFilter, setCatFilter] = useState("all");
+  const [rankFilter, setRankFilter] = useState("all");
   const [showCriteria, setShowCriteria] = useState(false);
+  const [nominated, setNominated] = useState(new Set());
 
   const sub = subdivisions.find((s) => s.id === subId) || subdivisions[0];
   const settings = promoSettings(config);
@@ -29,6 +36,26 @@ export default function PromotionChecker({ open, onClose, config, mutate, subdiv
   const csId = callsignFieldId(config);
   const rankName = (id) => (sub?.ranks || []).find((r) => r.id === id)?.name || "";
   const needsHours = settings.minWeekHours > 0 || settings.minMonthHours > 0;
+
+  // Put an eligible member up for a vote on the promotion board (managers only).
+  const board = config.pages?.find((p) => p.type === "promotion");
+  const canNominate = canManageSite(user, config) && !!board;
+  const openVoteKeys = useMemo(() => {
+    const s = new Set();
+    for (const v of board?.config?.votes || []) if (voteStatus(v) === "pending") s.add(String(v.discordId || v.name).toLowerCase());
+    return s;
+  }, [board]);
+  function nominate(m, nextRankName) {
+    if (!board) return;
+    const v = newVote({ name: m.name, discordId: m.discordId, currentRank: rankName(m.rank), proposedRank: nextRankName, reason: "Nominated from the promotion checker", createdBy: { name: user?.displayName || user?.username || "Unknown", discordId: user?.id || "" } });
+    mutate((c) => ({ ...c, pages: c.pages.map((p) => (p.id === board.id ? { ...p, config: { ...(p.config || {}), votes: [v, ...(p.config?.votes || [])] } } : p)) }));
+    setNominated((prev) => new Set(prev).add(m.id));
+    const wh = promoWebhook(config);
+    if (wh.enabled && wh.url) {
+      const boardUrl = typeof window !== "undefined" ? `${window.location.origin}${getPagePath(board.id, config)}` : "";
+      sendPromotionWebhook(wh, { members: [{ name: v.name, currentRank: v.currentRank, proposedRank: v.proposedRank, discordId: v.discordId }], boardUrl, durationLabel: "72 hours", now: Date.now() });
+    }
+  }
 
   // On-duty hours feed (only fetched when an activity requirement is set).
   const [hours, setHours] = useState(null);
@@ -76,6 +103,14 @@ export default function PromotionChecker({ open, onClose, config, mutate, subdiv
             <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
             <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search a member…" className="pl-9" />
           </div>
+          <Select value={catFilter} onChange={(e) => setCatFilter(e.target.value)} className="w-auto">
+            <option value="all">Any category</option>
+            {(sub?.categories || []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </Select>
+          <Select value={rankFilter} onChange={(e) => setRankFilter(e.target.value)} className="w-auto">
+            <option value="all">Any grade</option>
+            {(sub?.ranks || []).map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+          </Select>
           <Badge color="#1eb854">{eligibleCount} eligible</Badge>
           <Badge>{allRows.length} total</Badge>
           <Button variant="secondary" icon={SlidersHorizontal} className="!py-1.5 text-xs" onClick={() => setShowCriteria((v) => !v)}>
@@ -142,7 +177,10 @@ export default function PromotionChecker({ open, onClose, config, mutate, subdiv
         ) : (
           <div className="grid grid-cols-1 gap-3">
             {groups.map(({ cat, rows }) => {
-              const visible = rows.filter((r) => !term || `${r.m.name} ${r.m.discordId || ""}`.toLowerCase().includes(term));
+              if (catFilter !== "all" && cat.id !== catFilter) return null;
+              const visible = rows
+                .filter((r) => rankFilter === "all" || r.m.rank === rankFilter)
+                .filter((r) => !term || `${r.m.name} ${r.m.discordId || ""}`.toLowerCase().includes(term));
               if (!visible.length) return null;
               return (
                 <div key={cat.id}>
@@ -163,10 +201,19 @@ export default function PromotionChecker({ open, onClose, config, mutate, subdiv
                           </div>
                         </div>
                         {r.eligible ? (
-                          <Badge color="#1eb854">
-                            <Check size={11} className="mr-0.5 inline" />
-                            Eligible
-                          </Badge>
+                          <div className="flex shrink-0 items-center gap-2">
+                            <Badge color="#1eb854">
+                              <Check size={11} className="mr-0.5 inline" />
+                              Eligible
+                            </Badge>
+                            {canNominate && (
+                              nominated.has(r.m.id) || openVoteKeys.has(String(r.m.discordId || r.m.name).toLowerCase()) ? (
+                                <span className="text-[11px] font-semibold text-slate-500">In vote</span>
+                              ) : (
+                                <Button variant="secondary" icon={Vote} className="!py-1 text-xs" disabled={!r.nextRankName} onClick={() => nominate(r.m, r.nextRankName)}>Nominate</Button>
+                              )
+                            )}
+                          </div>
                         ) : (
                           <div className="flex flex-wrap justify-end gap-1">
                             {r.reasons.map((reason) => (
