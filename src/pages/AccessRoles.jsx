@@ -147,9 +147,25 @@ function GroupDiscordRoles({ group, config, mutate, canEdit }) {
   const setAll = (next) =>
     mutate((cfg) => ({ ...cfg, auth: { ...(cfg.auth || {}), roleMappings: next } }));
   const add = () => {
-    const rid = roleId.trim();
-    if (!rid) return;
-    setAll([...all, { id: uid("map"), roleId: rid, roleName: roleName.trim(), group: group.id }]);
+    // Accept several role IDs at once, separated by commas/spaces/newlines.
+    const ids = roleId
+      .split(/[\s,]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (!ids.length) return;
+    const linkedToGroup = new Set(mine.map((m) => String(m.roleId)));
+    const name = roleName.trim();
+    // Only a single, shared name makes sense when adding several at once.
+    const additions = ids
+      .filter((rid) => !linkedToGroup.has(rid))
+      .map((rid) => ({
+        id: uid("map"),
+        roleId: rid,
+        roleName: ids.length === 1 ? name : "",
+        group: group.id,
+      }));
+    if (!additions.length) return; // all were duplicates
+    setAll([...all, ...additions]);
     setRoleName("");
     setRoleId("");
   };
@@ -161,8 +177,8 @@ function GroupDiscordRoles({ group, config, mutate, canEdit }) {
         Discord roles, {mine.length}
       </div>
       <p className="mb-2 text-xs text-slate-500">
-        Anyone with one of these guild roles is put in this group automatically when they sign in
-        with Discord.
+        Anyone with <span className="font-semibold text-slate-400">any</span> of these guild roles is
+        put in this group automatically when they sign in with Discord. Link as many as you need.
       </p>
       <div className="grid gap-2">
         {mine.map((m) => (
@@ -201,10 +217,11 @@ function GroupDiscordRoles({ group, config, mutate, canEdit }) {
           />
           <Input
             value={roleId}
-            placeholder="Discord role ID"
+            placeholder="Discord role ID(s)"
             onChange={(e) => setRoleId(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && add()}
             className="font-mono"
+            title="Paste one role ID, or several separated by commas or spaces."
           />
           <Button variant="secondary" icon={Plus} onClick={add}>
             Link
