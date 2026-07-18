@@ -101,7 +101,7 @@ function NewNominationModal({ open, onClose, ranks, colors, onCreate }) {
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Name" hint="Format: callsign | rank | name">
-                <Input value={n.name} onChange={(e) => setNom(n.key, { name: e.target.value })} placeholder="103 | Trial Mod | Name" />
+                <Input value={n.name} onChange={(e) => setNom(n.key, { name: e.target.value })} placeholder="Callsign | Rank | Name" />
               </Field>
               <Field label="Discord ID">
                 <Input value={n.discordId} onChange={(e) => setNom(n.key, { discordId: e.target.value })} placeholder="e.g. 12345678901234567" className="font-mono" />
