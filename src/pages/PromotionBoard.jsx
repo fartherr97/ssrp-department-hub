@@ -301,6 +301,7 @@ function VoteModal({ vote, colors, user, canManage, canSee, pubStatus, now, onCl
           ))}
         </div>
 
+        <div key={tab} className="anim-tab-in">
         {tab === "promotion" && (
           <div className="grid grid-cols-1 gap-4">
             {canSee ? (
@@ -422,6 +423,7 @@ function VoteModal({ vote, colors, user, canManage, canSee, pubStatus, now, onCl
         )}
 
         {tab === "analytics" && <AnalyticsTab vote={vote} />}
+        </div>
       </div>
     </Modal>
   );
