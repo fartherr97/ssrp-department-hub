@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, ChevronUp, ChevronDown, Lock, GripVertical } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Plus, Pencil, Trash2, ChevronUp, ChevronDown, Lock, GripVertical, Maximize2, X } from "lucide-react";
 import { useConfig } from "../../lib/configContext.jsx";
 import { getIcon, ICON_NAMES } from "../../lib/icons.js";
 import { pageSlug, isGeneratedPageId } from "../../lib/navigation.js";
@@ -27,34 +28,90 @@ import BlockRenderer from "../../components/content/BlockRenderer.jsx";
 // A live, non-interactive rendering of the page as it's being edited, so
 // people see the result without saving and navigating away. Memoized and fed
 // a debounced draft so typing isn't slowed by re-rendering the whole page.
-const PagePreview = memo(function PagePreview({ draft }) {
+// The page body shared by the docked preview and the full-screen preview.
+function PreviewBody({ draft }) {
   const cfg = draft.config || {};
   return (
-    <div className="rounded-xl border border-white/10 bg-[var(--color-body-bg)] p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <span className="text-[11px] font-bold uppercase tracking-[0.5px] text-cad-muted">
-          Live preview
-        </span>
-        <span className="text-[11px] text-slate-600">updates as you type</span>
-      </div>
-      <div className="pointer-events-none select-none">
-        {cfg.heroKicker && <div className="hub-kicker">{cfg.heroKicker}</div>}
-        <h2 className="mt-1 text-xl font-bold text-white">{cfg.heroTitle || draft.label}</h2>
-        {cfg.heroSubtitle && (
-          <p className="mt-1.5 text-sm text-[var(--color-text-muted)]">{cfg.heroSubtitle}</p>
+    <div className="pointer-events-none select-none">
+      {cfg.heroKicker && <div className="hub-kicker">{cfg.heroKicker}</div>}
+      <h2 className="mt-1 text-2xl font-bold text-white">{cfg.heroTitle || draft.label}</h2>
+      {cfg.heroSubtitle && (
+        <p className="mt-1.5 text-sm text-[var(--color-text-muted)]">{cfg.heroSubtitle}</p>
+      )}
+      <div className="mt-5">
+        <BlockRenderer blocks={cfg.blocks || []} />
+        {(cfg.blocks || []).length === 0 && (
+          <p className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs text-slate-600">
+            Blocks you add will appear here.
+          </p>
         )}
-        <div className="mt-4">
-          <BlockRenderer blocks={cfg.blocks || []} />
-          {(cfg.blocks || []).length === 0 && (
-            <p className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs text-slate-600">
-              Blocks you add will appear here.
-            </p>
-          )}
-        </div>
       </div>
     </div>
   );
+}
+
+const PagePreview = memo(function PagePreview({ draft, onExpand }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-[var(--color-body-bg)] p-4">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <span className="text-[11px] font-bold uppercase tracking-[0.5px] text-cad-muted">
+          Live preview
+        </span>
+        <div className="flex items-center gap-2">
+          <span className="hidden text-[11px] text-slate-600 sm:inline">updates as you type</span>
+          <button
+            type="button"
+            onClick={onExpand}
+            title="Open full-width preview"
+            className="press inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[11px] font-semibold text-slate-300 transition hover:border-[color:var(--color-border-strong)] hover:text-white"
+          >
+            <Maximize2 size={12} />
+            Full screen
+          </button>
+        </div>
+      </div>
+      <PreviewBody draft={draft} />
+    </div>
+  );
 });
+
+// Full-screen preview: renders the page at the true content width (matching the
+// real app shell) so the docked panel's cramped width isn't misleading.
+function FullPreview({ draft, onClose }) {
+  useEffect(() => {
+    const onKey = (e) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return createPortal(
+    <div className="fixed inset-0 z-[130] flex flex-col bg-[var(--color-body-bg)]">
+      <div className="flex shrink-0 items-center justify-between border-b border-white/10 bg-[var(--color-surface)]/80 px-4 py-3 backdrop-blur sm:px-6">
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-bold uppercase tracking-[0.5px] text-cad-muted">
+            Full-screen preview
+          </span>
+          <span className="hidden text-[11px] text-slate-600 sm:inline">
+            {draft.label} · press Esc to close
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="press inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-[color:var(--color-border-strong)] hover:text-white"
+        >
+          <X size={14} />
+          Close preview
+        </button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
+        <div className="mx-auto w-full max-w-[1560px]">
+          <PreviewBody draft={draft} />
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
 
 // The searchable icon grid, memoized so typing in other fields doesn't
 // re-render ~30 icon buttons on every keystroke.
@@ -95,6 +152,7 @@ const IconGrid = memo(function IconGrid({ selected, query, onPick }) {
 function PageModal({ open, onClose, config, page, user, onSave }) {
   const [draft, setDraft] = useState(page);
   const [iconQuery, setIconQuery] = useState("");
+  const [fullPreview, setFullPreview] = useState(false);
   if (open && draft.id !== page.id) setDraft(page);
 
   // Debounce the live preview so it re-renders after a pause, not per keystroke.
@@ -350,10 +408,19 @@ function PageModal({ open, onClose, config, page, user, onSave }) {
 
       {isContentLike && (
         <div className="hidden min-w-0 lg:block">
-          <PagePreview draft={previewDraft} />
+          <PagePreview draft={previewDraft} onExpand={() => setFullPreview(true)} />
+        </div>
+      )}
+      {/* On phones/tablets the docked preview is hidden; expose full-screen there too. */}
+      {isContentLike && (
+        <div className="lg:hidden">
+          <Button variant="secondary" icon={Maximize2} onClick={() => setFullPreview(true)}>
+            Full-screen preview
+          </Button>
         </div>
       )}
       </div>
+      {fullPreview && <FullPreview draft={previewDraft} onClose={() => setFullPreview(false)} />}
     </Modal>
   );
 }

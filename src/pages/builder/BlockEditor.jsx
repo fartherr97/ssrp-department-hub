@@ -12,63 +12,65 @@ import {
 import { getIcon, ICON_NAMES } from "../../lib/icons.js";
 import { uid } from "../../lib/roster.js";
 
-// Compact per-item icon picker: shows the current icon as a button that toggles
-// a small searchable grid. Used by the "cards" link layout (Quick Resources).
-function ItemIconPicker({ value, onPick }) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
+// The trigger button that shows an item's current icon and toggles the picker.
+function IconTrigger({ value, active, onClick }) {
   const Current = getIcon(value);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title="Choose an icon"
+      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border transition ${
+        active
+          ? "border-[color:var(--color-border-strong)] bg-[color:var(--color-primary)]/15 text-[var(--color-primary)]"
+          : "border-white/10 bg-[var(--color-surface-2)] text-[var(--color-primary)] hover:border-[color:var(--color-border-strong)]"
+      }`}
+    >
+      <Current size={18} />
+    </button>
+  );
+}
+
+// Full-width, inline icon grid. Rendered beneath the active row so it never
+// overlaps other fields or gets clipped by the modal's scroll container.
+function IconGridPanel({ value, onPick }) {
+  const [query, setQuery] = useState("");
   const visible = ICON_NAMES.filter((n) =>
     n.toLowerCase().includes(query.trim().toLowerCase())
   );
   return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        title="Choose an icon"
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-[var(--color-surface-2)] text-[var(--color-primary)] transition hover:border-[color:var(--color-border-strong)]"
-      >
-        <Current size={18} />
-      </button>
-      {open && (
-        <div className="absolute left-0 top-11 z-20 w-56 rounded-xl border border-white/10 bg-[var(--color-surface)] p-2 shadow-xl">
-          <Input
-            autoFocus
-            placeholder="Search icons…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="mb-2 !py-1.5 text-xs"
-          />
-          <div className="grid max-h-40 grid-cols-6 gap-1.5 overflow-y-auto">
-            {visible.map((name) => {
-              const Icon = getIcon(name);
-              const active = value === name;
-              return (
-                <button
-                  key={name}
-                  type="button"
-                  title={name}
-                  onClick={() => {
-                    onPick(name);
-                    setOpen(false);
-                  }}
-                  className={`flex h-8 items-center justify-center rounded-lg transition ${
-                    active
-                      ? "bg-[color:var(--color-primary)]/20 text-[var(--color-primary)] ring-1 ring-[color:var(--color-border-strong)]"
-                      : "text-slate-400 hover:bg-white/5 hover:text-white"
-                  }`}
-                >
-                  <Icon size={15} />
-                </button>
-              );
-            })}
-            {visible.length === 0 && (
-              <p className="col-span-6 py-2 text-center text-xs text-slate-500">No match.</p>
-            )}
-          </div>
-        </div>
-      )}
+    <div className="rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-2">
+      <Input
+        autoFocus
+        placeholder="Search icons…"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        className="mb-2 !py-1.5 text-xs"
+      />
+      <div className="grid max-h-44 grid-cols-8 gap-1.5 overflow-y-auto sm:grid-cols-10">
+        {visible.map((name) => {
+          const Icon = getIcon(name);
+          const isActive = value === name;
+          return (
+            <button
+              key={name}
+              type="button"
+              title={name}
+              onClick={() => onPick(name)}
+              className={`flex h-9 items-center justify-center rounded-lg transition ${
+                isActive
+                  ? "bg-[color:var(--color-primary)]/20 text-[var(--color-primary)] ring-1 ring-[color:var(--color-border-strong)]"
+                  : "text-slate-400 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              <Icon size={16} />
+            </button>
+          );
+        })}
+        {visible.length === 0 && (
+          <p className="col-span-full py-2 text-center text-xs text-slate-500">No match.</p>
+        )}
+      </div>
     </div>
   );
 }
@@ -110,6 +112,7 @@ function emptyBlock(type) {
 function LinksEditor({ block, update }) {
   const setItems = (items) => update({ items });
   const cards = block.layout === "cards";
+  const [iconFor, setIconFor] = useState(null); // item id whose icon grid is open
   return (
     <div className="mt-3 grid gap-2">
       <div className="grid gap-3 sm:grid-cols-2">
@@ -148,35 +151,48 @@ function LinksEditor({ block, update }) {
         </div>
       )}
       {(block.items || []).map((item) => (
-        <div key={item.id} className="flex items-center gap-2">
-          {cards && (
-            <ItemIconPicker
-              value={item.icon}
-              onPick={(icon) =>
-                setItems(block.items.map((it) => (it.id === item.id ? { ...it, icon } : it)))
+        <div key={item.id} className="grid gap-2">
+          <div className="flex items-center gap-2">
+            {cards && (
+              <IconTrigger
+                value={item.icon}
+                active={iconFor === item.id}
+                onClick={() => setIconFor((cur) => (cur === item.id ? null : item.id))}
+              />
+            )}
+            <Input
+              placeholder="Label"
+              value={item.label}
+              onChange={(e) =>
+                setItems(block.items.map((it) => (it.id === item.id ? { ...it, label: e.target.value } : it)))
               }
             />
+            <Input
+              placeholder="https://…"
+              value={item.url}
+              onChange={(e) =>
+                setItems(block.items.map((it) => (it.id === item.id ? { ...it, url: e.target.value } : it)))
+              }
+            />
+            <IconButton
+              icon={Trash2}
+              label="Remove link"
+              onClick={() => {
+                if (iconFor === item.id) setIconFor(null);
+                setItems(block.items.filter((it) => it.id !== item.id));
+              }}
+              className="hover:border-red-500/40 hover:text-red-300"
+            />
+          </div>
+          {cards && iconFor === item.id && (
+            <IconGridPanel
+              value={item.icon}
+              onPick={(icon) => {
+                setItems(block.items.map((it) => (it.id === item.id ? { ...it, icon } : it)));
+                setIconFor(null);
+              }}
+            />
           )}
-          <Input
-            placeholder="Label"
-            value={item.label}
-            onChange={(e) =>
-              setItems(block.items.map((it) => (it.id === item.id ? { ...it, label: e.target.value } : it)))
-            }
-          />
-          <Input
-            placeholder="https://…"
-            value={item.url}
-            onChange={(e) =>
-              setItems(block.items.map((it) => (it.id === item.id ? { ...it, url: e.target.value } : it)))
-            }
-          />
-          <IconButton
-            icon={Trash2}
-            label="Remove link"
-            onClick={() => setItems(block.items.filter((it) => it.id !== item.id))}
-            className="hover:border-red-500/40 hover:text-red-300"
-          />
         </div>
       ))}
       <Button
