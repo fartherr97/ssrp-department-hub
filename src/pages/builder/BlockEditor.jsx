@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 import { Plus, Trash2, ChevronUp, ChevronDown, Type, Info, Link2, Image as ImageIcon, Clapperboard, AppWindow, Columns2, UserSquare2 } from "lucide-react";
 import {
   Button,
@@ -9,7 +9,69 @@ import {
   Select,
   MediaInput,
 } from "../../components/common/index.jsx";
+import { getIcon, ICON_NAMES } from "../../lib/icons.js";
 import { uid } from "../../lib/roster.js";
+
+// Compact per-item icon picker: shows the current icon as a button that toggles
+// a small searchable grid. Used by the "cards" link layout (Quick Resources).
+function ItemIconPicker({ value, onPick }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const Current = getIcon(value);
+  const visible = ICON_NAMES.filter((n) =>
+    n.toLowerCase().includes(query.trim().toLowerCase())
+  );
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        title="Choose an icon"
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-[var(--color-surface-2)] text-[var(--color-primary)] transition hover:border-[color:var(--color-border-strong)]"
+      >
+        <Current size={18} />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-11 z-20 w-56 rounded-xl border border-white/10 bg-[var(--color-surface)] p-2 shadow-xl">
+          <Input
+            autoFocus
+            placeholder="Search icons…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="mb-2 !py-1.5 text-xs"
+          />
+          <div className="grid max-h-40 grid-cols-6 gap-1.5 overflow-y-auto">
+            {visible.map((name) => {
+              const Icon = getIcon(name);
+              const active = value === name;
+              return (
+                <button
+                  key={name}
+                  type="button"
+                  title={name}
+                  onClick={() => {
+                    onPick(name);
+                    setOpen(false);
+                  }}
+                  className={`flex h-8 items-center justify-center rounded-lg transition ${
+                    active
+                      ? "bg-[color:var(--color-primary)]/20 text-[var(--color-primary)] ring-1 ring-[color:var(--color-border-strong)]"
+                      : "text-slate-400 hover:bg-white/5 hover:text-white"
+                  }`}
+                >
+                  <Icon size={15} />
+                </button>
+              );
+            })}
+            {visible.length === 0 && (
+              <p className="col-span-6 py-2 text-center text-xs text-slate-500">No match.</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const BLOCK_TYPES = [
   { value: "text", label: "Text", icon: Type, desc: "A heading with paragraph text" },
@@ -47,10 +109,54 @@ function emptyBlock(type) {
 
 function LinksEditor({ block, update }) {
   const setItems = (items) => update({ items });
+  const cards = block.layout === "cards";
   return (
     <div className="mt-3 grid gap-2">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Layout" hint="Cards show an icon per link (the Quick Resources look).">
+          <Select value={block.layout || "list"} onChange={(e) => update({ layout: e.target.value })}>
+            <option value="list">Simple list</option>
+            <option value="cards">Icon cards</option>
+          </Select>
+        </Field>
+        {cards && (
+          <Field label="Kicker" hint="Small label above the title. Optional.">
+            <Input
+              placeholder="Quick Access"
+              value={block.kicker || ""}
+              onChange={(e) => update({ kicker: e.target.value })}
+            />
+          </Field>
+        )}
+      </div>
+      {cards && (
+        <div className="grid gap-3 sm:grid-cols-[1fr_140px]">
+          <Field label='"All" link (optional)' hint="Adds an All → shortcut in the header.">
+            <Input
+              placeholder="https://…"
+              value={block.allUrl || ""}
+              onChange={(e) => update({ allUrl: e.target.value })}
+            />
+          </Field>
+          <Field label='"All" label'>
+            <Input
+              placeholder="All"
+              value={block.allLabel || ""}
+              onChange={(e) => update({ allLabel: e.target.value })}
+            />
+          </Field>
+        </div>
+      )}
       {(block.items || []).map((item) => (
         <div key={item.id} className="flex items-center gap-2">
+          {cards && (
+            <ItemIconPicker
+              value={item.icon}
+              onPick={(icon) =>
+                setItems(block.items.map((it) => (it.id === item.id ? { ...it, icon } : it)))
+              }
+            />
+          )}
           <Input
             placeholder="Label"
             value={item.label}
@@ -77,7 +183,7 @@ function LinksEditor({ block, update }) {
         variant="ghost"
         icon={Plus}
         className="justify-self-start"
-        onClick={() => setItems([...(block.items || []), { id: uid("link"), label: "", url: "" }])}
+        onClick={() => setItems([...(block.items || []), { id: uid("link"), label: "", url: "", icon: "LinkIcon" }])}
       >
         Add link
       </Button>

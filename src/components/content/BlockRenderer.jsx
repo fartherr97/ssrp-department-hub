@@ -1,5 +1,6 @@
-import { ExternalLink, Info, User } from "lucide-react";
+import { ExternalLink, Info, User, ArrowRight } from "lucide-react";
 import { Panel } from "../common/index.jsx";
+import { getIcon } from "../../lib/icons.js";
 import { safeLinkUrl, safeMediaUrl, safeEmbedUrl } from "../../lib/urls.js";
 
 /*
@@ -36,7 +37,69 @@ function CalloutBlock({ block }) {
   );
 }
 
+// Card layout (the "Quick Resources" look): each link is a tile with an icon
+// on top and the label beneath, laid out in a responsive grid.
+function LinkCards({ block }) {
+  const items = block.items || [];
+  const allUrl = safeLinkUrl(block.allUrl);
+  const showAll = block.allUrl && block.allUrl !== "#";
+  return (
+    <Panel className="p-5">
+      {(block.kicker || block.title || showAll) && (
+        <div className="mb-4 flex items-end justify-between gap-3">
+          <div className="min-w-0">
+            {block.kicker && (
+              <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--color-primary)]">
+                {block.kicker}
+              </div>
+            )}
+            {block.title && (
+              <h3 className="text-lg font-semibold text-white">{block.title}</h3>
+            )}
+          </div>
+          {showAll && (
+            <a
+              href={allUrl}
+              target={allUrl !== "#" ? "_blank" : undefined}
+              rel="noreferrer"
+              className="lift inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-[var(--color-primary)] hover:text-white"
+            >
+              {block.allLabel || "All"}
+              <ArrowRight size={15} />
+            </a>
+          )}
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fit,minmax(140px,1fr))]">
+        {items.map((item) => {
+          const Icon = getIcon(item.icon);
+          return (
+            <a
+              key={item.id}
+              href={safeLinkUrl(item.url)}
+              target={item.url && item.url !== "#" ? "_blank" : undefined}
+              rel="noreferrer"
+              className="hub-card-hover lift group flex flex-col items-center gap-3 rounded-2xl border border-white/10 bg-[var(--color-surface-2)] p-5 text-center hover:border-[color:var(--color-border-strong)]"
+            >
+              <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[color:var(--color-primary)]/12 text-[var(--color-primary)] transition group-hover:bg-[color:var(--color-primary)]/20">
+                <Icon size={22} />
+              </span>
+              <span className="text-sm font-semibold text-slate-200 group-hover:text-white">
+                {item.label}
+              </span>
+            </a>
+          );
+        })}
+        {items.length === 0 && (
+          <p className="col-span-full text-sm text-slate-500">No links yet.</p>
+        )}
+      </div>
+    </Panel>
+  );
+}
+
 function LinksBlock({ block }) {
+  if (block.layout === "cards") return <LinkCards block={block} />;
   return (
     <Panel className="p-5">
       {block.title && <h3 className="mb-3 text-lg font-semibold text-white">{block.title}</h3>}
