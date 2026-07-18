@@ -139,8 +139,14 @@ export function authorizeGroupHierarchy(user, current, incoming) {
     const after = incById.get(id);
     if (JSON.stringify(before) === JSON.stringify(after)) continue; // unchanged
     if (!canAccess) return "groups or access settings";
-    if (before && (before.level ?? 0) > myLevel) return "a group above your level";
-    if (after && (after.level ?? 0) > myLevel) return "a group above your level";
+    // Your OWN group is exempt from the level ceiling so you can always restore
+    // it (you can never trap yourself below where you started); the capability
+    // check below still applies. Other groups may not be pushed above your level.
+    const isOwn = id === user?.group;
+    if (!isOwn) {
+      if (before && (before.level ?? 0) > myLevel) return "a group above your level";
+      if (after && (after.level ?? 0) > myLevel) return "a group above your level";
+    }
     if (after) {
       for (const cap of CAPABILITIES) {
         if (after[cap.key] && !before?.[cap.key] && !hasCapability(user, current, cap.key)) {

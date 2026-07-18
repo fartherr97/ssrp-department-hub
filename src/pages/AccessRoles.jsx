@@ -220,10 +220,12 @@ function GroupCard({ group, user }) {
   const canAdmin = canAdministerGroup(user, config, group);
   const canMembers = canManageGroupMembers(user, config, group);
   const isOwnGroup = group.id === user?.group;
-  // You can't raise a group above your own rank — clamp the level field to it.
-  // A groupless backend super-admin isn't bounded.
+  // You can't raise ANOTHER group above your own rank — clamp its level to yours.
+  // But you can always change your OWN group's level (otherwise lowering it would
+  // trap you: your ceiling would drop with it and you couldn't raise it back). A
+  // groupless backend super-admin isn't bounded either.
   const superAdmin = user?.isAdmin && !userGroup(config, user);
-  const maxLevel = superAdmin ? 999 : userLevel(user, config);
+  const maxLevel = superAdmin || isOwnGroup ? 999 : userLevel(user, config);
 
   const update = (patch) =>
     mutate((cfg) => ({

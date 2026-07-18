@@ -92,7 +92,7 @@ const IconGrid = memo(function IconGrid({ selected, query, onPick }) {
   );
 });
 
-function PageModal({ open, onClose, config, page, onSave }) {
+function PageModal({ open, onClose, config, page, user, onSave }) {
   const [draft, setDraft] = useState(page);
   const [iconQuery, setIconQuery] = useState("");
   if (open && draft.id !== page.id) setDraft(page);
@@ -116,8 +116,17 @@ function PageModal({ open, onClose, config, page, onSave }) {
 
   // Per-group visibility (content pages only; system pages have their own rules).
   const access = Array.isArray(draft.access) ? draft.access : [];
+  // Safety rails: you can't remove your own group's access (no self-lockout), and
+  // you can't change access for a group ranked above you.
+  const myGroupId = user?.group;
+  const myLevel = (config.groups || []).find((g) => g.id === myGroupId)?.level ?? 0;
+  const isOwnGroup = (g) => g.id === myGroupId;
+  const isAboveMe = (g) => (g.level ?? 0) > myLevel && !user?.isAdmin;
+  const lockedGroup = (g) => isOwnGroup(g) || isAboveMe(g);
   const toggleGroup = (groupId) =>
     setDraft((d) => {
+      const g = (config.groups || []).find((x) => x.id === groupId);
+      if (g && lockedGroup(g)) return d; // can't touch own group or a higher rank's access
       const set = new Set(Array.isArray(d.access) ? d.access : []);
       set.has(groupId) ? set.delete(groupId) : set.add(groupId);
       return { ...d, access: [...set] };
@@ -134,7 +143,14 @@ function PageModal({ open, onClose, config, page, onSave }) {
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={() => onSave(draft)}>Save page</Button>
+          <Button onClick={() => {
+            // Never save yourself out of your own page: keep your group in the list.
+            let d = draft;
+            if (d.restricted && myGroupId && !(Array.isArray(d.access) ? d.access : []).includes(myGroupId)) {
+              d = { ...d, access: [...(d.access || []), myGroupId] };
+            }
+            onSave(d);
+          }}>Save page</Button>
         </>
       }
     >
@@ -259,17 +275,25 @@ function PageModal({ open, onClose, config, page, onSave }) {
                   <p className="text-xs text-slate-500">
                     Only these groups can see the page (site managers always can):
                   </p>
-                  {config.groups.map((g) => (
-                    <label key={g.id} className="flex items-center gap-2 text-sm text-slate-300">
-                      <input
-                        type="checkbox"
-                        checked={access.includes(g.id)}
-                        onChange={() => toggleGroup(g.id)}
-                        className="h-4 w-4 accent-[var(--color-primary)]"
-                      />
-                      {g.label}
-                    </label>
-                  ))}
+                  {config.groups.map((g) => {
+                    const own = isOwnGroup(g);
+                    const locked = lockedGroup(g);
+                    return (
+                      <label key={g.id} className={`flex items-center gap-2 text-sm ${locked ? "text-slate-400" : "text-slate-300"}`}
+                        title={own ? "Your group — you can't remove your own access" : isAboveMe(g) ? "This group ranks above you — you can't change its access" : ""}>
+                        <input
+                          type="checkbox"
+                          checked={own ? true : access.includes(g.id)}
+                          disabled={locked}
+                          onChange={() => toggleGroup(g.id)}
+                          className="h-4 w-4 accent-[var(--color-primary)] disabled:opacity-60"
+                        />
+                        {g.label}
+                        {own && <span className="text-[10px] uppercase tracking-wide text-slate-500">(you)</span>}
+                        {isAboveMe(g) && <Lock size={11} className="text-slate-600" />}
+                      </label>
+                    );
+                  })}
                   {draft.restricted && access.length === 0 && (
                     <p className="text-xs text-amber-300">
                       No groups selected, only site managers will see this page.
@@ -493,7 +517,7 @@ function NavGroups() {
 
 // ─── Pages tab ───────────────────────────────────────────────────────────────
 
-export default function PagesTab() {
+export default function PagesTab({ user }) {
   const { config, mutate } = useConfig();
   const [editing, setEditing] = useState(null);
   const [confirm, setConfirm] = useState(null);
@@ -617,6 +641,7 @@ export default function PagesTab() {
           onClose={() => setEditing(null)}
           config={config}
           page={editingM.data}
+          user={user}
           onSave={savePage}
         />
       )}
