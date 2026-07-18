@@ -37,12 +37,22 @@ function CalloutBlock({ block }) {
   );
 }
 
+// Fixed static class strings so Tailwind's JIT can see them. The card grid is
+// always 2-up on phones; the chosen count kicks in at sm and above.
+const CARD_COLS = {
+  2: "grid-cols-2",
+  3: "grid-cols-2 sm:grid-cols-3",
+  4: "grid-cols-2 sm:grid-cols-4",
+  auto: "grid-cols-2 sm:grid-cols-[repeat(auto-fit,minmax(140px,1fr))]",
+};
+
 // Card layout (the "Quick Resources" look): each link is a tile with an icon
-// on top and the label beneath, laid out in a responsive grid.
+// on top and the label beneath, laid out in a fixed-column grid.
 function LinkCards({ block }) {
   const items = block.items || [];
   const allUrl = safeLinkUrl(block.allUrl);
   const showAll = block.allUrl && block.allUrl !== "#";
+  const colClass = CARD_COLS[block.columns] || CARD_COLS[2];
   return (
     <Panel className="p-5">
       {(block.kicker || block.title || showAll) && (
@@ -70,7 +80,7 @@ function LinkCards({ block }) {
           )}
         </div>
       )}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fit,minmax(140px,1fr))]">
+      <div className={`grid gap-3 ${colClass}`}>
         {items.map((item) => {
           const Icon = getIcon(item.icon);
           return (

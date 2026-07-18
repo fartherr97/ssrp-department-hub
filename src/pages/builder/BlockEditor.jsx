@@ -133,6 +133,19 @@ function LinksEditor({ block, update }) {
         )}
       </div>
       {cards && (
+        <Field label="Columns" hint="How many cards per row on desktop. Phones always show 2.">
+          <Select
+            value={block.columns || "2"}
+            onChange={(e) => update({ columns: e.target.value })}
+          >
+            <option value="2">2 per row</option>
+            <option value="3">3 per row</option>
+            <option value="4">4 per row</option>
+            <option value="auto">Auto (fill the width)</option>
+          </Select>
+        </Field>
+      )}
+      {cards && (
         <div className="grid gap-3 sm:grid-cols-[1fr_140px]">
           <Field label='"All" link (optional)' hint="Adds an All → shortcut in the header.">
             <Input

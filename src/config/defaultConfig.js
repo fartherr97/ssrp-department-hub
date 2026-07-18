@@ -100,6 +100,7 @@ export const defaultConfig = {
             id: "block-quick-links",
             type: "links",
             layout: "cards",
+            columns: "2",
             kicker: "Quick Access",
             title: "Quick Resources",
             allLabel: "All",
