@@ -8,6 +8,7 @@ import {
   Button,
   Textarea,
   Toast,
+  ConfirmDialog,
 } from "../../components/common/index.jsx";
 import TabIntro from "./TabIntro.jsx";
 
@@ -15,6 +16,7 @@ export default function AdvancedTab() {
   const { config, replaceConfig } = useConfig();
   const { toast, show } = useToast();
   const [importText, setImportText] = useState("");
+  const [pending, setPending] = useState(null); // parsed config awaiting confirm
   const fileRef = useRef(null);
 
   function exportConfig() {
@@ -29,19 +31,29 @@ export default function AdvancedTab() {
     show("Backup downloaded");
   }
 
+  // Stage the parsed backup and ask for confirmation — restoring replaces the
+  // entire live setup, so it shouldn't happen on a single click.
   function importConfig(text) {
     try {
       const parsed = JSON.parse(text);
       if (!parsed || typeof parsed !== "object" || !parsed.branding) {
         throw new Error("That file doesn't look like a hub backup");
       }
-      replaceConfig(parsed);
-      setImportText("");
-      show("Backup restored");
+      setPending(parsed);
     } catch (e) {
       show(e.message || "That file couldn't be read", "error");
     }
   }
+
+  function applyPending() {
+    if (!pending) return;
+    replaceConfig(pending);
+    setPending(null);
+    setImportText("");
+    show("Backup restored");
+  }
+
+  const pendingPages = Array.isArray(pending?.pages) ? pending.pages.length : 0;
 
   function onFilePicked(e) {
     const file = e.target.files?.[0];
@@ -113,6 +125,14 @@ export default function AdvancedTab() {
         </details>
       </Panel>
 
+      <ConfirmDialog
+        open={Boolean(pending)}
+        title="Restore this backup?"
+        message={`This replaces your ENTIRE current setup — all pages, roster, and settings — with the backup (${pendingPages} page${pendingPages === 1 ? "" : "s"}). Your current setup is saved to Version History first, so you can undo this from the Audit Log.`}
+        confirmLabel="Replace everything"
+        onCancel={() => setPending(null)}
+        onConfirm={applyPending}
+      />
     </div>
   );
 }

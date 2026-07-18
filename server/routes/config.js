@@ -132,6 +132,14 @@ function authorizeConfigChange(user, current, incoming) {
   // (manage-site covers both). Other page types are covered by the structure and
   // section rules above / left to general writers.
   if (changed(current, incoming, "pages") && !canManageSite(user, current)) {
+    // Permanently removing a page — its id disappears entirely, taking all its
+    // nested data (submissions, votes, log entries) with it — is an
+    // irreversible, manager-only action. Soft-delete (archiving) keeps the id,
+    // so it is NOT blocked here; only true removal is.
+    const incomingIds = new Set((incoming?.pages || []).map((p) => p.id));
+    if ((current?.pages || []).some((p) => !incomingIds.has(p.id))) {
+      return "deleting pages";
+    }
     const types = changedPageTypes(current, incoming);
     if (types.has("calendar") && !canManageCalendar(user, current)) {
       return "calendar events";

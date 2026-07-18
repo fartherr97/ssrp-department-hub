@@ -1,8 +1,9 @@
 import { memo, useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Plus, Pencil, Trash2, ChevronUp, ChevronDown, Lock, GripVertical, Maximize2, X } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronUp, ChevronDown, Lock, GripVertical, Maximize2, X, Archive, RotateCcw, AlertTriangle } from "lucide-react";
 import { useConfig } from "../../lib/configContext.jsx";
 import { getIcon, ICON_NAMES } from "../../lib/icons.js";
+import { canManageSite } from "../../lib/permissions.js";
 import { pageSlug, isGeneratedPageId } from "../../lib/navigation.js";
 import { uid } from "../../lib/roster.js";
 import { defaultLogBooks } from "../AdminLog.jsx";
@@ -587,18 +588,59 @@ function NavGroups() {
 export default function PagesTab({ user }) {
   const { config, mutate } = useConfig();
   const [editing, setEditing] = useState(null);
-  const [confirm, setConfirm] = useState(null);
+  const [confirm, setConfirm] = useState(null); // page pending archive
+  const [purge, setPurge] = useState(null); // page pending permanent delete
   const editingM = useModalData(editing);
 
+  const isManager = canManageSite(user, config);
+  const activePages = config.pages.filter((p) => !p.archived);
+  const archivedPages = config.pages.filter((p) => p.archived);
+
+  // Reorder within the visible (non-archived) pages only, so an archived page
+  // sitting between two active ones doesn't swallow a move.
   function movePage(id, dir) {
     mutate((cfg) => {
       const pages = [...cfg.pages];
-      const i = pages.findIndex((p) => p.id === id);
-      const j = i + dir;
-      if (j < 0 || j >= pages.length) return cfg;
-      [pages[i], pages[j]] = [pages[j], pages[i]];
+      const active = pages.filter((p) => !p.archived);
+      const vi = active.findIndex((p) => p.id === id);
+      const vj = vi + dir;
+      if (vj < 0 || vj >= active.length) return cfg;
+      const iA = pages.indexOf(active[vi]);
+      const iB = pages.indexOf(active[vj]);
+      [pages[iA], pages[iB]] = [pages[iB], pages[iA]];
       return { ...cfg, pages };
     });
+  }
+
+  // Soft-delete: keep the page (and everything nested in it) in the config,
+  // just flag it archived so it drops out of nav/routing/rendering.
+  function archivePage(id) {
+    const stamp = new Date().toISOString();
+    const by = user?.displayName || user?.username || "";
+    mutate((cfg) => ({
+      ...cfg,
+      pages: cfg.pages.map((p) =>
+        p.id === id ? { ...p, archived: true, archivedAt: stamp, archivedBy: by } : p
+      ),
+    }));
+  }
+
+  function restorePage(id) {
+    mutate((cfg) => ({
+      ...cfg,
+      pages: cfg.pages.map((p) => {
+        if (p.id !== id) return p;
+        const next = { ...p };
+        delete next.archived;
+        delete next.archivedAt;
+        delete next.archivedBy;
+        return next;
+      }),
+    }));
+  }
+
+  function purgePage(id) {
+    mutate((cfg) => ({ ...cfg, pages: cfg.pages.filter((p) => p.id !== id) }));
   }
 
   function savePage(draft) {
@@ -657,7 +699,7 @@ export default function PagesTab({ user }) {
           }
         />
         <div className="grid gap-2">
-          {config.pages.map((page, idx) => {
+          {activePages.map((page, idx) => {
             const Icon = getIcon(page.icon);
             return (
               <div
@@ -685,14 +727,14 @@ export default function PagesTab({ user }) {
                 <Badge className="hidden sm:inline-flex">{page.locked ? "system" : page.type}</Badge>
                 <div className="flex items-center gap-1">
                   <IconButton icon={ChevronUp} label="Move up" disabled={idx === 0} onClick={() => movePage(page.id, -1)} className="disabled:opacity-30" />
-                  <IconButton icon={ChevronDown} label="Move down" disabled={idx === config.pages.length - 1} onClick={() => movePage(page.id, 1)} className="disabled:opacity-30" />
+                  <IconButton icon={ChevronDown} label="Move down" disabled={idx === activePages.length - 1} onClick={() => movePage(page.id, 1)} className="disabled:opacity-30" />
                   <IconButton icon={Pencil} label="Edit page" onClick={() => setEditing(page)} />
                   <IconButton
-                    icon={Trash2}
-                    label="Delete page"
+                    icon={Archive}
+                    label="Archive page"
                     disabled={page.locked}
                     onClick={() => setConfirm(page)}
-                    className="hover:border-red-500/40 hover:text-red-300 disabled:opacity-30"
+                    className="hover:border-amber-500/40 hover:text-amber-300 disabled:opacity-30"
                   />
                 </div>
               </div>
@@ -700,6 +742,51 @@ export default function PagesTab({ user }) {
           })}
         </div>
       </Panel>
+
+      {archivedPages.length > 0 && (
+        <Panel className="p-5">
+          <SectionHeader
+            title={`Archived pages (${archivedPages.length})`}
+            subtitle="Removed from the hub but kept safe — all their data is intact. Restore any page, or permanently delete it (managers only)."
+          />
+          <div className="grid gap-2">
+            {archivedPages.map((page) => {
+              const Icon = getIcon(page.icon);
+              return (
+                <div
+                  key={page.id}
+                  className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2.5"
+                >
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/5 text-slate-500">
+                    <Icon size={16} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <span className="truncate text-sm font-semibold text-slate-300">{page.label}</span>
+                    <div className="text-xs text-slate-500">
+                      {page.type}
+                      {page.archivedBy && <> · archived by {page.archivedBy}</>}
+                      {page.archivedAt && (
+                        <> · {new Date(page.archivedAt).toLocaleDateString()}</>
+                      )}
+                    </div>
+                  </div>
+                  <Button variant="secondary" icon={RotateCcw} onClick={() => restorePage(page.id)}>
+                    Restore
+                  </Button>
+                  <IconButton
+                    icon={Trash2}
+                    label="Delete permanently"
+                    disabled={!isManager}
+                    onClick={() => setPurge(page)}
+                    title={isManager ? "Permanently delete" : "Only site managers can permanently delete"}
+                    className="hover:border-red-500/40 hover:text-red-300 disabled:opacity-30"
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </Panel>
+      )}
 
       {editingM.data && (
         <PageModal
@@ -715,15 +802,76 @@ export default function PagesTab({ user }) {
 
       <ConfirmDialog
         open={Boolean(confirm)}
-        title="Delete page?"
-        message={`Delete "${confirm?.label}"? This can't be undone.`}
-        confirmLabel="Delete page"
+        title="Archive this page?"
+        message={`"${confirm?.label}" will be removed from your hub, but all of its data is kept and you can restore it any time from the Archived pages list below. Nothing is lost.`}
+        confirmLabel="Archive page"
         onCancel={() => setConfirm(null)}
         onConfirm={() => {
-          mutate((cfg) => ({ ...cfg, pages: cfg.pages.filter((p) => p.id !== confirm.id) }));
+          archivePage(confirm.id);
           setConfirm(null);
         }}
       />
+
+      {purge && (
+        <PurgeDialog
+          page={purge}
+          onCancel={() => setPurge(null)}
+          onConfirm={() => {
+            purgePage(purge.id);
+            setPurge(null);
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+// Type-to-confirm dialog for the one irreversible action: permanently deleting
+// an archived page and all its data. Requires typing DELETE so it can't be a
+// reflexive click.
+function PurgeDialog({ page, onCancel, onConfirm }) {
+  const [text, setText] = useState("");
+  const armed = text.trim().toUpperCase() === "DELETE";
+  return (
+    <Modal
+      open
+      onClose={onCancel}
+      title="Permanently delete page?"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button
+            disabled={!armed}
+            onClick={onConfirm}
+            className="!bg-red-500/90 hover:!bg-red-500 disabled:!bg-red-500/40"
+          >
+            Delete forever
+          </Button>
+        </>
+      }
+    >
+      <div className="grid gap-3">
+        <div className="flex gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3">
+          <AlertTriangle size={18} className="mt-0.5 shrink-0 text-red-300" />
+          <p className="text-sm text-slate-200">
+            This erases <strong className="text-white">{page.label}</strong> and{" "}
+            <strong className="text-white">all of its data</strong> (submissions, votes, log
+            entries) from the live hub. This can only be undone by restoring an older version from
+            Version History.
+          </p>
+        </div>
+        <Field label="Type DELETE to confirm">
+          <Input
+            autoFocus
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="DELETE"
+            onKeyDown={(e) => e.key === "Enter" && armed && onConfirm()}
+          />
+        </Field>
+      </div>
+    </Modal>
   );
 }

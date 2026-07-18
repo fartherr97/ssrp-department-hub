@@ -269,6 +269,10 @@ export function isVisitor(user, config) {
 
 export function canAccessPage(user, page, config) {
   if (!user || !page) return false;
+  // Archived (soft-deleted) pages are hidden from nav, routing, and rendering
+  // for everyone. Their data stays in the config and is restorable from the
+  // Builder Portal's Pages tab.
+  if (page.archived) return false;
   if (page.type === "builder") return canManageSite(user, config);
   // Help page (guide + assistant) is a building aid — managers only, like Builder.
   if (page.type === "help") return canManageSite(user, config);
