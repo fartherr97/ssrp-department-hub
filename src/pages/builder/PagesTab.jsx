@@ -69,9 +69,21 @@ function welcomePreset(label = "Welcome") {
 // people see the result without saving and navigating away. Memoized and fed
 // a debounced draft so typing isn't slowed by re-rendering the whole page.
 // The page body shared by the docked preview and the full-screen preview.
-function PreviewBody({ draft }) {
+function PreviewBody({ draft, compact = false }) {
   const cfg = draft.config || {};
   if (draft.type === "welcome") {
+    // A full landing page can't fit the ~350px docked panel, so render it at a
+    // real desktop width and scale it down to a faithful thumbnail. Full-screen
+    // preview (compact=false) shows it true-size.
+    if (compact) {
+      return (
+        <div className="pointer-events-none max-h-[62vh] select-none overflow-hidden rounded-lg border border-white/10">
+          <div style={{ width: 1180, zoom: 0.29 }}>
+            <WelcomePage page={draft} />
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="pointer-events-none select-none">
         <WelcomePage page={draft} />
@@ -117,7 +129,7 @@ const PagePreview = memo(function PagePreview({ draft, onExpand }) {
           </button>
         </div>
       </div>
-      <PreviewBody draft={draft} />
+      <PreviewBody draft={draft} compact />
     </div>
   );
 });

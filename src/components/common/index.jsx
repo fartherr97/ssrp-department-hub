@@ -516,6 +516,23 @@ export function MediaInput({ value, onChange, kind = "image", maxDim = 1024, pla
   const [previewFailed, setPreviewFailed] = useState(false);
   const isUploaded = (value || "").startsWith("data:");
 
+  // Only attempt to load the thumbnail once typing settles. Validating on every
+  // keystroke made the <img> mount/error/unmount repeatedly — a heavy flicker and
+  // a burst of failed network requests for each half-typed URL.
+  const [previewSrc, setPreviewSrc] = useState(value || "");
+  useEffect(() => {
+    if ((value || "").startsWith("data:")) {
+      setPreviewSrc(value); // uploaded data URLs are already final, show immediately
+      return undefined;
+    }
+    const id = setTimeout(() => setPreviewSrc(value || ""), 450);
+    return () => clearTimeout(id);
+  }, [value]);
+  // A new settled URL gets a fresh benefit of the doubt.
+  useEffect(() => {
+    setPreviewFailed(false);
+  }, [previewSrc]);
+
   // Convert a pasted share-page link (Drive/Dropbox/Imgur/GitHub) into the direct
   // image URL once the field loses focus, so it actually renders.
   function normalizeOnBlur() {
@@ -550,9 +567,10 @@ export function MediaInput({ value, onChange, kind = "image", maxDim = 1024, pla
   return (
     <div>
       <div className="flex items-center gap-2">
-        {kind === "image" && value && !previewFailed && (
+        {kind === "image" && previewSrc && !previewFailed && (
           <img
-            src={value}
+            key={previewSrc}
+            src={previewSrc}
             alt=""
             onError={() => setPreviewFailed(true)}
             onLoad={() => setPreviewFailed(false)}
@@ -577,10 +595,7 @@ export function MediaInput({ value, onChange, kind = "image", maxDim = 1024, pla
           <Input
             value={value || ""}
             placeholder={placeholder}
-            onChange={(e) => {
-              setPreviewFailed(false);
-              onChange(e.target.value);
-            }}
+            onChange={(e) => onChange(e.target.value)}
             onBlur={normalizeOnBlur}
             className="min-w-0 flex-1"
           />
@@ -603,7 +618,7 @@ export function MediaInput({ value, onChange, kind = "image", maxDim = 1024, pla
         </Button>
       </div>
       {error && <p className="mt-1 text-xs text-red-300">{error}</p>}
-      {!error && previewFailed && !isUploaded && value && (
+      {!error && previewFailed && !isUploaded && previewSrc && (
         <p className="mt-1 text-xs text-amber-300/90">
           That link didn't load as an image. Use a direct link to the image file (it should end in
           .png, .jpg, .gif, or .webp), or click Upload. Discord links expire, upload those.

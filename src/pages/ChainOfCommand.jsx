@@ -19,6 +19,7 @@ import {
   useModalData,
 } from "../components/common/index.jsx";
 import { safeMediaUrl } from "../lib/urls.js";
+import { resolveNodeLink, resolveNodeDisplay, splitTitle } from "../lib/chain.js";
 
 /*
  * Chain of Command page ("chain"), replacing the org-chart sheets departments
@@ -41,14 +42,6 @@ function newNode(title = "New Position") {
   return { id: uid("node"), title, name: "", color: "", imageUrl: "", members: [], children: [] };
 }
 
-// Titles are usually "Rank - Assignment" (e.g. "Captain - Training & HR"). Split
-// on the first spaced dash so the box can show the rank on one line and the
-// assignment stacked (and wrapping) beneath it, instead of truncating it away.
-function splitTitle(title = "") {
-  const m = title.match(/^(.*?)\s[-–—]\s(.+)$/);
-  if (m) return { rank: m[1].trim(), sub: m[2].trim() };
-  return { rank: title.trim(), sub: "" };
-}
 
 // ── Auto-import an org chart from the roster ─────────────────────────────────
 // Builds a COMPACT leadership pyramid, not the whole roster: it takes only the
@@ -112,48 +105,6 @@ function bestSeniorFor(seniors, pos) {
 //   { subId, kind: "category", categoryId }        → members in a category band
 // Resolution never throws; a link whose target was renamed/deleted reports
 // ok:false so the box can fall back to its last-known cached name/members.
-export function resolveNodeLink(config, link) {
-  const subs = config?.roster?.subdivisions || [];
-  const sub = subs.find((s) => s.id === link?.subId) || subs.find((s) => s.main) || subs[0];
-  if (!sub || !link) return { ok: false, names: [] };
-  const all = [];
-  for (const cat of sub.categories || [])
-    for (const m of cat.members || []) all.push({ name: m.name, rank: m.rank, fields: m.fields, _cat: cat.id });
-
-  let ok = true;
-  let matched = [];
-  if (link.kind === "rank") {
-    ok = (sub.ranks || []).some((r) => r.id === link.rankId);
-    matched = all.filter((m) => m.rank === link.rankId);
-  } else if (link.kind === "field") {
-    ok = (config?.roster?.memberFields || []).some((f) => f.id === link.fieldId);
-    matched = all.filter((m) => String(m.fields?.[link.fieldId] ?? "") === String(link.value));
-  } else if (link.kind === "category") {
-    ok = (sub.categories || []).some((c) => c.id === link.categoryId);
-    matched = all.filter((m) => m._cat === link.categoryId);
-  } else {
-    return { ok: false, names: [] };
-  }
-  return { ok, names: matched.map((m) => m.name).filter(Boolean) };
-}
-
-// What a box should actually display: live names when linked (falling back to the
-// cached snapshot if the link is broken), or the hand-typed values otherwise.
-export function resolveNodeDisplay(config, node) {
-  if (!node?.link) {
-    return { name: node?.name || "", members: node?.members || [], linked: false, broken: false, vacant: false };
-  }
-  const r = resolveNodeLink(config, node.link);
-  if (!r.ok) {
-    // Target rank/column/category no longer exists — show the last-known snapshot
-    // so the chart never goes blank, and flag it so the editor can warn.
-    return { name: node.name || "", members: node.members || [], linked: true, broken: true, vacant: false };
-  }
-  if (r.names.length === 0) return { name: "", members: [], linked: true, broken: false, vacant: true };
-  if (r.names.length === 1) return { name: r.names[0], members: [], linked: true, broken: false, vacant: false };
-  return { name: "", members: r.names, linked: true, broken: false, vacant: false };
-}
-
 export function buildTreeFromRoster(config, subId) {
   const subs = config?.roster?.subdivisions || [];
   const sub = subs.find((s) => s.id === subId) || subs.find((s) => s.main) || subs[0];

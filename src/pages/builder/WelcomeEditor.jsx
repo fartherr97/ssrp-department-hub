@@ -12,6 +12,7 @@ import {
   MediaInput,
 } from "../../components/common/index.jsx";
 import { uid } from "../../lib/roster.js";
+import { useConfig } from "../../lib/configContext.jsx";
 
 // A small on/off switch for the Section Visibility panel.
 function Toggle({ checked, onChange }) {
@@ -96,9 +97,12 @@ const VISIBILITY = [
  * PageModal owns the draft and persists on save).
  */
 export default function WelcomeEditor({ value, setCfg }) {
+  const { config } = useConfig();
   const cfg = value || {};
   const show = cfg.show || {};
   const setList = (key) => (next) => setCfg({ [key]: next });
+  const chainPages = (config?.pages || []).filter((p) => p.type === "chain");
+  const sourced = Boolean(cfg.commandSource);
 
   return (
     <div className="grid gap-5">
@@ -180,6 +184,43 @@ export default function WelcomeEditor({ value, setCfg }) {
       {/* Command Staff */}
       <Panel className="p-5">
         <SectionHeader title="Command Staff" subtitle="Leadership cards. Rank tier sets the card's color (gold / silver / blue)." />
+        <div className="mb-4 grid gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3 sm:grid-cols-2">
+          <Field label="Source" hint="Enter members by hand, or pull them live from a Chain of Command page.">
+            <Select
+              value={cfg.commandSource || ""}
+              onChange={(e) => setCfg({ commandSource: e.target.value })}
+            >
+              <option value="">Manual entries</option>
+              {chainPages.map((p) => (
+                <option key={p.id} value={p.id}>
+                  Chain of Command: {p.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          {sourced && (
+            <Field label="Levels to include" hint="How many levels below the top box to show.">
+              <Select value={String(cfg.commandLevels || 4)} onChange={(e) => setCfg({ commandLevels: Number(e.target.value) })}>
+                <option value="2">Top 2 levels</option>
+                <option value="3">Top 3 levels</option>
+                <option value="4">Top 4 levels</option>
+                <option value="5">Top 5 levels</option>
+              </Select>
+            </Field>
+          )}
+        </div>
+        {sourced ? (
+          <p className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm text-slate-400">
+            Command staff is pulled live from the{" "}
+            <strong className="text-white">
+              {chainPages.find((p) => p.id === cfg.commandSource)?.label || "selected"}
+            </strong>{" "}
+            chain-of-command page — names, ranks, and photos come from there and stay in sync as you
+            edit that chart. Switch back to <strong className="text-white">Manual entries</strong> to
+            hand-manage the cards here instead.
+          </p>
+        ) : (
+          <>
         {CDN_NOTE}
         <ListEditor
           items={cfg.commandStaff || []}
@@ -217,6 +258,8 @@ export default function WelcomeEditor({ value, setCfg }) {
             </div>
           )}
         />
+          </>
+        )}
       </Panel>
 
       {/* Media */}

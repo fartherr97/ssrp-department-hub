@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import {
   Users,
-  MessageCircle,
   ArrowRight,
   ChevronLeft,
   ChevronRight,
@@ -10,6 +9,16 @@ import {
 import { useConfig } from "../lib/configContext.jsx";
 import { getIcon } from "../lib/icons.js";
 import { safeLinkUrl, safeMediaUrl } from "../lib/urls.js";
+import { commandStaffFromChain } from "../lib/chain.js";
+
+// The Discord wordmark glyph (lucide has no brand icon), for the Discord button.
+function DiscordIcon({ size = 18, className = "" }) {
+  return (
+    <svg viewBox="0 0 127.14 96.36" width={size} height={size} fill="currentColor" aria-hidden="true" className={className}>
+      <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z" />
+    </svg>
+  );
+}
 
 /*
  * WelcomePage — a preset "department landing page" page type. It renders a
@@ -62,7 +71,7 @@ function Hero({ cfg, kicker }) {
   const applyUrl = safeLinkUrl(cfg.recruitFormUrl);
   const discordUrl = safeLinkUrl(cfg.discordInvite);
   return (
-    <section className="relative -mx-4 -mt-5 overflow-hidden sm:-mx-6 sm:-mt-6">
+    <section className="relative w-full overflow-hidden">
       <div className="absolute inset-0">
         {banner && isVideo ? (
           <video src={banner} autoPlay muted loop playsInline className="h-full w-full object-cover" />
@@ -75,15 +84,23 @@ function Hero({ cfg, kicker }) {
         <div className="absolute inset-0 bg-gradient-to-t from-[var(--color-body-bg)] via-transparent to-transparent" />
       </div>
 
-      <div className="relative mx-auto flex min-h-[440px] max-w-[1400px] items-center px-6 py-16 sm:px-10">
+      <div className="relative mx-auto flex min-h-[460px] max-w-[1400px] items-center px-6 py-16 sm:px-10">
         <div className="flex flex-col items-start gap-6 sm:flex-row sm:items-center">
           {cfg.badgeUrl && safeMediaUrl(cfg.badgeUrl) && (
-            <img
-              src={safeMediaUrl(cfg.badgeUrl)}
-              alt={cfg.fullName || "Badge"}
-              className="h-32 w-32 shrink-0 object-contain sm:h-44 sm:w-44"
-              style={{ filter: "drop-shadow(0 0 28px rgba(0,0,0,0.6))" }}
-            />
+            <div className="relative shrink-0">
+              {/* Soft glow behind the badge, tinted with the page accent. */}
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute left-1/2 top-1/2 h-[150%] w-[150%] -translate-x-1/2 -translate-y-1/2 rounded-full blur-2xl"
+                style={{ background: "radial-gradient(closest-side, color-mix(in srgb, var(--wel) 55%, transparent), transparent 72%)" }}
+              />
+              <img
+                src={safeMediaUrl(cfg.badgeUrl)}
+                alt={cfg.fullName || "Badge"}
+                className="relative h-32 w-32 object-contain sm:h-44 sm:w-44"
+                style={{ filter: "drop-shadow(0 0 20px rgba(0,0,0,0.55))" }}
+              />
+            </div>
           )}
           <div className="min-w-0">
             {kicker && (
@@ -109,7 +126,7 @@ function Hero({ cfg, kicker }) {
                   href={applyUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="press inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-bold text-black shadow-lg transition hover:brightness-110"
+                  className="press lift inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-bold text-black shadow-lg transition hover:brightness-110"
                   style={{ background: "var(--wel)" }}
                 >
                   <Users size={17} />
@@ -121,9 +138,9 @@ function Hero({ cfg, kicker }) {
                   href={discordUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="press inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-5 py-3 text-sm font-bold text-white backdrop-blur transition hover:bg-white/15"
+                  className="press lift inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-5 py-3 text-sm font-bold text-white backdrop-blur transition hover:bg-white/15"
                 >
-                  <MessageCircle size={17} />
+                  <DiscordIcon size={18} />
                   Department Discord
                 </a>
               )}
@@ -140,8 +157,8 @@ function Hero({ cfg, kicker }) {
 function Ticker({ notices }) {
   const list = (notices || []).filter((n) => n.text?.trim());
   if (!list.length) return null;
-  // Duration scales with content length so long tickers don't race.
-  const duration = Math.max(24, list.reduce((n, x) => n + (x.text?.length || 0), 0) * 0.18);
+  // Duration scales with content length so long tickers keep a steady pace.
+  const duration = Math.max(12, list.reduce((n, x) => n + (x.text?.length || 0), 0) * 0.08);
   const Item = ({ n }) => {
     const url = safeLinkUrl(n.url);
     const body = (
@@ -166,7 +183,7 @@ function Ticker({ notices }) {
     </div>
   );
   return (
-    <div className="ticker-mask relative -mx-4 overflow-hidden border-y border-white/10 bg-black/40 py-2.5 sm:-mx-6">
+    <div className="ticker-mask relative w-full overflow-hidden border-y border-white/10 bg-black/40 py-2.5">
       {track}
     </div>
   );
@@ -250,8 +267,7 @@ function StaffCard({ m }) {
   );
 }
 
-function CommandStaff({ cfg }) {
-  const staff = cfg.commandStaff || [];
+function CommandStaff({ staff }) {
   if (!staff.length) return null;
   return (
     <section>
@@ -404,7 +420,7 @@ function Recruit({ cfg }) {
             href={applyUrl}
             target="_blank"
             rel="noreferrer"
-            className="press inline-flex shrink-0 items-center gap-2 rounded-xl px-5 py-3 text-sm font-bold text-black transition hover:brightness-110"
+            className="press lift inline-flex shrink-0 items-center gap-2 rounded-xl px-5 py-3 text-sm font-bold text-black transition hover:brightness-110"
             style={{ background: "var(--wel)" }}
           >
             Apply Now
@@ -424,13 +440,22 @@ export default function WelcomePage({ page }) {
   const kicker = cfg.kicker || config?.branding?.name || "";
   const accent = cfg.accent || "var(--color-primary)";
 
+  // Command staff can be a manual list, or sourced live from a Chain of Command
+  // page so names aren't maintained twice.
+  const chainPage =
+    cfg.commandSource &&
+    (config?.pages || []).find((p) => p.id === cfg.commandSource && p.type === "chain");
+  const staff = chainPage
+    ? commandStaffFromChain(config, chainPage, { levels: cfg.commandLevels || 4 })
+    : cfg.commandStaff || [];
+
   return (
     <div style={{ "--wel": accent }} className="grid gap-12">
       <Hero cfg={cfg} kicker={kicker} />
       {on("ticker") && <Ticker notices={cfg.notices} />}
-      <div className="mx-auto grid w-full max-w-[1200px] gap-14">
+      <div className="mx-auto grid w-full max-w-[1200px] gap-14 px-4 pb-16 sm:px-6">
         {on("about") && <About cfg={cfg} />}
-        {on("commandStaff") && <CommandStaff cfg={cfg} />}
+        {on("commandStaff") && <CommandStaff staff={staff} />}
         {on("media") && <Gallery cfg={cfg} />}
         {on("resources") && <Resources cfg={cfg} />}
         {on("recruiting") && <Recruit cfg={cfg} />}
