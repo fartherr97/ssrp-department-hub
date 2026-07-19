@@ -336,6 +336,30 @@ button:disabled,
 @media (prefers-reduced-motion: reduce) {
   .anim-tab-in { animation: none; }
 }
+
+/* Welcome page: scrolling announcement ticker. Two copies of the track sit
+   side by side and translate -50%, so the loop is seamless. */
+@keyframes tickerScroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.ticker-track {
+  display: inline-flex;
+  white-space: nowrap;
+  animation: tickerScroll var(--ticker-duration, 40s) linear infinite;
+}
+.ticker-mask:hover .ticker-track { animation-play-state: paused; }
+
+/* Welcome page: slow cinematic zoom (Ken Burns) on the rotating gallery photo. */
+@keyframes kenBurns {
+  from { transform: scale(1.02); }
+  to { transform: scale(1.12); }
+}
+.ken-burns { animation: kenBurns 12s ease-out both; will-change: transform; }
+@media (prefers-reduced-motion: reduce) {
+  .ticker-track { animation: none; }
+  .ken-burns { animation: none; }
+}
 .btn-glossy {
   transition: transform 0.15s ease, background-color 0.15s ease,
     border-color 0.15s ease, color 0.15s ease;

@@ -21,8 +21,47 @@ import {
   useModalData,
 } from "../../components/common/index.jsx";
 import BlockEditor from "./BlockEditor.jsx";
+import WelcomeEditor from "./WelcomeEditor.jsx";
 import TabIntro from "./TabIntro.jsx";
 import BlockRenderer from "../../components/content/BlockRenderer.jsx";
+import WelcomePage from "../WelcomePage.jsx";
+
+// Starter content for a new "welcome" (department landing) page, so adding one
+// gives a complete, editable example rather than a blank slate.
+function welcomePreset(label = "Welcome") {
+  const mk = (arr) => arr.map((x, i) => ({ id: `w${i}_${Math.round(x._k ?? i)}`, ...x }));
+  return {
+    fullName: label,
+    shortName: "",
+    kicker: "",
+    motto: "Serve with honor.",
+    about:
+      "Introduce your department here — its mission, what members do, and what makes it worth joining. Edit all of this in the Builder Portal.",
+    accent: "",
+    badgeUrl: "",
+    bannerUrl: "",
+    recruitFormUrl: "",
+    recruitDescription:
+      "We're recruiting! Join a professional, community-focused team dedicated to high-quality roleplay.",
+    discordInvite: "",
+    stats: mk([
+      { value: "0", label: "Members" },
+      { value: "0", label: "Vehicles" },
+      { value: "0", label: "Sub-Divisions" },
+      { value: "0", label: "Stations" },
+    ]),
+    commandStaff: mk([
+      { name: "Name", rank: "Chief", badge: "", callsign: "", avatarUrl: "", tier: "command" },
+    ]),
+    media: [],
+    notices: mk([{ text: "Welcome to the department — we're now hiring!", url: "" }]),
+    resources: mk([
+      { title: "Standard Operating Procedures", url: "#", description: "", icon: "BookOpen" },
+      { title: "Discord", url: "#", description: "", icon: "MessageCircle" },
+    ]),
+    show: { about: true, commandStaff: true, media: true, ticker: true, recruiting: true, resources: true },
+  };
+}
 
 // ─── Page editor modal ───────────────────────────────────────────────────────
 
@@ -32,6 +71,13 @@ import BlockRenderer from "../../components/content/BlockRenderer.jsx";
 // The page body shared by the docked preview and the full-screen preview.
 function PreviewBody({ draft }) {
   const cfg = draft.config || {};
+  if (draft.type === "welcome") {
+    return (
+      <div className="pointer-events-none select-none">
+        <WelcomePage page={draft} />
+      </div>
+    );
+  }
   return (
     <div className="pointer-events-none select-none">
       {cfg.heroKicker && <div className="hub-kicker">{cfg.heroKicker}</div>}
@@ -164,6 +210,8 @@ function PageModal({ open, onClose, config, page, user, onSave }) {
   }, [draft]);
 
   const isContentLike = draft.type === "content" || draft.type === "home";
+  const isWelcome = draft.type === "welcome";
+  const hasPreview = isContentLike || isWelcome;
   const cfg = draft.config || {};
   const setCfg = (patch) => setDraft((d) => ({ ...d, config: { ...(d.config || {}), ...patch } }));
   // Stable callbacks so the memoized icon grid / block editor skip re-renders.
@@ -213,7 +261,7 @@ function PageModal({ open, onClose, config, page, user, onSave }) {
         </>
       }
     >
-      <div className={`grid gap-5 ${isContentLike ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)]" : ""}`}>
+      <div className={`grid gap-5 ${hasPreview ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)]" : ""}`}>
       <div className="grid content-start gap-5">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Label">
@@ -263,11 +311,14 @@ function PageModal({ open, onClose, config, page, user, onSave }) {
                     ? { categories: ["roster", "calendar", "pages"] }
                     : type === "hours"
                     ? { topN: 10 }
+                    : type === "welcome"
+                    ? welcomePreset(draft.label || "Welcome")
                     : { heroTitle: draft.label || "New Page", blocks: [] };
                 setDraft({ ...draft, type, config: base });
               }}
             >
               <option value="content">Content page (blocks)</option>
+              <option value="welcome">Welcome / landing page (preset)</option>
               <option value="fleet">Vehicle roster (fleet structure)</option>
               <option value="uniforms">Uniform roster (class structure)</option>
               <option value="uniformtabs">Subdivision uniform rosters (tabbed)</option>
@@ -317,7 +368,7 @@ function PageModal({ open, onClose, config, page, user, onSave }) {
         </Field>
 
         {/* Any custom page type can be restricted to chosen groups. */}
-        {["content", "home", "fleet", "uniforms", "uniformtabs", "chain", "calendar", "adminlog", "exams", "promotion", "activity", "hours"].includes(draft.type) && (
+        {["content", "home", "welcome", "fleet", "uniforms", "uniformtabs", "chain", "calendar", "adminlog", "exams", "promotion", "activity", "hours"].includes(draft.type) && (
           <Field label="Who can see this page">
             <div className="grid gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-3">
               <label className="flex items-center gap-2 text-sm text-slate-300">
@@ -399,6 +450,12 @@ function PageModal({ open, onClose, config, page, user, onSave }) {
           </div>
         )}
 
+        {isWelcome && (
+          <div className="mt-2">
+            <WelcomeEditor value={cfg} setCfg={setCfg} />
+          </div>
+        )}
+
         {draft.type === "roster" && (
           <p className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm text-slate-400">
             This is the Roster page. Add ranks, members, and columns from the
@@ -407,13 +464,13 @@ function PageModal({ open, onClose, config, page, user, onSave }) {
         )}
       </div>
 
-      {isContentLike && (
+      {hasPreview && (
         <div className="hidden min-w-0 lg:block">
           <PagePreview draft={previewDraft} onExpand={() => setFullPreview(true)} />
         </div>
       )}
       {/* On phones/tablets the docked preview is hidden; expose full-screen there too. */}
-      {isContentLike && (
+      {hasPreview && (
         <div className="lg:hidden">
           <Button variant="secondary" icon={Maximize2} onClick={() => setFullPreview(true)}>
             Full-screen preview

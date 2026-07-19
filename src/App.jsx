@@ -26,6 +26,7 @@ const HelpPage = lazy(() => import("./pages/HelpPage.jsx"));
 const ExamsPage = lazy(() => import("./pages/ExamsPage.jsx"));
 const SubdivisionUniforms = lazy(() => import("./pages/SubdivisionUniforms.jsx"));
 const PromotionBoard = lazy(() => import("./pages/PromotionBoard.jsx"));
+const WelcomePage = lazy(() => import("./pages/WelcomePage.jsx"));
 
 // Map a page's `type` to the component that renders it.
 const PAGE_COMPONENTS = {
@@ -46,6 +47,7 @@ const PAGE_COMPONENTS = {
   exams: ExamsPage,
   uniformtabs: SubdivisionUniforms,
   promotion: PromotionBoard,
+  welcome: WelcomePage,
 };
 
 function ViewLoading() {

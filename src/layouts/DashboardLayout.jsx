@@ -17,7 +17,7 @@ function AccountMenu({ user, config, open, setOpen, onLogout }) {
     <div className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className={`press flex items-center gap-2.5 rounded-full border bg-[var(--color-surface-2)] py-1 pl-1 pr-2.5 transition ${
+        className={`press flex items-center gap-2.5 rounded-xl border bg-[var(--color-surface-2)] py-1 pl-1 pr-2.5 transition ${
           open
             ? "border-[color:var(--color-border-strong)]"
             : "border-white/10 hover:border-[color:var(--color-border)]"
@@ -25,7 +25,7 @@ function AccountMenu({ user, config, open, setOpen, onLogout }) {
       >
         <img
           src={userAvatar(user)}
-          className="h-8 w-8 rounded-full border border-white/10 object-cover"
+          className="h-8 w-8 rounded-lg border border-white/10 object-cover"
           alt={userDisplayName(user)}
         />
         <div className="hidden min-w-0 text-left sm:block">
