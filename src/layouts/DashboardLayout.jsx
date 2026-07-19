@@ -210,6 +210,13 @@ export default function DashboardLayout({
   const nav = buildNav(config, user);
   const branding = config?.branding || {};
   const dropdownGroups = config?.dropdownGroups || [];
+
+  // Table-heavy pages (rosters, admin logs) read better using the full viewport
+  // width instead of the centered reading column. They keep the page gutters but
+  // drop the max-width cap for a near-full-screen view.
+  const WIDE_PAGE_TYPES = new Set(["roster", "fleet", "uniforms", "uniformtabs", "adminlog"]);
+  const activePageType = (config?.pages || []).find((p) => p.id === activePage)?.type;
+  const wide = WIDE_PAGE_TYPES.has(activePageType);
   const anyMenuOpen = mobileOpen || openGroup !== null || accountOpen;
 
   const closeAll = () => {
@@ -333,7 +340,9 @@ export default function DashboardLayout({
         <div className="px-4 py-5 sm:px-6 sm:py-6">
           <div
             key={activePage}
-            className="animate-pageFade mx-auto min-h-[calc(100vh-9rem)] w-full max-w-[1560px]"
+            className={`animate-pageFade mx-auto min-h-[calc(100vh-9rem)] w-full ${
+              wide ? "max-w-[1850px]" : "max-w-[1560px]"
+            }`}
           >
             {children}
           </div>
