@@ -41,6 +41,15 @@ function newNode(title = "New Position") {
   return { id: uid("node"), title, name: "", color: "", imageUrl: "", members: [], children: [] };
 }
 
+// Titles are usually "Rank - Assignment" (e.g. "Captain - Training & HR"). Split
+// on the first spaced dash so the box can show the rank on one line and the
+// assignment stacked (and wrapping) beneath it, instead of truncating it away.
+function splitTitle(title = "") {
+  const m = title.match(/^(.*?)\s[-–—]\s(.+)$/);
+  if (m) return { rank: m[1].trim(), sub: m[2].trim() };
+  return { rank: title.trim(), sub: "" };
+}
+
 // ── Auto-import an org chart from the roster ─────────────────────────────────
 // Builds a COMPACT leadership pyramid, not the whole roster: it takes only the
 // top few rank tiers (Colonel → Captains for a typical dept) so the chart stays
@@ -401,13 +410,29 @@ function NodeCard({ node, disp, accent, canEdit, isRoot, onEdit, dropHint, setDr
           )}
         </span>
       )}
-      <div
-        className="truncate text-[11px] font-bold uppercase tracking-wide"
-        style={{ color }}
-        title={node.title}
-      >
-        {node.title || "Untitled"}
-      </div>
+      {(() => {
+        const { rank, sub } = splitTitle(node.title || "Untitled");
+        return (
+          <>
+            <div
+              className="truncate text-[11px] font-bold uppercase tracking-wide"
+              style={{ color }}
+              title={node.title}
+            >
+              {rank || "Untitled"}
+            </div>
+            {sub && (
+              <div
+                className="break-words text-[10px] font-semibold uppercase leading-tight tracking-wide"
+                style={{ color: `color-mix(in srgb, ${color} 78%, var(--color-text-muted))` }}
+                title={node.title}
+              >
+                {sub}
+              </div>
+            )}
+          </>
+        );
+      })()}
       {disp?.vacant ? (
         <div className="truncate text-[13px] font-semibold italic text-slate-500">Vacant</div>
       ) : disp?.name ? (
