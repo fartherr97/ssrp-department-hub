@@ -159,14 +159,14 @@ function FieldValue({ field, value, statusFieldId, probationFieldId, accent }) {
     );
   }
   if (field.type === "cert") {
+    // Compact: a green check when certified, an empty marker otherwise — saves
+    // far more horizontal space than a "CERTIFIED" pill in every row.
     return value ? (
-      <span className="inline-flex items-center rounded-md border border-green-500/30 bg-green-500/15 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-green-300">
-        Certified
+      <span className="mx-auto flex h-5 w-5 items-center justify-center rounded-full bg-green-500/15" title="Certified">
+        <Check size={14} strokeWidth={3} className="text-green-400" />
       </span>
     ) : (
-      <span className="inline-flex items-center rounded-md border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-slate-500">
-        N/A
-      </span>
+      <span className="mx-auto block h-3.5 w-3.5 rounded-full border border-white/15" title="Not certified" />
     );
   }
   if (value === undefined || value === null || value === "") {
