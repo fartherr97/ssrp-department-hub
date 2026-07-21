@@ -433,43 +433,51 @@ export default function CalendarPage({ page, user }) {
             return (
               <div
                 key={key}
-                onClick={() => canManage && dayEvents.length === 0 && openNewEvent(key)}
+                onClick={() => canManage && openNewEvent(key)}
                 className={`min-h-[84px] rounded-lg border p-1.5 transition ${
                   isToday
                     ? "border-[color:var(--color-border-strong)] bg-[color:var(--color-primary)]/10"
                     : "border-white/5 bg-white/[0.02]"
                 } ${canManage ? "cursor-pointer hover:border-[color:var(--color-border)]" : ""}`}
-                title={canManage && dayEvents.length === 0 ? "Click to add an event" : undefined}
+                title={canManage ? "Click an empty spot to add an event" : undefined}
               >
                 <div className={`text-right text-[11px] font-bold ${isToday ? "text-[var(--color-primary)]" : "text-slate-500"}`}>
                   {day}
                 </div>
                 <div className="mt-0.5 grid gap-1">
-                  {dayEvents.map((e) => (
+                  {dayEvents.map((e) => {
+                    // Events you've marked yourself attending are tinted green.
+                    const mine = (e.attendees || []).some((a) => a.id === user?.id);
+                    return (
                     <button
                       key={e.id}
                       onClick={(ev) => {
                         ev.stopPropagation();
                         setDetailsId(e.id);
                       }}
-                      className={`truncate rounded-md border border-[color:var(--color-border)] px-1.5 py-1 text-left text-[11px] font-semibold text-white hover:bg-[color:var(--color-primary)]/25 ${
-                        e._continued ? "bg-[color:var(--color-primary)]/8 opacity-80" : "bg-[color:var(--color-primary)]/15"
+                      className={`flex items-center gap-1 truncate rounded-md border px-1.5 py-1 text-left text-[11px] font-semibold text-white ${
+                        mine
+                          ? "border-emerald-500/50 bg-emerald-500/20 hover:bg-emerald-500/30"
+                          : `border-[color:var(--color-border)] hover:bg-[color:var(--color-primary)]/25 ${e._continued ? "bg-[color:var(--color-primary)]/8 opacity-80" : "bg-[color:var(--color-primary)]/15"}`
                       }`}
-                      title={`${e.title}${(e.startTime || e.time) ? `, ${e.startTime || e.time}` : ""}${e.location ? ` @ ${e.location}` : ""}`}
+                      title={`${e.title}${(e.startTime || e.time) ? `, ${e.startTime || e.time}` : ""}${e.location ? ` @ ${e.location}` : ""}${mine ? " · You're attending" : ""}`}
                     >
-                      {e._continued ? (
-                        <span className="mr-1 text-[var(--color-primary)]">↳</span>
+                      {mine ? (
+                        <Check size={11} className="shrink-0 text-emerald-400" />
+                      ) : e._continued ? (
+                        <span className="text-[var(--color-primary)]">↳</span>
                       ) : (
                         (e.startTime || e.time) && (
-                          <span className="mr-1 text-[var(--color-primary)]">{e.startTime || e.time}</span>
+                          <span className="text-[var(--color-primary)]">{e.startTime || e.time}</span>
                         )
                       )}
-                      {e.title}
+                      <span className="truncate">{e.title}</span>
                       {!e._continued && (e.attendees || []).length > 0 && (
-                        <span className="ml-1 text-slate-400">· {(e.attendees || []).length}</span>
+                        <span className="ml-auto shrink-0 text-slate-400">{(e.attendees || []).length}</span>
                       )}
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             );
