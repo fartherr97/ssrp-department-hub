@@ -115,11 +115,17 @@ function StarRating({ max, value, onChange }) {
   );
 }
 
-function AnswerInput({ q, value, onChange }) {
+function AnswerInput({ q, value, onChange, readOnly = false }) {
+  // In read-only mode (reviewing a submission) the whole widget is rendered
+  // exactly as it looked on the form, but clicks/edits do nothing.
+  if (readOnly) onChange = () => {};
+  const ro = readOnly
+    ? { readOnly: true, tabIndex: -1 }
+    : {};
   if (q.type === "paragraph")
-    return <Textarea rows={4} value={value || ""} onChange={(e) => onChange(e.target.value)} />;
+    return <Textarea rows={4} value={value || ""} {...ro} onChange={(e) => onChange(e.target.value)} />;
   if (q.type === "short")
-    return <Input value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder="Your answer" />;
+    return <Input value={value || ""} {...ro} onChange={(e) => onChange(e.target.value)} placeholder={readOnly ? "" : "Your answer"} />;
   if (q.type === "truefalse")
     return (
       <div className="flex gap-2">
@@ -145,9 +151,9 @@ function AnswerInput({ q, value, onChange }) {
       </Select>
     );
   if (q.type === "date")
-    return <Input type="date" value={value || ""} onChange={(e) => onChange(e.target.value)} />;
+    return <Input type="date" value={value || ""} {...ro} onChange={(e) => onChange(e.target.value)} />;
   if (q.type === "time")
-    return <Input type="time" value={value || ""} onChange={(e) => onChange(e.target.value)} />;
+    return <Input type="time" value={value || ""} {...ro} onChange={(e) => onChange(e.target.value)} />;
   if (q.type === "scale") {
     const min = Number(q.scaleMin ?? 1), max = Number(q.scaleMax ?? 5);
     const nums = []; for (let n = min; n <= max; n++) nums.push(n);
@@ -380,7 +386,7 @@ function ResultModal({ open, onClose, result }) {
 
 // ── Submissions + review ─────────────────────────────────────────────────────
 
-function SubmissionDetail({ submission, canReview, onReview }) {
+function SubmissionDetail({ submission, canReview, onReview, exam }) {
   // Any question worth points is gradable. A "manual" one couldn't be
   // auto-decided (paragraph or an un-keyed field), so it needs a human on the
   // first pass. Re-grading lets a reviewer override ANY gradable question.
@@ -401,9 +407,12 @@ function SubmissionDetail({ submission, canReview, onReview }) {
   });
 
   const gById = (id) => (submission.graded || []).find((g) => g.questionId === id) || {};
+  // Old submissions only snapshotted a few fields; fall back to the live exam
+  // question so scale bounds, labels, grid rows, etc. still render.
+  const liveQ = (id) => (exam?.questions || []).find((x) => x.id === id) || {};
 
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-4">
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <span className="font-semibold text-white">{submission.subject?.name || "—"}</span>
         {submission.subject?.discordId && <span className="font-mono text-xs text-slate-500">{submission.subject.discordId}</span>}
@@ -423,10 +432,16 @@ function SubmissionDetail({ submission, canReview, onReview }) {
       {(submission.questions || []).map((q, i) => {
         const g = gById(q.id);
         const graded = g.max > 0; // a 0-point survey field has no score to show
+        const fullQ = { ...liveQ(q.id), ...q }; // snapshot wins, live fills gaps
+        const answered = submission.answers?.[q.id];
+        const isBlank = answered == null || answered === "" || (Array.isArray(answered) && answered.length === 0);
         return (
-          <div key={q.id} className="rounded-lg border border-white/10 bg-[var(--color-surface-2)] p-3">
-            <div className="mb-1 flex items-start justify-between gap-2">
-              <div className="text-sm font-semibold text-white">{i + 1}. {q.prompt}</div>
+          <div key={q.id} className="rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-3">
+            <div className="mb-2 flex items-start justify-between gap-2">
+              <div className="text-sm font-semibold text-white">
+                {i + 1}. {q.prompt || <span className="italic text-slate-500">Untitled question</span>}
+                {graded && <span className="ml-2 text-xs font-normal text-slate-500">({g.max} pt{g.max === 1 ? "" : "s"})</span>}
+              </div>
               {graded && (
                 <div className="shrink-0 text-xs text-slate-400">
                   {g.needsReview ? `— / ${g.max}` : `${g.awarded} / ${g.max}`}
@@ -436,7 +451,13 @@ function SubmissionDetail({ submission, canReview, onReview }) {
                 </div>
               )}
             </div>
-            <div className="text-sm text-slate-300">{formatAnswer(submission.answers?.[q.id]) || <span className="italic text-slate-600">No answer</span>}</div>
+            {isBlank ? (
+              <p className="text-sm italic text-slate-600">No answer</p>
+            ) : (
+              <div className="pointer-events-none select-none">
+                <AnswerInput q={fullQ} value={answered} readOnly />
+              </div>
+            )}
             {showInput(g) && (
               <div className="mt-2 flex items-center gap-2">
                 <span className="text-xs text-slate-500">Award points:</span>
@@ -638,7 +659,7 @@ function SubmissionsTab({ exams, submissions, user, config, onReview, onTrash, o
       {detail && (
         <Modal open onClose={() => setDetail(null)} title="Submission" size="lg"
           footer={<Button variant="secondary" onClick={() => setDetail(null)}>Close</Button>}>
-          <SubmissionDetail submission={detail} canReview={canReviewSub(detail)} onReview={(s, a) => { onReview(s, a); setDetail(null); }} />
+          <SubmissionDetail submission={detail} exam={examById(detail.examId)} canReview={canReviewSub(detail)} onReview={(s, a) => { onReview(s, a); setDetail(null); }} />
         </Modal>
       )}
       {binOpen && (
@@ -732,7 +753,7 @@ function MembersTab({ exams, submissions, user, config, onReview }) {
                 </button>
                 {openSub === s.id && (
                   <div className="border-t border-white/10 p-3">
-                    <SubmissionDetail submission={s} canReview={canReviewSub(s)} onReview={onReview} />
+                    <SubmissionDetail submission={s} exam={examById(s.examId)} canReview={canReviewSub(s)} onReview={onReview} />
                   </div>
                 )}
               </div>
@@ -1278,7 +1299,9 @@ export default function ExamsPage({ page, user }) {
       subject: subject || { name: who(user), discordId: user?.id || "" },
       by: { name: who(user), discordId: user?.id || "" },
       at: new Date().toISOString(),
-      questions: (exam.questions || []).map((q) => ({ id: q.id, prompt: q.prompt, type: q.type, options: q.options, points: q.points })),
+      // Snapshot the full question (minus the answer key) so the review can
+      // render the exact same widgets the form used, even if the exam changes.
+      questions: (exam.questions || []).map(({ correct, ...q }) => q),
       answers,
       ...grade,
     };
