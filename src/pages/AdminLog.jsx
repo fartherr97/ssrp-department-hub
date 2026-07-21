@@ -396,7 +396,7 @@ function EntryModal({ open, onClose, books, entry, onSave }) {
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button disabled={!draft.type || !draft.subject?.name?.trim()} onClick={() => onSave(draft)}>
+          <Button disabled={!draft.type || !draft.subject?.name?.trim() || !/^\d{17,20}$/.test((draft.subject?.discordId || "").trim())} onClick={() => onSave(draft)}>
             {isNew ? "Submit entry" : "Save changes"}
           </Button>
         </>
@@ -444,7 +444,7 @@ function EntryModal({ open, onClose, books, entry, onSave }) {
               }
             />
           </Field>
-          <Field label="Subject, Discord ID" hint="Optional, makes their statistics exact.">
+          <Field label="Subject, Discord ID *" hint="Required, ties the entry to the right person and keeps their stats exact.">
             <Input
               value={draft.subject?.discordId || ""}
               placeholder="000000000000000000"

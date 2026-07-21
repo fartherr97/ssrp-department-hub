@@ -250,15 +250,21 @@ function TakeExamModal({ open, onClose, exam, user, onSubmit }) {
     try { return JSON.parse(localStorage.getItem(progressKey(exam.id)) || "null"); } catch { return null; }
   })();
   const [answers, setAnswers] = useState(saved?.answers || {});
-  const [subject, setSubject] = useState(saved?.subject || { name: who(user), discordId: user?.id || "" });
   const [err, setErr] = useState("");
   const set = (qid, v) => setAnswers((a) => ({ ...a, [qid]: v }));
+
+  // Identity auto-pulls from the Discord session: since everyone signs in with
+  // Discord, a non-anonymous submission is always tied to the signed-in user's
+  // display name and Discord ID. Anonymous forms record neither.
+  const identity = exam.anonymous
+    ? { name: "Anonymous", discordId: "" }
+    : { name: who(user), discordId: String(user?.id || "") };
 
   // Auto-save progress as they go (Staff Hub style).
   useEffect(() => {
     if (exam.anonymous) return; // don't persist anonymous responses
-    try { localStorage.setItem(progressKey(exam.id), JSON.stringify({ answers, subject })); } catch { /* quota */ }
-  }, [answers, subject, exam.id, exam.anonymous]);
+    try { localStorage.setItem(progressKey(exam.id), JSON.stringify({ answers })); } catch { /* quota */ }
+  }, [answers, exam.id, exam.anonymous]);
   // Scramble the question order once per attempt when enabled.
   const questions = useMemo(() => {
     const qs = exam.questions || [];
@@ -273,16 +279,10 @@ function TakeExamModal({ open, onClose, exam, user, onSubmit }) {
   }, [exam.id]);
 
   function submit() {
-    if (!exam.anonymous && !subject.name.trim()) {
-      setErr("Please enter your name before submitting.");
+    // Non-anonymous submissions must be tied to the signed-in Discord user.
+    if (!exam.anonymous && !identity.discordId) {
+      setErr("You need to be signed in with Discord to submit this.");
       return;
-    }
-    // Non-anonymous submissions must carry a Discord ID so they can be tied to a
-    // person in the admin log and roster. Discord IDs are 17-20 digit snowflakes.
-    if (!exam.anonymous) {
-      const id = subject.discordId.trim();
-      if (!id) { setErr("Please enter your Discord ID before submitting."); return; }
-      if (!/^\d{17,20}$/.test(id)) { setErr("That Discord ID doesn't look right — it should be the 17-20 digit user ID."); return; }
     }
     const missing = (exam.questions || []).find((q) => {
       if (!q.required) return false;
@@ -294,10 +294,7 @@ function TakeExamModal({ open, onClose, exam, user, onSubmit }) {
       return;
     }
     try { localStorage.removeItem(progressKey(exam.id)); } catch { /* ignore */ }
-    const subj = exam.anonymous
-      ? { name: "Anonymous", discordId: "" }
-      : { name: subject.name.trim(), discordId: subject.discordId.trim() };
-    onSubmit(exam, answers, subj);
+    onSubmit(exam, answers, identity);
   }
 
   return (
@@ -321,17 +318,18 @@ function TakeExamModal({ open, onClose, exam, user, onSubmit }) {
         {exam.description && <RichText text={exam.description} className="text-sm leading-relaxed text-slate-400" />}
         <ResourceButtons links={exam.resourceLinks} />
         {!exam.anonymous && (
-          <div className="grid gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3 sm:grid-cols-2">
-            <Field label="Your name *" hint="Recorded on the submission.">
-              <Input value={subject.name} onChange={(e) => setSubject((s) => ({ ...s, name: e.target.value }))} />
-            </Field>
-            <Field label="Discord ID *" hint="Required so this can be tied to you in the log.">
-              <Input value={subject.discordId} onChange={(e) => setSubject((s) => ({ ...s, discordId: e.target.value }))} className="font-mono" placeholder="000000000000000000" />
-            </Field>
+          <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/5 text-xs font-bold text-slate-300">
+              {(identity.name || "?").slice(0, 2).toUpperCase()}
+            </span>
+            <div className="min-w-0">
+              <div className="truncate text-sm font-semibold text-white">Submitting as {identity.name}</div>
+              <div className="truncate font-mono text-xs text-slate-500">{identity.discordId || "no Discord ID on file"}</div>
+            </div>
           </div>
         )}
         <p className="text-xs text-slate-500">
-          {exam.anonymous ? "Anonymous, your name is not recorded. " : `Pass mark ${exam.passThreshold}%. `}
+          {exam.anonymous ? "Anonymous, your name and Discord ID are not recorded. " : `Pass mark ${exam.passThreshold}%. Pulled from your Discord login. `}
           Required questions are marked with *. {!exam.anonymous && "Progress auto-saves as you go."}
         </p>
         {questions.map((q, i) => (
