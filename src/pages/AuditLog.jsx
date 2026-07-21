@@ -40,6 +40,7 @@ export default function AuditLog({ user }) {
   const { toast, show } = useToast();
   const [log, setLog] = useState([]);
   const [versions, setVersions] = useState([]);
+  const [versionsError, setVersionsError] = useState(false);
   const [view, setView] = useState("log"); // "log" | "versions"
   const [query, setQuery] = useState("");
   const [cat, setCat] = useState("all");
@@ -56,8 +57,8 @@ export default function AuditLog({ user }) {
       if (canRestore) {
         audit
           .getVersions()
-          .then((v) => setVersions(Array.isArray(v) ? v : []))
-          .catch(() => setVersions([]));
+          .then((v) => { setVersions(Array.isArray(v) ? v : []); setVersionsError(false); })
+          .catch((e) => { setVersions([]); setVersionsError(true); console.warn("[audit] could not load versions:", e?.message || e); });
       }
     };
     load();
@@ -119,6 +120,7 @@ export default function AuditLog({ user }) {
         <VersionHistory
           versions={versions}
           canRestore={canRestore}
+          error={versionsError}
           onRestore={(v) => setConfirmRestore(v)}
         />
       ) : (
@@ -204,8 +206,28 @@ export default function AuditLog({ user }) {
   );
 }
 
-function VersionHistory({ versions, canRestore, onRestore }) {
+function VersionHistory({ versions, canRestore, error, onRestore }) {
   if (versions.length === 0) {
+    // Distinguish "not allowed", "load failed", and "genuinely empty" so an
+    // empty screen isn't mistaken for a broken feature.
+    if (!canRestore) {
+      return (
+        <EmptyState
+          icon={History}
+          title="Version history is for site managers"
+          subtitle="Only accounts with the Manage Site permission can view and restore saved versions."
+        />
+      );
+    }
+    if (error) {
+      return (
+        <EmptyState
+          icon={History}
+          title="Couldn't load version history"
+          subtitle="The server didn't return the saved versions. Check your connection and try again; if it persists, the backend may need a redeploy."
+        />
+      );
+    }
     return (
       <EmptyState
         icon={History}

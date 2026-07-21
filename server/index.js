@@ -149,7 +149,7 @@ async function main() {
       crossOriginEmbedderPolicy: false,
     })
   );
-  app.use(express.json({ limit: "5mb" }));
+  app.use(express.json({ limit: "20mb" }));
 
   // Session, persisted in MariaDB so logins survive restarts/redeploys.
   const MySQLStore = MySQLStoreFactory(session);

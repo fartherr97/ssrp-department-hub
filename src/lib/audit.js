@@ -280,10 +280,16 @@ export async function recordChange(prev, next) {
     summary = null;
   }
   if (!summary) return;
+  const entry = entryFrom(summary);
+  // Record the human-readable log entry and the restorable snapshot separately,
+  // so a failure on one doesn't silently drop the other — and log any failure so
+  // an empty history is diagnosable instead of mysterious.
   try {
-    const entry = entryFrom(summary);
     await api.appendAuditLog(entry);
-    // Snapshot the new config so this point in time can be restored later.
+  } catch (e) {
+    console.warn("[audit] could not save log entry:", e?.message || e);
+  }
+  try {
     await api.pushVersion({
       id: entry.id,
       ts: entry.ts,
@@ -292,10 +298,10 @@ export async function recordChange(prev, next) {
       action: entry.action,
       config: next,
     });
-    notifyChanged();
-  } catch {
-    /* ignore */
+  } catch (e) {
+    console.warn("[audit] could not save version snapshot:", e?.message || e);
   }
+  notifyChanged();
 }
 
 export function getVersions() {

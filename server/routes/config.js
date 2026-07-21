@@ -23,7 +23,7 @@ import {
 } from "../../src/lib/permissions.js";
 import { publicConfig, redactSensitive, mergeRedactedBack } from "../configView.js";
 
-const MAX_CONFIG_BYTES = 4 * 1024 * 1024; // 4 MB ceiling on a single config doc
+const MAX_CONFIG_BYTES = 16 * 1024 * 1024; // 16 MB ceiling on a single config doc
 
 // Get the live config for a department, seeding defaults the first time it loads.
 export async function currentConfig(departmentId) {

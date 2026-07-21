@@ -155,6 +155,11 @@ export async function loadVersions(departmentId, limit = 100) {
 
 export async function appendVersion(departmentId, version) {
   const db = getPool();
+  // Truncate to the column widths so a long action/category (e.g. a page or
+  // event with a very long name) can never fail the INSERT in strict mode and
+  // silently lose the snapshot.
+  const category = version.category ? String(version.category).slice(0, 32) : null;
+  const action = version.action ? String(version.action).slice(0, 255) : null;
   await db.query(
     `INSERT INTO config_versions (department_id, snapshot, actor, category, action)
      VALUES (?, ?, ?, ?, ?)`,
@@ -162,8 +167,8 @@ export async function appendVersion(departmentId, version) {
       departmentId,
       JSON.stringify(version.config ?? {}),
       version.actor ? JSON.stringify(version.actor) : null,
-      version.category || null,
-      version.action || null,
+      category,
+      action,
     ]
   );
   return version;

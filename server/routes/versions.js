@@ -21,7 +21,7 @@ import {
 } from "../../src/lib/permissions.js";
 import { currentConfig } from "./config.js";
 
-const MAX_SNAPSHOT_BYTES = 4 * 1024 * 1024;
+const MAX_SNAPSHOT_BYTES = 16 * 1024 * 1024;
 
 function canWrite(user, config) {
   return (
