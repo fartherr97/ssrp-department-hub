@@ -13,7 +13,7 @@ import {
   Send,
 } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
-import { canWriteLogs, canManageAccess, canManageSite } from "../lib/permissions.js";
+import { canWriteLogs, canModerateLogs, canManageSite } from "../lib/permissions.js";
 import { uid, probationDaysForType, applyAutoProbation } from "../lib/roster.js";
 import { userDisplayName } from "../lib/user.js";
 import useToast from "../hooks/useToast.js";
@@ -1070,7 +1070,9 @@ export default function AdminLog({ page, user }) {
   }, [config, entries]);
 
   const canWrite = canWriteLogs(user, config);
-  const canModerate = canManageAccess(user, config) || canManageSite(user, config);
+  // Edit/delete ANY entry + manage logbooks now needs the dedicated capability,
+  // so groups like Department Heads (Manage site) don't get it automatically.
+  const canModerate = canModerateLogs(user, config);
   // Webhook setup is management-only (manage-site).
   const canWebhook = canManageSite(user, config);
   const canEditEntry = (e) =>

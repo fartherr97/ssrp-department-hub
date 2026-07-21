@@ -54,7 +54,12 @@ export const CAPABILITIES = [
   {
     key: "manageLogs",
     title: "Write administrative logs",
-    desc: "Add entries to administrative log pages (admin log, FTO, interview, booth). They can edit/delete their own entries; editing anyone's requires Manage access or Manage site.",
+    desc: "Add entries to administrative log pages (admin log, FTO, interview, booth). They can edit/delete their own entries; editing/deleting anyone's requires Manage admin logs.",
+  },
+  {
+    key: "moderateLogs",
+    title: "Manage admin logs",
+    desc: "Edit or delete ANY admin-log entry (not just your own) and create/edit/delete logbooks. Deliberately NOT covered by Manage site — grant it only to the groups you trust to moderate the record.",
   },
   {
     key: "editRosterLimited",
@@ -148,8 +153,13 @@ export function authorizeGroupHierarchy(user, current, incoming) {
       if (after && (after.level ?? 0) > myLevel) return "a group above your level";
     }
     if (after) {
+      // You can't grant a capability you don't hold — unless you're a site
+      // manager (top admin), who may configure any capability for other groups
+      // even one they don't personally hold (e.g. bootstrapping "Manage admin
+      // logs", which Manage site doesn't itself confer).
+      const siteManager = canManageSite(user, current);
       for (const cap of CAPABILITIES) {
-        if (after[cap.key] && !before?.[cap.key] && !hasCapability(user, current, cap.key)) {
+        if (after[cap.key] && !before?.[cap.key] && !hasCapability(user, current, cap.key) && !siteManager) {
           return `a permission you don't have (${cap.title})`;
         }
       }
@@ -184,6 +194,14 @@ export function canManageCalendar(user, config) {
 // Administrative log pages: writing entries.
 export function canWriteLogs(user, config) {
   return hasCapability(user, config, "manageLogs") || canManageSite(user, config);
+}
+
+// Moderating admin logs (edit/delete ANY entry, manage logbooks) is its own
+// capability — intentionally NOT implied by Manage site, so high-level groups
+// like Department Heads don't automatically get it. A groupless super-admin
+// still bypasses (hasCapability handles that).
+export function canModerateLogs(user, config) {
+  return hasCapability(user, config, "moderateLogs");
 }
 
 // Vehicle roster (fleet) pages, main-roster editors and site managers.
