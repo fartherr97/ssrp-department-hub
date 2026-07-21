@@ -140,7 +140,7 @@ export default function StatsEditor({ subId = null }) {
                   onChange={(e) => updateItem(it.id, { statusValue: e.target.value })}
                 >
                   <option value="">—</option>
-                  {(statusField?.options || []).map((o) => (
+                  {[...new Set(statusField?.options || [])].map((o) => (
                     <option key={o} value={o}>
                       {o}
                     </option>

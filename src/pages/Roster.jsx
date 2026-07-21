@@ -486,7 +486,7 @@ function MemberModal({ open, onClose, fields, categories, rankTitles, categoryId
                   onChange={(e) => setField(f.id, e.target.value)}
                 >
                   <option value="">—</option>
-                  {(f.options || []).map((o) => (
+                  {[...new Set(f.options || [])].map((o) => (
                     <option key={o} value={o}>
                       {o}
                     </option>
@@ -1366,7 +1366,7 @@ function FTOBody({ initialSubId, user, onToast }) {
                         onChange={(e) => setPhase(m, e.target.value)}
                       >
                         <option value="">{trainingField.label}…</option>
-                        {trainingField.options.map((o) => (
+                        {[...new Set(trainingField.options || [])].map((o) => (
                           <option key={o} value={o}>{o}</option>
                         ))}
                       </Select>
@@ -2399,14 +2399,25 @@ export default function Roster({ user, page }) {
         }
         actions={
           <>
-            <Button
-              variant="secondary"
+            {/* Secondary actions are icon-only to keep the header uncluttered. */}
+            <IconButton
               icon={fullscreen ? Minimize2 : Maximize2}
+              label={fullscreen ? "Exit full screen" : "Full screen"}
               onClick={() => setFullscreen((f) => !f)}
               title={fullscreen ? "Exit full screen (Esc)" : "Expand the roster to fill the whole screen"}
-            >
-              {fullscreen ? "Exit full screen" : "Full screen"}
-            </Button>
+            />
+            {(canEditStructure || canEditActive) && (
+              <IconButton
+                icon={Undo2}
+                label="Undo"
+                disabled={!canUndo}
+                title={canUndo ? "Revert the most recent change (roster or site-wide)" : "Nothing to undo yet"}
+                onClick={() => {
+                  if (undo()) show("Last change undone");
+                }}
+                className="disabled:opacity-40"
+              />
+            )}
             {subdivisions.length > 0 && (
               <Button
                 variant="secondary"
@@ -2419,17 +2430,6 @@ export default function Roster({ user, page }) {
             )}
             {(canEditStructure || canEditActive) && (
             <>
-              <Button
-                variant="secondary"
-                icon={Undo2}
-                disabled={!canUndo}
-                title={canUndo ? "Revert the most recent change (roster or site-wide)" : "Nothing to undo yet"}
-                onClick={() => {
-                  if (undo()) show("Last change undone");
-                }}
-              >
-                Undo
-              </Button>
               {canEditStructure && (
                 <Button
                   variant="secondary"
@@ -2448,11 +2448,6 @@ export default function Roster({ user, page }) {
                   title="Hire applicants and pass cadets through training"
                 >
                   Cadets
-                </Button>
-              )}
-              {layout === "tabs" && subId && canEditActive && (
-                <Button icon={Plus} onClick={() => openAddCategory(subId)}>
-                  Add category
                 </Button>
               )}
             </>
@@ -2516,7 +2511,7 @@ export default function Roster({ user, page }) {
                 <div className="w-36">
                   <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                     <option value="all">Any status</option>
-                    {statusField.options.map((o) => (
+                    {[...new Set(statusField.options || [])].map((o) => (
                       <option key={o} value={o}>{o}</option>
                     ))}
                   </Select>
@@ -2526,7 +2521,7 @@ export default function Roster({ user, page }) {
                 <div className="w-44">
                   <Select value={discFilter} onChange={(e) => setDiscFilter(e.target.value)}>
                     <option value="all">Any {discField.label.toLowerCase()}</option>
-                    {discField.options.map((o) => (
+                    {[...new Set(discField.options || [])].map((o) => (
                       <option key={o} value={o}>{o}</option>
                     ))}
                   </Select>
@@ -2539,6 +2534,25 @@ export default function Roster({ user, page }) {
                     <option value="on">On probation</option>
                     <option value="off">Not on probation</option>
                   </Select>
+                </div>
+              )}
+              {canEditActive && (
+                <div className="ml-auto flex items-center gap-2">
+                  {canEditActive && subId && (
+                    <Button variant="secondary" icon={Plus} onClick={() => openAddCategory(subId)}>
+                      Add category
+                    </Button>
+                  )}
+                  <Button
+                    icon={UserPlus}
+                    disabled={!categories.length}
+                    title={categories.length ? "Add a member to this roster" : "Add a category first"}
+                    onClick={() =>
+                      openNewMember(subId, categoryFilter !== "all" ? categoryFilter : categories[0]?.id)
+                    }
+                  >
+                    Add Member
+                  </Button>
                 </div>
               )}
             </div>
@@ -2755,7 +2769,7 @@ export default function Roster({ user, page }) {
             {bulkAction === "status" && (
               <Select value={bulkStatus} onChange={(e) => setBulkStatus(e.target.value)} className="w-40">
                 <option value="">Choose status…</option>
-                {(statusField?.options || []).map((o) => (
+                {[...new Set(statusField?.options || [])].map((o) => (
                   <option key={o} value={o}>
                     {o}
                   </option>
