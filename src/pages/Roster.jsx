@@ -1711,8 +1711,8 @@ function MemberRow({ member, category, fields, statusFieldId, probationFieldId, 
         isDropTarget ? "bg-[color:var(--color-primary)]/10" : ""
       }`}
     >
-      <td className="px-3 py-2.5">
-        <div className="flex items-center gap-3">
+      <td className="px-2 py-2.5 sm:px-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           {selectable && (
             <input
               type="checkbox"
@@ -1729,19 +1729,19 @@ function MemberRow({ member, category, fields, statusFieldId, probationFieldId, 
             />
           )}
           <MemberAvatar member={member} />
-          <div className="min-w-0">
+          <div className="min-w-0 max-w-[38vw] sm:max-w-none">
             <div className="truncate text-sm font-semibold text-white">{member.name}</div>
             {member.discordId && <DiscordIdChip id={member.discordId} />}
           </div>
         </div>
       </td>
-      <td className="px-3 py-2.5 align-middle text-sm">
+      <td className="px-2 py-2.5 align-middle text-sm sm:px-3">
         {rt ? (
           <div className="flex items-center gap-2">
             {rt.insigniaUrl && (
               <img src={rt.insigniaUrl} alt="" className="h-5 w-5 shrink-0 object-contain" />
             )}
-            <span className="whitespace-nowrap font-medium text-slate-200">{rt.name}</span>
+            <span className="font-medium text-slate-200 sm:whitespace-nowrap">{rt.name}</span>
           </div>
         ) : (
           <span className="text-slate-600">—</span>
@@ -1768,7 +1768,7 @@ function MemberRow({ member, category, fields, statusFieldId, probationFieldId, 
         </td>
       ))}
       {canEdit && (
-        <td className="sticky right-0 z-[1] bg-[var(--color-surface-1)] px-3 py-2.5">
+        <td className="z-[1] bg-[var(--color-surface-1)] px-2 py-2.5 sm:sticky sm:right-0 sm:px-3">
           {rowEditable && (
             <div className="flex items-center justify-end gap-1">
               <IconButton icon={Pencil} label="Edit member" onClick={() => onEdit(category.id, member)} />
@@ -1833,7 +1833,7 @@ function SubRoster({
   return (
     <div className="max-h-[70vh] overflow-auto">
       <table
-        className={`w-full border-collapse text-left ${compact ? "min-w-[520px]" : "min-w-[760px]"}`}
+        className={`w-full border-collapse text-left min-w-full ${compact ? "sm:min-w-[520px]" : "sm:min-w-[760px]"}`}
       >
         <thead>
           <tr className="text-[11px] uppercase tracking-wider text-slate-500">
@@ -1850,7 +1850,7 @@ function SubRoster({
               </th>
             ))}
             {canEdit && (
-              <th className={`${thBase} sticky right-0 top-0 z-[22] bg-[var(--color-surface-1)]`} />
+              <th className={`${thBase} top-0 z-[22] bg-[var(--color-surface-1)] sm:sticky sm:right-0`} />
             )}
           </tr>
         </thead>
@@ -2488,8 +2488,8 @@ export default function Roster({ user, page }) {
             {!statsShown && (
               <StatPills total={totalMembers} statusField={statusField} counts={statusCounts} />
             )}
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative w-56">
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+              <div className="relative w-full sm:w-56">
                 <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                 <Input
                   value={query}
@@ -2498,53 +2498,57 @@ export default function Roster({ user, page }) {
                   className="pl-9"
                 />
               </div>
-              <div className="w-40">
-                <Select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
-                  <option value="all">All categories</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </Select>
+              {/* Dropdowns share a row and split the width evenly on phones. */}
+              <div className="grid grid-cols-2 gap-2 sm:contents">
+                <div className="min-w-0 sm:w-40">
+                  <Select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+                    <option value="all">All categories</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                {statusField?.options?.length > 0 && (
+                  <div className="min-w-0 sm:w-36">
+                    <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                      <option value="all">Any status</option>
+                      {[...new Set(statusField.options || [])].map((o) => (
+                        <option key={o} value={o}>{o}</option>
+                      ))}
+                    </Select>
+                  </div>
+                )}
+                {discField?.options?.length > 0 && (
+                  <div className="min-w-0 sm:w-44">
+                    <Select value={discFilter} onChange={(e) => setDiscFilter(e.target.value)}>
+                      <option value="all">Any {discField.label.toLowerCase()}</option>
+                      {[...new Set(discField.options || [])].map((o) => (
+                        <option key={o} value={o}>{o}</option>
+                      ))}
+                    </Select>
+                  </div>
+                )}
+                {probationId && (
+                  <div className="min-w-0 sm:w-40">
+                    <Select value={probFilter} onChange={(e) => setProbFilter(e.target.value)}>
+                      <option value="all">Any probation</option>
+                      <option value="on">On probation</option>
+                      <option value="off">Not on probation</option>
+                    </Select>
+                  </div>
+                )}
               </div>
-              {statusField?.options?.length > 0 && (
-                <div className="w-36">
-                  <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                    <option value="all">Any status</option>
-                    {[...new Set(statusField.options || [])].map((o) => (
-                      <option key={o} value={o}>{o}</option>
-                    ))}
-                  </Select>
-                </div>
-              )}
-              {discField?.options?.length > 0 && (
-                <div className="w-44">
-                  <Select value={discFilter} onChange={(e) => setDiscFilter(e.target.value)}>
-                    <option value="all">Any {discField.label.toLowerCase()}</option>
-                    {[...new Set(discField.options || [])].map((o) => (
-                      <option key={o} value={o}>{o}</option>
-                    ))}
-                  </Select>
-                </div>
-              )}
-              {probationId && (
-                <div className="w-40">
-                  <Select value={probFilter} onChange={(e) => setProbFilter(e.target.value)}>
-                    <option value="all">Any probation</option>
-                    <option value="on">On probation</option>
-                    <option value="off">Not on probation</option>
-                  </Select>
-                </div>
-              )}
               {canEditActive && (
-                <div className="ml-auto flex items-center gap-2">
+                <div className="grid grid-cols-2 gap-2 sm:ml-auto sm:flex sm:items-center">
                   {canEditActive && subId && (
-                    <Button variant="secondary" icon={Plus} onClick={() => openAddCategory(subId)}>
+                    <Button className="w-full justify-center sm:w-auto" variant="secondary" icon={Plus} onClick={() => openAddCategory(subId)}>
                       Add category
                     </Button>
                   )}
                   <Button
+                    className="w-full justify-center sm:w-auto"
                     icon={UserPlus}
                     disabled={!categories.length}
                     title={categories.length ? "Add a member to this roster" : "Add a category first"}
