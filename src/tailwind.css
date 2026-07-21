@@ -394,8 +394,11 @@ button:disabled,
 
 .hub-panel {
   border: 1px solid rgba(255, 255, 255, 0.08);
-  background: linear-gradient(180deg, var(--color-surface-1) 0%, var(--color-body-bg) 100%);
-  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.22);
+  /* Flat surface (no top-to-bottom gradient) so wide panels don't read as a
+     "bulge"; a light border + soft, tight shadow keep them defined without the
+     domed look. */
+  background: var(--color-surface-1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16);
 }
 
 .hub-pill {
