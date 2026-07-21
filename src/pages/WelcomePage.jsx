@@ -192,8 +192,8 @@ function Ticker({ notices }) {
       const need = Math.max(1, Math.ceil(mask.clientWidth / unitW) + 1);
       setReps(need);
       // Constant speed regardless of how many repeats — one half scrolls past at
-      // ~230px/s (brisk).
-      setDuration(Math.max(6, (need * unitW) / 230));
+      // ~180px/s.
+      setDuration(Math.max(6, (need * unitW) / 180));
     };
     measure();
     const ro = new ResizeObserver(measure);
