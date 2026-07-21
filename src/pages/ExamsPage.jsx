@@ -32,8 +32,10 @@ const uid = (p) => `${p}-${(crypto?.randomUUID?.() || Math.random().toString(36)
 const fmtDate = (iso) => (iso ? new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "");
 const fmtDateTime = (iso) => (iso ? new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "");
 
-// A submission's result bucket: survey (no points) → "noscore".
-const resultOf = (s) => (s.maxScore === 0 ? "noscore" : s.status === "needs-review" ? "review" : s.status === "passed" ? "passed" : "failed");
+// A submission's result bucket: survey / feedback form (no gradable points) →
+// "noscore". Treat a missing maxScore the same, so a survey or legacy submission
+// never shows as a "Fail".
+const resultOf = (s) => (!s.maxScore ? "noscore" : s.status === "needs-review" ? "review" : s.status === "passed" ? "passed" : "failed");
 const RESULT_META = {
   passed: { label: "Pass", color: "#1eb854" },
   failed: { label: "Fail", color: "#ef4444" },
