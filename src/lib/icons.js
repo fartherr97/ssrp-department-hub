@@ -36,6 +36,16 @@ import {
   Wrench,
   HelpCircle,
 } from "lucide-react";
+import {
+  Discord,
+  YouTube,
+  Twitch,
+  Steam,
+  Instagram,
+  XTwitter,
+  TikTok,
+  Facebook,
+} from "./brandIcons.jsx";
 
 export const ICONS = {
   Home,
@@ -69,6 +79,15 @@ export const ICONS = {
   GraduationCap,
   Wrench,
   HelpCircle,
+  // Brand / community logos
+  Discord,
+  YouTube,
+  Twitch,
+  Steam,
+  Instagram,
+  XTwitter,
+  TikTok,
+  Facebook,
 };
 
 export const ICON_NAMES = Object.keys(ICONS);
