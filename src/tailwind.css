@@ -361,6 +361,9 @@ button:disabled,
   white-space: nowrap;
   animation: tickerScroll var(--ticker-duration, 40s) linear infinite;
 }
+/* Two equal halves; -50% loops by exactly one half for a seamless scroll. */
+.ticker-half { display: inline-flex; flex-shrink: 0; }
+.ticker-unit { display: inline-flex; flex-shrink: 0; }
 .ticker-mask:hover .ticker-track { animation-play-state: paused; }
 
 /* Welcome page: slow cinematic zoom (Ken Burns) on the rotating gallery photo. */

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   Users,
   ArrowRight,
@@ -154,37 +154,79 @@ function Hero({ cfg, kicker }) {
 
 // ─── Ticker ───────────────────────────────────────────────────────────────────
 
+function TickerItem({ n }) {
+  const url = safeLinkUrl(n.url);
+  const body = (
+    <span className="mx-6 inline-flex items-center gap-2 text-sm text-slate-300">
+      <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--wel)" }} />
+      {n.text}
+    </span>
+  );
+  return url ? (
+    <a href={url} target="_blank" rel="noreferrer" className="hover:text-white">
+      {body}
+    </a>
+  ) : (
+    body
+  );
+}
+
 function Ticker({ notices }) {
   const list = (notices || []).filter((n) => n.text?.trim());
+  const maskRef = useRef(null);
+  const unitRef = useRef(null);
+  // Repeat the notice sequence enough times that one half of the track always
+  // overflows the screen — otherwise short content leaves a gap and the loop
+  // visibly snaps back to the left instead of flowing in from the right.
+  const [reps, setReps] = useState(2);
+  const [duration, setDuration] = useState(16);
+
+  const key = list.map((n) => n.text).join("|");
+  useLayoutEffect(() => {
+    const mask = maskRef.current;
+    const unit = unitRef.current;
+    if (!mask || !unit) return undefined;
+    const measure = () => {
+      const unitW = unit.getBoundingClientRect().width;
+      if (!unitW) return;
+      const need = Math.max(1, Math.ceil(mask.clientWidth / unitW) + 1);
+      setReps(need);
+      // Constant speed regardless of how many repeats — one half scrolls past at
+      // ~230px/s (brisk).
+      setDuration(Math.max(6, (need * unitW) / 230));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(mask);
+    return () => ro.disconnect();
+  }, [key]);
+
   if (!list.length) return null;
-  // Duration scales with content length so long tickers keep a steady pace.
-  const duration = Math.max(6, list.reduce((n, x) => n + (x.text?.length || 0), 0) * 0.04);
-  const Item = ({ n }) => {
-    const url = safeLinkUrl(n.url);
-    const body = (
-      <span className="mx-6 inline-flex items-center gap-2 text-sm text-slate-300">
-        <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--wel)" }} />
-        {n.text}
-      </span>
-    );
-    return url ? (
-      <a href={url} target="_blank" rel="noreferrer" className="hover:text-white">
-        {body}
-      </a>
-    ) : (
-      body
-    );
-  };
-  const track = (
-    <div className="ticker-track" style={{ "--ticker-duration": `${duration}s` }}>
-      {[...list, ...list].map((n, i) => (
-        <Item key={i} n={n} />
+
+  const Seq = ({ innerRef }) => (
+    <span ref={innerRef} className="ticker-unit">
+      {list.map((n, i) => (
+        <TickerItem key={i} n={n} />
+      ))}
+    </span>
+  );
+  const Half = ({ withRef }) => (
+    <div className="ticker-half">
+      {Array.from({ length: reps }).map((_, r) => (
+        <Seq key={r} innerRef={withRef && r === 0 ? unitRef : undefined} />
       ))}
     </div>
   );
+
   return (
-    <div className="ticker-mask relative w-full overflow-hidden border-y border-white/10 bg-black/40 py-2.5">
-      {track}
+    <div
+      ref={maskRef}
+      className="ticker-mask relative w-full overflow-hidden border-y border-white/10 bg-black/40 py-2.5"
+    >
+      <div className="ticker-track" style={{ "--ticker-duration": `${duration}s` }}>
+        <Half withRef />
+        <Half />
+      </div>
     </div>
   );
 }
