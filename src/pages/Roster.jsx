@@ -1575,78 +1575,111 @@ function SubdivisionTabs({ subdivisions, activeId, canEdit, onSelect, onAdd, onR
   const active = subdivisions.find((s) => s.id === activeId);
   const idx = subdivisions.findIndex((s) => s.id === activeId);
 
+  const countOf = (s) => (s.categories || []).reduce((n, c) => n + c.members.length, 0);
+
   return (
-    <div className="mb-5 flex flex-wrap items-center gap-2 border-b border-white/10 pb-3">
-      <div className="flex flex-wrap items-center gap-1.5">
-        {subdivisions.map((s) => {
-          const isActive = s.id === activeId;
-          const count = (s.categories || []).reduce((n, c) => n + c.members.length, 0);
-          const tabAccent = s.accent || "var(--color-primary)";
-          return (
-            <button
-              key={s.id}
-              onClick={() => onSelect(s.id)}
-              style={
-                isActive
-                  ? {
-                      borderColor: `color-mix(in srgb, ${tabAccent} 55%, transparent)`,
-                      backgroundColor: `color-mix(in srgb, ${tabAccent} 16%, transparent)`,
-                    }
-                  : undefined
-              }
-              className={`press flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-semibold transition ${
-                isActive
-                  ? "text-white"
-                  : "border-transparent text-slate-300 hover:bg-white/5 hover:text-white"
-              }`}
-            >
-              {s.name}
-              <span
-                style={
-                  isActive
-                    ? { backgroundColor: `color-mix(in srgb, ${tabAccent} 30%, transparent)` }
-                    : undefined
-                }
-                className={`rounded-full px-1.5 text-[11px] font-bold ${
-                  isActive ? "text-white" : "bg-white/10 text-slate-400"
-                }`}
-              >
-                {count}
-              </span>
-            </button>
-          );
-        })}
+    <div className="mb-5 border-b border-white/10 pb-3">
+      {/* Phones: a single dropdown selector instead of a tall stack of tabs. */}
+      <div className="flex items-center gap-2 sm:hidden">
+        <div className="min-w-0 flex-1">
+          <Select value={activeId} onChange={(e) => onSelect(e.target.value)}>
+            {subdivisions.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name} ({countOf(s)})
+              </option>
+            ))}
+          </Select>
+        </div>
         {canEdit && (
-          <IconButton icon={Plus} label="Add subdivision" onClick={onAdd} className="rounded-xl" />
+          <IconButton icon={Plus} label="Add subdivision" onClick={onAdd} className="shrink-0 rounded-xl" />
+        )}
+        {canEdit && active && (
+          <>
+            <IconButton icon={Pencil} label="Rename subdivision" onClick={() => onRename(active)} className="shrink-0" />
+            <IconButton
+              icon={Trash2}
+              label="Delete subdivision"
+              disabled={subdivisions.length <= 1}
+              onClick={() => onDelete(active)}
+              className="shrink-0 hover:border-red-500/40 hover:text-red-300 disabled:opacity-30"
+            />
+          </>
         )}
       </div>
 
-      {canEdit && active && (
-        <div className="ml-auto flex items-center gap-1">
-          <IconButton
-            icon={ChevronLeft}
-            label="Move subdivision left"
-            disabled={idx <= 0}
-            onClick={() => onMove(active.id, -1)}
-            className="disabled:opacity-30"
-          />
-          <IconButton
-            icon={ChevronRight}
-            label="Move subdivision right"
-            disabled={idx >= subdivisions.length - 1}
-            onClick={() => onMove(active.id, 1)}
-            className="disabled:opacity-30"
-          />
-          <IconButton icon={Pencil} label="Rename subdivision" onClick={() => onRename(active)} />
-          <IconButton
-            icon={Trash2}
-            label="Delete subdivision"
-            disabled={subdivisions.length <= 1}
-            onClick={() => onDelete(active)}
-            className="hover:border-red-500/40 hover:text-red-300 disabled:opacity-30"
-          />
+      {/* Larger screens: the full tab row. */}
+      <div className="hidden flex-wrap items-center gap-2 sm:flex">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {subdivisions.map((s) => {
+            const isActive = s.id === activeId;
+            const count = countOf(s);
+            const tabAccent = s.accent || "var(--color-primary)";
+            return (
+              <button
+                key={s.id}
+                onClick={() => onSelect(s.id)}
+                style={
+                  isActive
+                    ? {
+                        borderColor: `color-mix(in srgb, ${tabAccent} 55%, transparent)`,
+                        backgroundColor: `color-mix(in srgb, ${tabAccent} 16%, transparent)`,
+                      }
+                    : undefined
+                }
+                className={`press flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-semibold transition ${
+                  isActive
+                    ? "text-white"
+                    : "border-transparent text-slate-300 hover:bg-white/5 hover:text-white"
+                }`}
+              >
+                {s.name}
+                <span
+                  style={
+                    isActive
+                      ? { backgroundColor: `color-mix(in srgb, ${tabAccent} 30%, transparent)` }
+                      : undefined
+                  }
+                  className={`rounded-full px-1.5 text-[11px] font-bold ${
+                    isActive ? "text-white" : "bg-white/10 text-slate-400"
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+          {canEdit && (
+            <IconButton icon={Plus} label="Add subdivision" onClick={onAdd} className="rounded-xl" />
+          )}
         </div>
-      )}
+
+        {canEdit && active && (
+          <div className="ml-auto flex items-center gap-1">
+            <IconButton
+              icon={ChevronLeft}
+              label="Move subdivision left"
+              disabled={idx <= 0}
+              onClick={() => onMove(active.id, -1)}
+              className="disabled:opacity-30"
+            />
+            <IconButton
+              icon={ChevronRight}
+              label="Move subdivision right"
+              disabled={idx >= subdivisions.length - 1}
+              onClick={() => onMove(active.id, 1)}
+              className="disabled:opacity-30"
+            />
+            <IconButton icon={Pencil} label="Rename subdivision" onClick={() => onRename(active)} />
+            <IconButton
+              icon={Trash2}
+              label="Delete subdivision"
+              disabled={subdivisions.length <= 1}
+              onClick={() => onDelete(active)}
+              className="hover:border-red-500/40 hover:text-red-300 disabled:opacity-30"
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
