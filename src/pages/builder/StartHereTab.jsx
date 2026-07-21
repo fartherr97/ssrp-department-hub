@@ -93,7 +93,7 @@ const GOOD_TO_KNOW = [
   {
     icon: Save,
     title: "Everything saves by itself",
-    body: "There is no Save button. Every change is stored automatically, watch for the green “All changes saved” badge at the top. Made a mistake? The Undo button next to it reverts your last change.",
+    body: "There is no Save button. Every change is stored automatically, watch for the green “All changes saved” badge at the top. Made a mistake? Restore any earlier version from Administration → Audit Log → Version history.",
   },
   {
     icon: Paintbrush,
@@ -179,8 +179,9 @@ export default function StartHereTab({ goTo }) {
           ))}
         </div>
         <p className="mt-3 text-xs text-slate-500">
-          Applying a template replaces your current setup (you can undo it, and a backup can
-          be downloaded first under Backup &amp; Restore). Roster members are not carried over.
+          Applying a template replaces your current setup (you can restore a prior version from
+          the Audit Log, and a backup can be downloaded first under Backup &amp; Restore). Roster
+          members are not carried over.
         </p>
       </Panel>
 
@@ -286,7 +287,7 @@ export default function StartHereTab({ goTo }) {
       <ConfirmDialog
         open={Boolean(confirmTemplate)}
         title={`Apply the ${confirmTemplate?.label} template?`}
-        message="This replaces your current branding, pages, and roster structure with the template. You can undo this from the top of the Builder, but downloading a backup first (Backup & Restore) is the safest."
+        message="This replaces your current branding, pages, and roster structure with the template. You can restore a prior version from Audit Log → Version history, but downloading a backup first (Backup & Restore) is the safest."
         confirmLabel="Apply template"
         onCancel={() => setConfirmTemplate(null)}
         onConfirm={() => {

@@ -25,6 +25,7 @@ import {
   GraduationCap,
   Maximize2,
   Minimize2,
+  X,
 } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
 import {

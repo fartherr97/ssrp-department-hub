@@ -1324,7 +1324,7 @@ export default function AdminLog({ page, user }) {
       <ConfirmDialog
         open={Boolean(confirmDel)}
         title="Delete log entry?"
-        message={`Delete the "${confirmDel?.type}" entry about ${confirmDel?.subject?.name || "this member"}? Statistics update immediately and this can't be undone from here (page Undo still works).`}
+        message={`Delete the "${confirmDel?.type}" entry about ${confirmDel?.subject?.name || "this member"}? Statistics update immediately and this can't be undone from here (restore a prior version from the Audit Log if needed).`}
         confirmLabel="Delete entry"
         onCancel={() => setConfirmDel(null)}
         onConfirm={() => {

@@ -111,8 +111,8 @@ class ViewErrorBoundary extends Component {
             {String(this.state.error?.message || this.state.error)}
           </p>
           <p className="mt-2 text-sm text-slate-400">
-            Your data is safe, try again, or use Undo in the Builder/Roster if a recent
-            change caused this.
+            Your data is safe, try again, or restore an earlier version from
+            Administration → Audit Log → Version history if a recent change caused this.
           </p>
           <button
             onClick={() => this.setState({ error: null })}
