@@ -17,8 +17,6 @@ import {
   Award,
   BarChart3,
   SlidersHorizontal,
-  Undo2,
-  Redo2,
   Copy,
   Archive,
   RotateCcw,
@@ -2032,7 +2030,7 @@ function SubRoster({
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function Roster({ user, page }) {
-  const { config, mutate, undo, canUndo, redo, canRedo } = useConfig();
+  const { config, mutate } = useConfig();
   // Structural edits (subdivisions, shared columns) vs. per-subdivision editing.
   const canEditStructure = canEditRosterStructure(user, config);
   const fields = config.roster.memberFields || [];
@@ -2451,30 +2449,6 @@ export default function Roster({ user, page }) {
               onClick={() => setFullscreen((f) => !f)}
               title={fullscreen ? "Exit full screen (Esc)" : "Expand the roster to fill the whole screen"}
             />
-            {(canEditStructure || canEditActive) && (
-              <IconButton
-                icon={Undo2}
-                label="Undo"
-                disabled={!canUndo}
-                title={canUndo ? "Revert the most recent change (roster or site-wide)" : "Nothing to undo yet"}
-                onClick={() => {
-                  if (undo()) show("Last change undone — use Redo to reverse it");
-                }}
-                className="disabled:opacity-40"
-              />
-            )}
-            {(canEditStructure || canEditActive) && (
-              <IconButton
-                icon={Redo2}
-                label="Redo"
-                disabled={!canRedo}
-                title={canRedo ? "Re-apply the change you just undid" : "Nothing to redo"}
-                onClick={() => {
-                  if (redo()) show("Change re-applied");
-                }}
-                className="disabled:opacity-40"
-              />
-            )}
             {(canEditStructure || canEditActive) && (
             <>
               {canEditStructure && (

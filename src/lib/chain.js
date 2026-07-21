@@ -104,21 +104,21 @@ export function commandStaffFromChain(config, chainPage, { levels = 8 } = {}) {
     if (!node || depth > levels) return;
     // Stop at (and below) the first non-officer grade — a Sergeant's box and
     // everything under it is left off the command-staff strip.
-    if (depth >= 1 && NON_COMMAND_GRADE.test(splitTitle(node.title || "").rank)) return;
-    if (depth >= 1) {
-      const disp = resolveNodeDisplay(config, node);
-      const name = disp.name || disp.members?.[0] || node.name || "";
-      if (name) {
-        out.push({
-          id: node.id,
-          name,
-          rank: node.title || "",
-          avatarUrl: node.imageUrl || "",
-          tier: tierForDepth(depth),
-          _order: rankOrderOf(node),
-          _depth: depth,
-        });
-      }
+    if (NON_COMMAND_GRADE.test(splitTitle(node.title || "").rank)) return;
+    // Include the root too when it's a real person (e.g. an imported Colonel).
+    // A bare org-container root has no holder name and is naturally skipped.
+    const disp = resolveNodeDisplay(config, node);
+    const name = disp.name || disp.members?.[0] || node.name || "";
+    if (name) {
+      out.push({
+        id: node.id,
+        name,
+        rank: node.title || "",
+        avatarUrl: node.imageUrl || "",
+        tier: tierForDepth(depth),
+        _order: rankOrderOf(node),
+        _depth: depth,
+      });
     }
     (node.children || []).forEach((c) => walk(c, depth + 1));
   };

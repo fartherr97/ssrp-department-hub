@@ -66,9 +66,21 @@ export default function AuditLog({ user }) {
     return () => window.removeEventListener("audit:changed", load);
   }, [canRestore]);
 
-  function restore(version) {
-    if (!version?.config) return;
-    replaceConfig(version.config);
+  async function restore(version) {
+    // The list only carries metadata, so pull the full snapshot by id now.
+    let cfg = version?.config;
+    if (!cfg && version?.id) {
+      try {
+        cfg = await audit.getVersion(version.id);
+      } catch {
+        cfg = null;
+      }
+    }
+    if (!cfg) {
+      show("Couldn't load that version to restore", "error");
+      return;
+    }
+    replaceConfig(cfg);
     show("Restored that version");
     setConfirmRestore(null);
   }

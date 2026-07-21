@@ -156,24 +156,40 @@ async function ensureVersionsTable() {
   `);
 }
 
+// The LIST is metadata only — never the snapshots. Each snapshot is a full
+// config (hundreds of KB); returning 100 of them at once produced a multi-MB
+// response that failed to load. The full config is fetched per-version, only
+// when someone actually restores one (see loadVersion).
 export async function loadVersions(departmentId, limit = 100) {
   const db = getPool();
   await ensureVersionsTable();
   const n = Math.max(1, Math.min(1000, Number(limit) || 100));
   const [rows] = await db.query(
-    `SELECT id, snapshot, actor, category, action, created_at
+    `SELECT id, actor, category, action, created_at
      FROM config_versions WHERE department_id = ?
      ORDER BY id DESC LIMIT ${n}`,
     [departmentId]
   );
   return rows.map((r) => ({
     id: String(r.id),
-    config: typeof r.snapshot === "string" ? JSON.parse(r.snapshot) : r.snapshot,
     actor: typeof r.actor === "string" ? JSON.parse(r.actor) : r.actor,
     category: r.category,
     action: r.action,
     ts: r.created_at,
   }));
+}
+
+// Fetch one version's full config snapshot, for restore.
+export async function loadVersion(departmentId, id) {
+  const db = getPool();
+  await ensureVersionsTable();
+  const [rows] = await db.query(
+    `SELECT snapshot FROM config_versions WHERE department_id = ? AND id = ? LIMIT 1`,
+    [departmentId, id]
+  );
+  if (!rows.length) return null;
+  const snap = rows[0].snapshot;
+  return typeof snap === "string" ? JSON.parse(snap) : snap;
 }
 
 export async function appendVersion(departmentId, version) {

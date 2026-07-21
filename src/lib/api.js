@@ -269,6 +269,16 @@ export async function getVersions() {
   if (USE_BACKEND) return http("/versions");
   return readJSON(VERSIONS_KEY, []);
 }
+// Fetch one version's full config snapshot (backend keeps it out of the list to
+// keep that response small). Returns the config, or null.
+export async function getVersion(id) {
+  if (USE_BACKEND) {
+    const r = await http(`/versions/${encodeURIComponent(id)}`);
+    return r?.config ?? null;
+  }
+  const found = readJSON(VERSIONS_KEY, []).find((v) => String(v.id) === String(id));
+  return found?.config ?? null;
+}
 
 export async function pushVersion(version) {
   if (USE_BACKEND) {

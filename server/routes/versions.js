@@ -10,7 +10,7 @@
  * never be used to escalate privileges on restore.
  */
 import { Router } from "express";
-import { loadVersions, appendVersion } from "../db.js";
+import { loadVersions, loadVersion, appendVersion } from "../db.js";
 import { requireAuth, requireCapability } from "../permissions.js";
 import { resolveDepartmentId } from "../tenant.js";
 import {
@@ -51,6 +51,28 @@ export function versionsRouter() {
       try {
         const departmentId = req.departmentId || resolveDepartmentId(req);
         res.json({ ok: true, data: await loadVersions(departmentId) });
+      } catch (err) {
+        next(err);
+      }
+    }
+  );
+
+  // One version's full config snapshot — fetched only when restoring, so the
+  // list stays lightweight.
+  router.get(
+    "/versions/:id",
+    requireCapability(
+      "manageSite",
+      (req) => currentConfig(req.departmentId || resolveDepartmentId(req))
+    ),
+    async (req, res, next) => {
+      try {
+        const departmentId = req.departmentId || resolveDepartmentId(req);
+        const id = String(req.params.id || "").replace(/\D/g, "");
+        if (!id) return res.status(400).json({ ok: false, error: "Invalid version id" });
+        const config = await loadVersion(departmentId, id);
+        if (!config) return res.status(404).json({ ok: false, error: "Version not found" });
+        res.json({ ok: true, data: { config } });
       } catch (err) {
         next(err);
       }

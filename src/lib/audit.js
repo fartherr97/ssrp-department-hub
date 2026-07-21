@@ -307,6 +307,10 @@ export async function recordChange(prev, next) {
 export function getVersions() {
   return api.getVersions();
 }
+// Fetch one version's full config for restore (the list carries only metadata).
+export function getVersion(id) {
+  return api.getVersion(id);
+}
 
 // Log an explicit event (e.g. a reset) that isn't a simple diff.
 export async function logEvent(category, action) {
