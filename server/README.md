@@ -72,7 +72,17 @@ these **Variables** (Settings → Variables):
 | `DISCORD_GUILD_ID` | your department's Discord server id |
 | `DISCORD_CALLBACK_URL` | `https://YOUR-APP.up.railway.app/auth/discord/callback` |
 | `BOT_SYNC_SECRET` | a random string (only if you use the rank-sync bot) |
+| `DISCORD_BOT_TOKEN` | optional bot token, lets the Admin Log resolve any member's guild display name from a Discord ID (see below) |
 | `VITE_USE_BACKEND` | `true` — **build-time** flag so the front-end calls the API |
+
+### Admin Log name lookup (optional)
+When logging an entry, pasting a **Subject Discord ID** auto-fills the name. It
+first matches the ID against people already in the roster or prior entries (free,
+no setup). To resolve *anyone* in the guild — not just people already recorded —
+set `DISCORD_BOT_TOKEN`: create a bot in the Discord Developer Portal, invite it
+to your `DISCORD_GUILD_ID` server, and enable the **Server Members Intent**
+(Bot → Privileged Gateway Intents). Without the token the roster fallback still
+works; the app never blocks on the lookup.
 
 `railway.json` already sets build = `npm run build` and start = `npm start`.
 Railway injects `PORT`; the server reads it.

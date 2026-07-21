@@ -75,6 +75,10 @@ export const env = {
     callbackUrl:
       process.env.DISCORD_CALLBACK_URL || "http://localhost:3003/auth/discord/callback",
     guildId: process.env.DISCORD_GUILD_ID || "",
+    // Optional bot token. When set (bot in the guild + Server Members Intent),
+    // the app can resolve any member's guild display name by Discord ID, e.g.
+    // to auto-fill the subject of an Admin Log entry.
+    botToken: process.env.DISCORD_BOT_TOKEN || "",
   },
 
   // Shared secret the Discord bot sends on POST /api/roster/sync. The bot is NOT

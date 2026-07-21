@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Plus,
   Pencil,
@@ -34,6 +34,7 @@ import {
   Toast,
   useModalData,
 } from "../components/common/index.jsx";
+import { lookupDiscordMember } from "../lib/api.js";
 
 /*
  * Administrative Log page ("adminlog"). Departments log personnel actions
@@ -354,10 +355,42 @@ function EntryCard({ entry: e, canEdit, onEdit, onDelete }) {
 // ─── Entry modal (new entries use the book's CURRENT schema; edits render the
 //     entry's SNAPSHOT so old records stay editable even after schema changes) ─
 
-function EntryModal({ open, onClose, books, entry, onSave }) {
+function EntryModal({ open, onClose, books, entry, onSave, directory }) {
   const isNew = Boolean(entry.isNew);
   const [draft, setDraft] = useState(entry);
   const book = books.find((b) => b.id === draft.bookId) || books[0];
+
+  // Auto-fill the subject's name from a pasted Discord ID: first from the local
+  // directory (roster + prior entries, instant, no network), then, if the app
+  // has a bot token, from the live guild. We never clobber a name the user typed
+  // by hand — only one we auto-filled ourselves.
+  const [lookup, setLookup] = useState({ state: "idle", source: "" });
+  const autoNameRef = useRef("");
+  const did = (draft.subject?.discordId || "").trim();
+  useEffect(() => {
+    if (!/^\d{17,20}$/.test(did)) { setLookup({ state: "idle", source: "" }); return; }
+    let cancelled = false;
+    const applyName = (name, source) => {
+      if (cancelled || !name) return;
+      setDraft((d) => {
+        const cur = (d.subject?.name || "").trim();
+        if (cur && cur !== autoNameRef.current) return d; // respect manual entry
+        autoNameRef.current = name;
+        return { ...d, subject: { ...(d.subject || {}), name } };
+      });
+      setLookup({ state: "found", source });
+    };
+    const local = directory?.get(did);
+    if (local) { applyName(local, "roster"); return; }
+    setLookup({ state: "loading", source: "" });
+    const t = setTimeout(async () => {
+      const res = await lookupDiscordMember(did);
+      if (cancelled) return;
+      if (res?.displayName) applyName(res.displayName, res.source || "guild");
+      else setLookup({ state: "notfound", source: "" });
+    }, 400);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [did, directory]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // For NEW entries, values follow the selected book's current fields.
   const syncBook = (bookId) => {
@@ -444,14 +477,26 @@ function EntryModal({ open, onClose, books, entry, onSave }) {
               }
             />
           </Field>
-          <Field label="Subject, Discord ID *" hint="Required, ties the entry to the right person and keeps their stats exact.">
+          <Field label="Subject, Discord ID *" hint="Paste an ID to auto-fill the name; required so the entry ties to the right person.">
             <Input
               value={draft.subject?.discordId || ""}
               placeholder="000000000000000000"
+              className="font-mono"
               onChange={(e) =>
                 setDraft({ ...draft, subject: { ...(draft.subject || {}), discordId: e.target.value.trim() } })
               }
             />
+            {lookup.state === "loading" && (
+              <p className="mt-1 text-xs text-slate-500">Looking up this ID…</p>
+            )}
+            {lookup.state === "found" && (
+              <p className="mt-1 text-xs text-emerald-400">
+                Name auto-filled {lookup.source === "guild" ? "from Discord" : "from the roster"}.
+              </p>
+            )}
+            {lookup.state === "notfound" && (
+              <p className="mt-1 text-xs text-amber-400">No match found, enter the name manually.</p>
+            )}
           </Field>
         </div>
 
@@ -1010,6 +1055,18 @@ export default function AdminLog({ page, user }) {
   const books = Array.isArray(cfg.books) ? cfg.books : [];
   const entries = Array.isArray(cfg.entries) ? cfg.entries : [];
 
+  // Discord ID → display name, from the roster and everyone already logged, so
+  // pasting a known ID auto-fills the subject name even without a bot token.
+  const directory = useMemo(() => {
+    const m = new Map();
+    const add = (id, name) => { if (id && name && !m.has(String(id))) m.set(String(id), name); };
+    for (const sub of config.roster?.subdivisions || [])
+      for (const cat of sub.categories || [])
+        for (const mem of cat.members || []) add(mem.discordId, mem.name);
+    for (const e of entries) { add(e.subject?.discordId, e.subject?.name); add(e.by?.discordId, e.by?.name); }
+    return m;
+  }, [config, entries]);
+
   const canWrite = canWriteLogs(user, config);
   const canModerate = canManageAccess(user, config) || canManageSite(user, config);
   // Webhook setup is management-only (manage-site).
@@ -1245,6 +1302,7 @@ export default function AdminLog({ page, user }) {
           onClose={() => setEntryModal(null)}
           books={books}
           entry={entryM.data}
+          directory={directory}
           onSave={saveEntry}
         />
       )}

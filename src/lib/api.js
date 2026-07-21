@@ -294,6 +294,18 @@ function hashNum(s) {
   return h;
 }
 
+// Resolve a Discord ID to a guild display name via the backend (needs a bot
+// token server-side). Returns { discordId, displayName, ... } or null; callers
+// fall back to a local directory when this yields nothing.
+export async function lookupDiscordMember(discordId) {
+  if (!USE_BACKEND) return null;
+  try {
+    return await http(`/discord/member/${encodeURIComponent(discordId)}`);
+  } catch {
+    return null;
+  }
+}
+
 export async function getDutyHours() {
   if (USE_BACKEND) {
     try {
