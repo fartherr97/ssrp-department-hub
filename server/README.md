@@ -99,6 +99,14 @@ https://YOUR-APP.up.railway.app/auth/discord/callback
 It must match `DISCORD_CALLBACK_URL` exactly. Scopes used: `identify`,
 `guilds.members.read`.
 
+> **Roles are scanned across guilds.** On login the server reads the member's
+> roles in the main `DISCORD_GUILD_ID` **and** in the department's own guild(s),
+> set per-department under Administration → Access & Roles → "Department guild
+> (server) ID" (comma-separate several). Role IDs from every guild are unioned
+> before mapping to a permission group, so a department can grant access with
+> its own server's roles. The display name prefers the department-guild
+> nickname. This uses the same `guilds.members.read` scope — no bot needed.
+
 ### 4. Deploy
 Push to the branch Railway tracks (or hit Deploy). Railway runs
 `npm install` → `npm run build` → `npm start`. Visit the app URL and sign in

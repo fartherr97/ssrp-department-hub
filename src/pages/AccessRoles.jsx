@@ -372,11 +372,11 @@ function DiscordSettings() {
         subtitle="Server-wide sign-in settings. Link Discord roles to a specific group on each group's card above."
       />
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Discord guild (server) ID">
+        <Field label="Department guild (server) ID" hint="Your department's own Discord server. Add more than one, separated by commas, to scan several. Roles from here AND the main SSRP guild both count.">
           <Input
             value={auth.discordGuildId || ""}
             onChange={(e) => setAuth({ discordGuildId: e.target.value })}
-            placeholder="000000000000000000"
+            placeholder="000000000000000000, 000000000000000000"
           />
         </Field>
         <Field label="Developer login" hint="Lets anyone preview the hub without Discord. Disable in production.">

@@ -26,20 +26,48 @@ function avatarUrl(userId, hash) {
   return `https://cdn.discordapp.com/avatars/${userId}/${hash}.${ext}?size=128`;
 }
 
-// Pull the member's nickname + role ids in our guild using the OAuth token.
-async function fetchGuildMember(accessToken, guildId) {
-  if (!guildId) return { nick: null, roleIds: [] };
+// Pull the member's nickname + role ids in ONE guild using the OAuth token.
+// Returns null if the user isn't in that guild (or the call fails).
+async function fetchOneGuildMember(accessToken, guildId) {
+  if (!guildId) return null;
   try {
     const res = await fetch(
       `https://discord.com/api/users/@me/guilds/${guildId}/member`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
-    if (!res.ok) return { nick: null, roleIds: [] };
+    if (!res.ok) return null;
     const body = await res.json();
-    return { nick: body.nick || null, roleIds: body.roles || [] };
+    return { nick: body.nick || null, roleIds: (body.roles || []).map(String) };
   } catch {
-    return { nick: null, roleIds: [] };
+    return null;
   }
+}
+
+// Parse a guild-id field that may hold several ids (comma / space / newline
+// separated) into a clean list of snowflakes.
+function parseGuildIds(value) {
+  return String(value || "")
+    .split(/[\s,]+/)
+    .map((s) => s.trim())
+    .filter((s) => /^\d{5,25}$/.test(s));
+}
+
+// A member can carry relevant roles in the MAIN SSRP guild and in their own
+// department's guild(s). Scan all of them and UNION the role ids (Discord
+// snowflakes are globally unique, so there's no collision), preferring the
+// department nickname for the display name, then the main-guild nickname.
+async function fetchMemberRoles(accessToken, deptGuildIds, mainGuildId) {
+  // Department guilds first so their nickname wins for displayName.
+  const ordered = [...new Set([...deptGuildIds, mainGuildId].filter(Boolean))];
+  const results = await Promise.all(ordered.map((g) => fetchOneGuildMember(accessToken, g)));
+  const roleIds = new Set();
+  let nick = null;
+  for (const r of results) {
+    if (!r) continue;
+    r.roleIds.forEach((id) => roleIds.add(id));
+    if (!nick && r.nick) nick = r.nick;
+  }
+  return { nick, roleIds: [...roleIds] };
 }
 
 export function configurePassport() {
@@ -69,9 +97,12 @@ export function configurePassport() {
       },
       async (req, accessToken, _refreshToken, profile, done) => {
         try {
-          const { nick, roleIds } = await fetchGuildMember(accessToken, env.discord.guildId);
-          // Resolve the group against the department the user logged in from.
+          // Resolve the department the user logged in from first, so we can also
+          // scan that department's own Discord guild(s) for roles — not just the
+          // main SSRP guild.
           const config = await loadConfig(resolveDepartmentId(req));
+          const deptGuildIds = parseGuildIds(config?.auth?.discordGuildId);
+          const { nick, roleIds } = await fetchMemberRoles(accessToken, deptGuildIds, env.discord.guildId);
           const user = buildSessionUser(config || { groups: [] }, {
             discordId: profile.id,
             username: profile.global_name || profile.username,
