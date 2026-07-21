@@ -9,6 +9,7 @@ import {
 import * as api from "./api.js";
 import * as audit from "./audit.js";
 import { applyTheme } from "./theme.js";
+import { safeMediaUrl } from "./urls.js";
 import { readJSON, writeJSON } from "./storage.js";
 import { cloneDefaultConfig } from "../config/defaultConfig.js";
 
@@ -75,6 +76,30 @@ export function ConfigProvider({ children }) {
   useEffect(() => {
     if (config?.branding?.colors) applyTheme(config.branding.colors);
   }, [config?.branding?.colors]);
+
+  // Drive the browser tab from the department's branding: the title from its
+  // name, and the favicon from the logo set in the Builder Portal (falling back
+  // to the default icon when no logo is set). Updates live as branding changes.
+  const brandName = config?.branding?.name || config?.branding?.shortName;
+  const brandLogo = config?.branding?.logoUrl;
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (brandName) document.title = brandName;
+    let link = document.querySelector("link[rel~='icon']");
+    if (!link) {
+      link = document.createElement("link");
+      link.rel = "icon";
+      document.head.appendChild(link);
+    }
+    const url = safeMediaUrl(brandLogo);
+    if (url) {
+      link.setAttribute("href", url);
+      link.removeAttribute("type"); // let the browser detect png/jpg/data URI
+    } else {
+      link.setAttribute("href", "/favicon.svg");
+      link.setAttribute("type", "image/svg+xml");
+    }
+  }, [brandName, brandLogo]);
 
   const persist = useCallback((next) => {
     setSaving(true);
