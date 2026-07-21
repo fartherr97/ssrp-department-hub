@@ -88,12 +88,12 @@ export function SectionHeader({ title, subtitle, actions }) {
 
 const buttonVariants = {
   primary:
-    "bg-[linear-gradient(90deg,var(--color-primary),var(--color-hover))] text-white shadow-lg shadow-black/20 hover:brightness-110",
+    "border border-white/15 bg-[linear-gradient(90deg,var(--color-primary),var(--color-hover))] text-white shadow-lg shadow-black/20 hover:brightness-110",
   secondary:
-    "border border-white/10 bg-[var(--color-surface-2)] text-slate-200 hover:border-[color:var(--color-border)] hover:text-white",
-  ghost: "text-slate-300 hover:bg-white/5 hover:text-white",
+    "border border-white/12 bg-[var(--color-surface-2)] text-slate-200 hover:border-[color:var(--color-border-strong)] hover:text-white",
+  ghost: "border border-transparent text-slate-300 hover:bg-white/5 hover:text-white",
   danger:
-    "border border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20 hover:text-red-200",
+    "border border-red-500/35 bg-red-500/10 text-red-300 hover:border-red-500/50 hover:bg-red-500/20 hover:text-red-200",
 };
 
 export function Button({
@@ -105,7 +105,7 @@ export function Button({
 }) {
   return (
     <button
-      className={`btn-glossy inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${buttonVariants[variant]} ${className}`}
+      className={`btn-glossy inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${buttonVariants[variant]} ${className}`}
       {...rest}
     >
       {Icon && <Icon size={16} strokeWidth={2.4} />}

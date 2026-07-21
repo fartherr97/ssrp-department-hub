@@ -121,25 +121,25 @@ function EventDetails({ open, event, user, canManage, onClose, onEdit, onDelete,
       open={open}
       onClose={onClose}
       title={event.title}
-      size="sm"
+      size="md"
       footer={
-        <div className="flex w-full items-center justify-center gap-2">
+        <div className="flex w-full items-center gap-2">
           {canManage && (
             <>
-              <Button variant="secondary" icon={Pencil} onClick={onEdit}>
+              <Button variant="secondary" icon={Pencil} onClick={onEdit} className="flex-1">
                 Edit
               </Button>
-              <Button variant="danger" icon={Trash2} onClick={onDelete}>
+              <Button variant="danger" icon={Trash2} onClick={onDelete} className="flex-1">
                 Delete
               </Button>
             </>
           )}
           {attending ? (
-            <Button variant="secondary" icon={X} onClick={onToggleAttend}>
+            <Button variant="secondary" icon={X} onClick={onToggleAttend} className="flex-1">
               Remove
             </Button>
           ) : (
-            <Button icon={Check} onClick={onToggleAttend}>
+            <Button icon={Check} onClick={onToggleAttend} className="flex-1">
               Attending
             </Button>
           )}
