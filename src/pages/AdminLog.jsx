@@ -318,12 +318,17 @@ function EntryRow({ entry: e, canEdit, onEdit, onDelete }) {
       <td className="px-4 py-3 text-sm text-slate-200">
         {vals.length ? (
           <div className="grid max-w-xl gap-0.5">
-            {vals.map((v, i) => (
-              <div key={i} className="min-w-0 leading-snug">
-                <span className="font-semibold text-slate-400">{v.label}:</span>{" "}
-                <span className="whitespace-pre-line">{fmtVal(v)}</span>
-              </div>
-            ))}
+            {vals.map((v, i) => {
+              // Notes fields are the plain body of the entry — show the text on
+              // its own; keep the label only for other columns (Duration, etc.).
+              const hideLabel = /note/i.test(v.label);
+              return (
+                <div key={i} className="min-w-0 leading-snug">
+                  {!hideLabel && <span className="font-semibold text-slate-400">{v.label}: </span>}
+                  <span className="whitespace-pre-line">{fmtVal(v)}</span>
+                </div>
+              );
+            })}
           </div>
         ) : (
           <span className="text-slate-600">—</span>
