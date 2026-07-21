@@ -15,6 +15,9 @@ const STOP = new Set([
   "all", "can", "could", "would", "should", "about", "from", "up", "out", "get", "got",
   "really", "also", "what", "did", "people", "say", "said", "think", "feel", "feedback",
   "response", "responses", "everyone", "their", "there", "here", "who", "how", "many",
+  // meta words about the request itself — never useful as search terms
+  "summarize", "summary", "summarise", "overview", "overall", "recap", "results",
+  "result", "themes", "theme", "common", "breakdown", "rundown", "tldr", "general",
 ]);
 
 const words = (s) => String(s || "").toLowerCase().match(/[a-z0-9']+/g) || [];
@@ -42,6 +45,7 @@ function lineForQuestion(entry, i) {
     return `${label} ${parts.join(", ")}.`;
   }
   if (summary.kind === "numeric") {
+    if (!summary.total) return `${label} no answers yet.`;
     return `${label} average ${summary.avg.toFixed(1)} out of ${summary.max}, from ${summary.total} response${summary.total === 1 ? "" : "s"}.`;
   }
   // text
@@ -113,9 +117,14 @@ export function answerQuestion(exam, submissions, question) {
   const q = String(question || "").toLowerCase().trim();
   const qWords = words(q).filter((w) => w.length > 2 && !STOP.has(w));
 
-  if (/\b(theme|themes|common|topics?|trend|recurring|mention)\b/.test(q)) return themes(agg, total);
-  if (!qWords.length || /\b(summar|overall|overview|results?|recap|tl;?dr|general|how did)\b/.test(q)) {
-    return overall(agg, total);
-  }
+  const wantsThemes =
+    /\b(common|recurring)\b/.test(q) || /\btheme/.test(q) || /\btopics?\b/.test(q) ||
+    /\btrend/.test(q) || /most (mentioned|said|common|popular)/.test(q);
+  const wantsSummary =
+    /\bsummar/.test(q) || /\b(overview|overall|recap|general|breakdown|rundown)\b/.test(q) ||
+    /\bresults?\b/.test(q) || /tl;?dr/.test(q) || /how (did|do|does|was|were)/.test(q);
+
+  if (wantsThemes) return themes(agg, total);
+  if (wantsSummary || !qWords.length) return overall(agg, total);
   return topicSearch(agg, total, qWords);
 }
