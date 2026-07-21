@@ -277,6 +277,13 @@ function TakeExamModal({ open, onClose, exam, user, onSubmit }) {
       setErr("Please enter your name before submitting.");
       return;
     }
+    // Non-anonymous submissions must carry a Discord ID so they can be tied to a
+    // person in the admin log and roster. Discord IDs are 17-20 digit snowflakes.
+    if (!exam.anonymous) {
+      const id = subject.discordId.trim();
+      if (!id) { setErr("Please enter your Discord ID before submitting."); return; }
+      if (!/^\d{17,20}$/.test(id)) { setErr("That Discord ID doesn't look right — it should be the 17-20 digit user ID."); return; }
+    }
     const missing = (exam.questions || []).find((q) => {
       if (!q.required) return false;
       const v = answers[q.id];
@@ -315,10 +322,10 @@ function TakeExamModal({ open, onClose, exam, user, onSubmit }) {
         <ResourceButtons links={exam.resourceLinks} />
         {!exam.anonymous && (
           <div className="grid gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3 sm:grid-cols-2">
-            <Field label="Your name" hint="Recorded on the submission.">
+            <Field label="Your name *" hint="Recorded on the submission.">
               <Input value={subject.name} onChange={(e) => setSubject((s) => ({ ...s, name: e.target.value }))} />
             </Field>
-            <Field label="Discord ID">
+            <Field label="Discord ID *" hint="Required so this can be tied to you in the log.">
               <Input value={subject.discordId} onChange={(e) => setSubject((s) => ({ ...s, discordId: e.target.value }))} className="font-mono" placeholder="000000000000000000" />
             </Field>
           </div>
