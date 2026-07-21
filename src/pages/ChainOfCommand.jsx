@@ -648,9 +648,11 @@ function NodeTree({ node, resolve, accent, canEdit, isRoot = true, onEdit, onAdd
         <>
           <span className="h-3 w-px bg-white/15" />
           <div className="group/kids flex items-start">
-            {canEdit && total > 0 && (
+            {canEdit && total > 1 && (
               // Zero-width appendage on the LEFT: adds/drops a box at the
-              // front of this row without affecting layout or centering.
+              // front of this row without affecting layout or centering. Skipped
+              // for a single child, where "front" and "end" are the same spot
+              // (the two + dots would otherwise overlap).
               <div className="relative w-0 self-stretch">
                 <div
                   className={`absolute right-1 top-2 z-10 transition-opacity ${

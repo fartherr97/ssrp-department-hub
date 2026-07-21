@@ -69,7 +69,11 @@ function tierForDepth(depth) {
  * deep. Names resolve live from the roster when a box is linked.
  *   → [{ id, name, rank, avatarUrl, tier }]
  */
-export function commandStaffFromChain(config, chainPage, { levels = 4 } = {}) {
+// Command staff stops at the officer ranks — Sergeants and the rank-and-file
+// below them don't belong on the Welcome page, however deep the chart runs.
+const NON_COMMAND_GRADE = /\b(sergeant|corporal|trooper|officer|deputy|constable|patrolman|cadet|recruit|applicant|probationary)\b/i;
+
+export function commandStaffFromChain(config, chainPage, { levels = 8 } = {}) {
   const root = chainPage?.config?.root;
   if (!root) return [];
 
@@ -98,6 +102,9 @@ export function commandStaffFromChain(config, chainPage, { levels = 4 } = {}) {
   const out = [];
   const walk = (node, depth) => {
     if (!node || depth > levels) return;
+    // Stop at (and below) the first non-officer grade — a Sergeant's box and
+    // everything under it is left off the command-staff strip.
+    if (depth >= 1 && NON_COMMAND_GRADE.test(splitTitle(node.title || "").rank)) return;
     if (depth >= 1) {
       const disp = resolveNodeDisplay(config, node);
       const name = disp.name || disp.members?.[0] || node.name || "";

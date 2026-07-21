@@ -488,7 +488,7 @@ export default function WelcomePage({ page }) {
     cfg.commandSource &&
     (config?.pages || []).find((p) => p.id === cfg.commandSource && p.type === "chain");
   const staff = chainPage
-    ? commandStaffFromChain(config, chainPage, { levels: cfg.commandLevels || 4 })
+    ? commandStaffFromChain(config, chainPage, { levels: cfg.commandLevels || 8 })
     : cfg.commandStaff || [];
 
   return (
