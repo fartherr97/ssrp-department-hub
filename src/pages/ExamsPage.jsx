@@ -296,7 +296,7 @@ function TakeExamModal({ open, onClose, exam, user, onSubmit }) {
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button onClick={submit}>Submit exam</Button>
+          <Button onClick={submit}>{isFeedbackExam(exam) ? "Submit form" : "Submit exam"}</Button>
         </>
       }
     >
