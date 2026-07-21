@@ -775,7 +775,11 @@ export function useModalData(value) {
   return { data: open ? value : ref.current.data, key: ref.current.key, open };
 }
 
-export function ConfirmDialog({ open, title, message, confirmLabel = "Confirm", onConfirm, onCancel }) {
+export function ConfirmDialog({ open, title, message, confirmLabel = "Confirm", requireText = "", onConfirm, onCancel }) {
+  const [typed, setTyped] = useState("");
+  // Clear the typed confirmation whenever the dialog closes.
+  useEffect(() => { if (!open) setTyped(""); }, [open]);
+  const locked = Boolean(requireText) && typed.trim() !== requireText;
   return (
     <Modal
       open={open}
@@ -787,13 +791,21 @@ export function ConfirmDialog({ open, title, message, confirmLabel = "Confirm", 
           <Button variant="secondary" onClick={onCancel}>
             Cancel
           </Button>
-          <Button variant="danger" onClick={onConfirm}>
+          <Button variant="danger" disabled={locked} onClick={() => { if (!locked) { onConfirm(); setTyped(""); } }}>
             {confirmLabel}
           </Button>
         </>
       }
     >
       <p className="text-sm text-slate-300">{message}</p>
+      {requireText && (
+        <div className="mt-3">
+          <p className="mb-1.5 text-xs text-slate-400">
+            Type <span className="font-mono font-bold text-white">{requireText}</span> to confirm:
+          </p>
+          <Input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={requireText} autoFocus />
+        </div>
+      )}
     </Modal>
   );
 }

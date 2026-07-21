@@ -293,62 +293,59 @@ function TypePill({ type }) {
   );
 }
 
-// One log entry, laid out like a Discord log embed: type + date up top, the
-// subject big and bold, then clean "Label: value" lines, then the footer.
-function EntryCard({ entry: e, canEdit, onEdit, onDelete }) {
-  const color = typeColor(e.type);
+// One log entry as a clean table row (DA-Hub style): type, subject, logger,
+// the field details, and date, with edit/delete actions.
+function EntryRow({ entry: e, canEdit, onEdit, onDelete }) {
   const vals = (e.values || []).filter((v) => v.value);
+  const fmtVal = (v) =>
+    v.type === "checkbox" ? "Yes" : v.type === "date" ? formatDate(v.value) : String(v.value);
   return (
-    <Panel className="overflow-hidden" style={{ borderLeft: `3px solid ${color}` }}>
-      <div className="px-4 py-3">
-        <div className="flex items-center justify-between gap-3">
-          <TypePill type={e.type} />
-          <span className="shrink-0 font-mono text-xs text-slate-500">
-            {formatDate(e.date || (e.at || "").slice(0, 10))}
-          </span>
-        </div>
-        <div className="mt-2 text-base font-bold leading-tight text-white">
-          {e.subject?.name || "—"}
-        </div>
+    <tr
+      onClick={(ev) => { if (canEdit && !ev.target.closest("button, a")) onEdit(); }}
+      className={`border-t border-white/5 align-top transition hover:bg-white/[0.03] ${canEdit ? "cursor-pointer" : ""}`}
+    >
+      <td className="px-4 py-3"><TypePill type={e.type} /></td>
+      <td className="px-4 py-3">
+        <div className="font-semibold leading-tight text-white">{e.subject?.name || "—"}</div>
         {e.subject?.discordId && (
           <div className="mt-0.5 font-mono text-[11px] text-slate-500">{e.subject.discordId}</div>
         )}
-        {vals.length > 0 && (
-          <div
-            className="mt-2.5 grid gap-1 border-l-2 pl-3 text-sm"
-            style={{ borderColor: `color-mix(in srgb, ${color} 35%, transparent)` }}
-          >
+      </td>
+      <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-300">
+        {e.by?.name || "Unknown"}
+        {e.editedAt && <span className="text-slate-500" title={`Edited by ${e.editedBy}`}> · edited</span>}
+      </td>
+      <td className="px-4 py-3 text-sm text-slate-200">
+        {vals.length ? (
+          <div className="grid max-w-xl gap-0.5">
             {vals.map((v, i) => (
-              <div key={i} className="min-w-0 leading-relaxed">
-                <span className="font-semibold" style={{ color }}>
-                  {v.label}:
-                </span>{" "}
-                <span className="whitespace-pre-line text-slate-200">
-                  {v.type === "checkbox" ? "Yes" : v.type === "date" ? formatDate(v.value) : String(v.value)}
-                </span>
+              <div key={i} className="min-w-0 leading-snug">
+                <span className="font-semibold text-slate-400">{v.label}:</span>{" "}
+                <span className="whitespace-pre-line">{fmtVal(v)}</span>
               </div>
             ))}
           </div>
+        ) : (
+          <span className="text-slate-600">—</span>
         )}
-        <div className="mt-3 flex items-center justify-between gap-2 border-t border-white/5 pt-2">
-          <span className="min-w-0 truncate text-xs text-slate-500">
-            Logged by {e.by?.name || "Unknown"}
-            {e.editedAt && <span title={`Edited by ${e.editedBy}`}> · edited</span>}
+      </td>
+      <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-slate-400">
+        {formatDate(e.date || (e.at || "").slice(0, 10))}
+      </td>
+      {canEdit && (
+        <td className="px-2 py-3 text-right">
+          <span className="flex items-center justify-end gap-1">
+            <IconButton icon={Pencil} label="Edit entry" onClick={onEdit} className="h-7 w-7" />
+            <IconButton
+              icon={Trash2}
+              label="Delete entry"
+              onClick={onDelete}
+              className="h-7 w-7 hover:border-red-500/40 hover:text-red-300"
+            />
           </span>
-          {canEdit && (
-            <span className="flex shrink-0 items-center gap-1">
-              <IconButton icon={Pencil} label="Edit entry" onClick={onEdit} className="h-7 w-7" />
-              <IconButton
-                icon={Trash2}
-                label="Delete entry"
-                onClick={onDelete}
-                className="h-7 w-7 hover:border-red-500/40 hover:text-red-300"
-              />
-            </span>
-          )}
-        </div>
-      </div>
-    </Panel>
+        </td>
+      )}
+    </tr>
   );
 }
 
@@ -1275,22 +1272,42 @@ export default function AdminLog({ page, user }) {
               {q ? "Nothing matches the search." : "Nothing logged here yet."}
             </Panel>
           ) : (
-            <div className="grid gap-2.5 lg:grid-cols-2">
-              {visible.slice(0, limit).map((e) => (
-                <EntryCard
-                  key={e.id}
-                  entry={e}
-                  canEdit={canEditEntry(e)}
-                  onEdit={() => setEntryModal(e)}
-                  onDelete={() => setConfirmDel(e)}
-                />
-              ))}
+            <>
+              <Panel className="overflow-hidden p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[720px] border-collapse text-left">
+                    <thead>
+                      <tr className="text-[10px] uppercase tracking-wider text-slate-500">
+                        <th className="px-4 py-2.5 font-semibold">Type</th>
+                        <th className="px-4 py-2.5 font-semibold">Subject</th>
+                        <th className="px-4 py-2.5 font-semibold">Logged by</th>
+                        <th className="px-4 py-2.5 font-semibold">Details</th>
+                        <th className="px-4 py-2.5 font-semibold">Date</th>
+                        {canWrite && <th className="px-2 py-2.5" />}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visible.slice(0, limit).map((e) => (
+                        <EntryRow
+                          key={e.id}
+                          entry={e}
+                          canEdit={canEditEntry(e)}
+                          onEdit={() => setEntryModal(e)}
+                          onDelete={() => setConfirmDel(e)}
+                        />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Panel>
               {visible.length > limit && (
-                <Button variant="secondary" className="col-span-full justify-self-center" onClick={() => setLimit((l) => l + PAGE_SIZE)}>
-                  Show {Math.min(PAGE_SIZE, visible.length - limit)} more
-                </Button>
+                <div className="mt-3 flex justify-center">
+                  <Button variant="secondary" onClick={() => setLimit((l) => l + PAGE_SIZE)}>
+                    Show {Math.min(PAGE_SIZE, visible.length - limit)} more
+                  </Button>
+                </div>
               )}
-            </div>
+            </>
           )}
         </>
       )}

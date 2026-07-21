@@ -2934,6 +2934,7 @@ export default function Roster({ user, page }) {
             ? "Terminate"
             : "Remove"
         }
+        requireText={confirm?.type === "subdivision" || confirm?.type === "category" ? "DELETE" : ""}
         onCancel={() => setConfirm(null)}
         onConfirm={() => {
           if (confirm.type === "terminate") {
