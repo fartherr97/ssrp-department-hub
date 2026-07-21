@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { ChevronDown, LogOut, Menu, X } from "lucide-react";
 import Logo from "../components/common/Logo.jsx";
 import { BrandName, useMounted } from "../components/common/index.jsx";
-import GlobalSearch from "../components/common/GlobalSearch.jsx";
 import { getIcon } from "../lib/icons.js";
 import { buildNav } from "../lib/navigation.js";
 import { userAvatar, userDisplayName, userRoleLabel } from "../lib/user.js";
@@ -297,11 +296,6 @@ export default function DashboardLayout({
             <div className="truncate text-xs font-semibold uppercase tracking-[0.12em] text-[var(--color-primary)]">
               {activeLabel}
             </div>
-          </div>
-
-          {/* Global search */}
-          <div className="shrink-0">
-            <GlobalSearch config={config} onNavigate={navigate} />
           </div>
 
           {/* Account */}
