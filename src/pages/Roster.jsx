@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Plus,
   Pencil,
@@ -23,6 +24,8 @@ import {
   UserX,
   Wrench,
   GraduationCap,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
 import {
@@ -1993,6 +1996,22 @@ export default function Roster({ user, page }) {
   const certBulkFields = fields.filter((f) => f.type === "cert" || f.type === "checkbox");
   const pageId = page?.id || "roster";
 
+  // Full-screen mode: expand the roster into an overlay covering the whole
+  // viewport (nav included) for an immersive, everything-visible view. Esc exits.
+  const [fullscreen, setFullscreen] = useState(false);
+  useEffect(() => {
+    if (!fullscreen) return undefined;
+    const onKey = (e) => e.key === "Escape" && setFullscreen(false);
+    window.addEventListener("keydown", onKey);
+    // Lock body scroll behind the overlay.
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [fullscreen]);
+
   // Subdivision tabs are routable: /roster/sub-xyz.
   const [activeSubId, setActiveSubId] = useState(() => {
     const fromUrl = getSubPagePath();
@@ -2357,8 +2376,14 @@ export default function Roster({ user, page }) {
       })()
     : [];
 
-  return (
-    <div>
+  const view = (
+    <div
+      className={
+        fullscreen
+          ? "fixed inset-0 z-[120] overflow-y-auto overscroll-contain bg-[var(--color-body-bg)] px-4 py-4 sm:px-6"
+          : ""
+      }
+    >
       <PageHeader
         kicker="Personnel"
         title="Roster"
@@ -2374,6 +2399,14 @@ export default function Roster({ user, page }) {
         }
         actions={
           <>
+            <Button
+              variant="secondary"
+              icon={fullscreen ? Minimize2 : Maximize2}
+              onClick={() => setFullscreen((f) => !f)}
+              title={fullscreen ? "Exit full screen (Esc)" : "Expand the roster to fill the whole screen"}
+            >
+              {fullscreen ? "Exit full screen" : "Full screen"}
+            </Button>
             {subdivisions.length > 0 && (
               <Button
                 variant="secondary"
@@ -2896,4 +2929,7 @@ export default function Roster({ user, page }) {
       />
     </div>
   );
+  // In full screen, portal to <body> so the overlay escapes the main content's
+  // stacking context and covers the top nav too.
+  return fullscreen ? createPortal(view, document.body) : view;
 }
