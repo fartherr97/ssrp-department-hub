@@ -4,7 +4,7 @@ import {
   CircleCheck, CircleX, Clock, FileText, Eye, EyeOff, Copy, ExternalLink, Link2, Users, RotateCcw,
 } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
-import { aiAsk as apiAiAsk } from "../lib/api.js";
+import { answerQuestion } from "../lib/responsesAssistant.js";
 import { safeLinkUrl, safeMediaUrl } from "../lib/urls.js";
 import {
   Panel, PageHeader, SectionHeader, Button, IconButton, Field, Input, Select,
@@ -1070,34 +1070,23 @@ function AggNumeric({ avg, dist, total, min, max }) {
   );
 }
 
-function AskAI({ pageId, exam }) {
+function AskAI({ exam, submissions }) {
   const [q, setQ] = useState("");
   const [answer, setAnswer] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const ask = async (question) => {
+  const ask = (question) => {
     const text = (question ?? q).trim();
-    if (!text || loading) return;
-    setLoading(true); setError(""); setAnswer("");
-    try {
-      const res = await apiAiAsk({ pageId, examId: exam.id, question: text });
-      setAnswer(res.answer || "");
-      if (res.error) setError(res.error);
-    } catch (e) {
-      setError(e.message || "Couldn't reach the AI service.");
-    } finally {
-      setLoading(false);
-    }
+    if (!text) return;
+    setAnswer(answerQuestion(exam, submissions, text));
   };
-  const suggestions = ["Summarize the overall feedback.", "What are the most common themes?", "What did people say about Captains?"];
+  const suggestions = ["Summarize the responses.", "What are the most common themes?", "What did people say about Captains?"];
   return (
     <Panel className="p-4">
       <div className="mb-2 flex items-center gap-2">
         <Sparkles size={16} className="text-[var(--color-primary)]" />
-        <span className="text-sm font-bold text-white">Ask AI about these responses</span>
+        <span className="text-sm font-bold text-white">Ask about these responses</span>
       </div>
       <p className="mb-3 text-xs text-slate-500">
-        Ask a question in plain English and get a summary drawn from every response — e.g. “What did people say about our Captains?”
+        A built-in assistant reads the responses and answers right here — no external service, nothing leaves your hub. Try “What did people say about our Captains?”
       </p>
       <div className="flex flex-wrap gap-1.5">
         {suggestions.map((s) => (
@@ -1110,9 +1099,8 @@ function AskAI({ pageId, exam }) {
       <div className="mt-3 flex gap-2">
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ask a question…"
           onKeyDown={(e) => e.key === "Enter" && ask()} className="flex-1" />
-        <Button icon={Sparkles} disabled={loading || !q.trim()} onClick={() => ask()}>{loading ? "Thinking…" : "Ask"}</Button>
+        <Button icon={MessageSquareText} disabled={!q.trim()} onClick={() => ask()}>Ask</Button>
       </div>
-      {error && <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-200/90">{error}</p>}
       {answer && (
         <div className="mt-3 whitespace-pre-line rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-3 text-sm leading-6 text-slate-200">
           {answer}
@@ -1122,7 +1110,7 @@ function AskAI({ pageId, exam }) {
   );
 }
 
-function SummaryTab({ exams, submissions, user, config, pageId }) {
+function SummaryTab({ exams, submissions, user, config }) {
   const reviewable = exams.filter((e) => canReviewExam(user, config, e));
   const [examId, setExamId] = useState(reviewable[0]?.id || "");
   const exam = reviewable.find((e) => e.id === examId) || reviewable[0];
@@ -1141,7 +1129,7 @@ function SummaryTab({ exams, submissions, user, config, pageId }) {
         {isFeedbackExam(exam) && <Badge color="#a855f7">Feedback form</Badge>}
       </div>
 
-      <AskAI pageId={pageId} exam={exam} />
+      <AskAI exam={exam} submissions={submissions} />
 
       {subs.length === 0 ? (
         <EmptyState icon={MessageSquareText} title="No responses yet" subtitle="Aggregates appear here once people respond." />
@@ -1331,7 +1319,7 @@ export default function ExamsPage({ page, user }) {
       )}
 
       {tab === "summary" && reviewer && (
-        <SummaryTab exams={exams} submissions={submissions} user={user} config={config} pageId={page?.id} />
+        <SummaryTab exams={exams} submissions={submissions} user={user} config={config} />
       )}
 
       {tab === "members" && reviewer && (

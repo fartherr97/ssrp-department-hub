@@ -707,8 +707,8 @@ function LinkEditor({ config, link, onChange }) {
             {field?.options?.length ? (
               <Select value={link.value || ""} onChange={(e) => patch({ value: e.target.value })}>
                 <option value="">Select a value…</option>
-                {field.options.map((o) => (
-                  <option key={o} value={o}>{o}</option>
+                {field.options.map((o, i) => (
+                  <option key={`${i}-${o}`} value={o}>{o}</option>
                 ))}
               </Select>
             ) : (

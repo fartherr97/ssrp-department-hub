@@ -675,6 +675,18 @@ export function Modal({ open, onClose, title, children, footer, size = "md" }) {
   // Stay mounted briefly after close so the out-animation can play.
   const mounted = useMounted(open, 160);
 
+  // Pin the portal container for the modal's whole lifetime. Recomputing
+  // `document.fullscreenElement || document.body` every render is a real bug:
+  // if that value changes while the modal is up (fullscreen enters/exits), React
+  // moves the portal to a new container and calls removeChild on the old one —
+  // which throws "node is not a child of this node" and leaves the modal in the
+  // DOM but dead to clicks until a page refresh. Capture it once, when mounting.
+  const targetRef = useRef(null);
+  if (mounted && !targetRef.current && typeof document !== "undefined") {
+    targetRef.current = document.fullscreenElement || document.body;
+  }
+  if (!mounted) targetRef.current = null; // reset for the next open
+
   // Keep the latest onClose in a ref so the effect doesn't tear down and
   // re-attach listeners every time the parent re-renders (which happens on
   // every autosave tick while a modal is open).
@@ -696,15 +708,13 @@ export function Modal({ open, onClose, title, children, footer, size = "md" }) {
   const widths = { sm: "max-w-md", md: "max-w-lg", lg: "max-w-2xl", xl: "max-w-4xl" };
 
   /*
-   * Portaled to <body>: modals render inside page trees whose ancestors can
-   * carry transforms (e.g. the page-fade transition), and a transformed
-   * ancestor turns position:fixed into "fixed to that ancestor". iOS Safari
-   * in particular leaves modals mispositioned with dead hit-zones ("frozen").
-   * Escaping to the body (or the fullscreen element, so charts in fullscreen
-   * can still open dialogs) makes fixed mean the viewport again, always.
+   * Portaled to <body> (or the fullscreen element captured on mount, so charts
+   * in fullscreen can still open dialogs): modals render inside page trees whose
+   * ancestors can carry transforms (e.g. the page-fade transition), and a
+   * transformed ancestor turns position:fixed into "fixed to that ancestor".
+   * iOS Safari in particular leaves modals mispositioned with dead hit-zones.
    */
-  const portalTarget =
-    typeof document !== "undefined" ? document.fullscreenElement || document.body : null;
+  const portalTarget = targetRef.current;
   if (!portalTarget) return null;
 
   return createPortal(

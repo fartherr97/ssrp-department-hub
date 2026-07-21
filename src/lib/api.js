@@ -282,26 +282,6 @@ export async function pushVersion(version) {
   return version;
 }
 
-// ─── AI SUMMARY ──────────────────────────────────────────────────────────────
-// Ask a natural-language question about an exam/feedback form's responses. The
-// backend rebuilds the response data server-side, checks review permission, and
-// calls Claude. Returns { answer, error? }. In the mock (no backend) there's no
-// server to run the model, so it explains that.
-
-export async function aiAsk({ pageId, examId, question }) {
-  if (USE_BACKEND) {
-    return http("/ai/ask", {
-      method: "POST",
-      body: JSON.stringify({ pageId, examId, question }),
-    });
-  }
-  return {
-    answer: "",
-    error:
-      "AI summaries run on the server, so they're not available in this local preview. They work once the hub is deployed with the backend and an AI API key.",
-  };
-}
-
 // ─── DUTY HOURS ──────────────────────────────────────────────────────────────
 // On-duty hours come from an external Duty Hub. The backend fetches/caches them
 // and serves GET /api/hours; the mock synthesizes plausible numbers for the
