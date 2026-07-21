@@ -928,11 +928,27 @@ function QuestionEditor({ q, index, total, onMove, onChange, onDelete, feedback 
   );
 }
 
-function ExamEditor({ open, onClose, exam, groups, onSave }) {
+function ExamEditor({ open, onClose, exam, groups, onSave, onAutoSave }) {
   const [draft, setDraft] = useState(exam);
   const patch = (p) => setDraft((d) => ({ ...d, ...p }));
   const feedback = !!draft.feedback;
   const noun = feedback ? "form" : "exam";
+
+  // Auto-save as you edit (Google-Forms style), with a Saving… / Saved indicator.
+  const [saveState, setSaveState] = useState("idle"); // idle | saving | saved
+  const autoRef = useRef(onAutoSave);
+  autoRef.current = onAutoSave;
+  const mountedRef = useRef(false);
+  useEffect(() => {
+    if (!mountedRef.current) { mountedRef.current = true; return; } // skip mount
+    if (!draft.title?.trim()) return; // don't persist an untitled draft
+    setSaveState("saving");
+    const t = setTimeout(() => {
+      autoRef.current?.(draft.feedback ? asFeedbackExam(draft) : draft);
+      setSaveState("saved");
+    }, 700);
+    return () => clearTimeout(t);
+  }, [draft]);
   // Turning on feedback mode implies anonymous + ungraded by default.
   const toggleFeedback = (on) =>
     setDraft((d) => (on ? { ...asFeedbackExam(d), feedback: true, anonymous: true } : { ...d, feedback: false }));
@@ -948,7 +964,18 @@ function ExamEditor({ open, onClose, exam, groups, onSave }) {
 
   return (
     <Modal open={open} onClose={onClose} title={`Edit “${exam.title}”`} size="xl"
-      footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button disabled={!draft.title.trim()} onClick={() => onSave(feedback ? asFeedbackExam(draft) : draft)}>Save {noun}</Button></>}>
+      footer={
+        <>
+          <span className="mr-auto flex items-center gap-1.5 text-xs">
+            {saveState === "saving" ? (
+              <span className="text-slate-400">Saving…</span>
+            ) : saveState === "saved" ? (
+              <span className="inline-flex items-center gap-1 font-semibold text-emerald-400"><Check size={13} strokeWidth={3} /> Saved</span>
+            ) : null}
+          </span>
+          <Button disabled={!draft.title.trim()} onClick={() => onSave(feedback ? asFeedbackExam(draft) : draft)}>Done</Button>
+        </>
+      }>
       <div className="grid gap-4">
         <label className="flex items-start gap-2 rounded-xl border border-white/10 bg-[color:var(--color-primary)]/5 p-3 text-sm text-slate-300">
           <input type="checkbox" checked={feedback} onChange={(e) => toggleFeedback(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[var(--color-primary)]" />
@@ -1241,9 +1268,22 @@ export default function ExamsPage({ page, user }) {
   }
 
   function saveExam(draft) {
-    setExams(exams.some((e) => e.id === draft.id) ? exams.map((e) => (e.id === draft.id ? draft : e)) : [...exams, draft]);
     setEditing(null);
-    show("Exam saved");
+  }
+  // Auto-save: upsert the exam into config as it's edited (no toast, no close),
+  // driven by mutate so rapid edits don't race a stale `exams` snapshot.
+  function autoSaveExam(draft) {
+    mutate((c) => ({
+      ...c,
+      pages: c.pages.map((p) => {
+        if (p.id !== page.id) return p;
+        const list = p.config?.exams || [];
+        const next = list.some((e) => e.id === draft.id)
+          ? list.map((e) => (e.id === draft.id ? draft : e))
+          : [...list, draft];
+        return { ...p, config: { ...(p.config || {}), exams: next } };
+      }),
+    }));
   }
 
   // Soft-delete a submission to the recycle bin, and restore/purge from it.
@@ -1365,7 +1405,7 @@ export default function ExamsPage({ page, user }) {
       )}
       <ResultModal open={Boolean(result)} onClose={() => setResult(null)} result={result} />
       {editingM.data && (
-        <ExamEditor key={editingM.key} open={editingM.open} onClose={() => setEditing(null)} exam={editingM.data} groups={groups} onSave={saveExam} />
+        <ExamEditor key={editingM.key} open={editingM.open} onClose={() => setEditing(null)} exam={editingM.data} groups={groups} onSave={saveExam} onAutoSave={autoSaveExam} />
       )}
       <ConfirmDialog
         open={Boolean(confirmDel)}
