@@ -142,9 +142,50 @@ function summarizeCalendar(prev, next) {
   return null;
 }
 
+// Detect exam submission changes (new submissions, re-grades, trash/restore) so
+// grading activity reads naturally in the log instead of a generic "Edited page".
+// Submissions live on an exam-center page's config.
+function summarizeSubmissions(prev, next) {
+  for (const np of (next || [])) {
+    const pp = (prev || []).find((p) => p.id === np.id);
+    if (!pp) continue;
+    const ps = byId(pp.config?.submissions || []);
+    const ns = byId(np.config?.submissions || []);
+    if (!ps.size && !ns.size) continue;
+    const added = [...ns.keys()].filter((id) => !ps.has(id));
+    const removed = [...ps.keys()].filter((id) => !ns.has(id));
+    const who = (s) => s?.subject?.name || "Anonymous";
+    const title = (s) => `"${s?.examTitle || "a form"}"`;
+    if (added.length === 1 && !removed.length) {
+      const s = ns.get(added[0]);
+      return { category: "exams", action: `New ${title(s)} submission from ${who(s)}` };
+    }
+    if (removed.length === 1 && !added.length) {
+      const s = ps.get(removed[0]);
+      return { category: "exams", action: `Permanently deleted a ${title(s)} submission` };
+    }
+    for (const [id, n] of ns) {
+      const p = ps.get(id);
+      if (!p) continue;
+      if (!!p.deleted !== !!n.deleted) {
+        return { category: "exams", action: n.deleted ? `Moved a ${title(n)} submission to the recycle bin` : `Restored a ${title(n)} submission` };
+      }
+      const gradeChanged = j(p.graded) !== j(n.graded) || p.score !== n.score || p.status !== n.status;
+      if (gradeChanged) {
+        const pct = (s) => (s?.maxScore ? `${s.percent}%` : "no score");
+        const verb = p.status === "needs-review" ? "Reviewed & graded" : "Re-graded";
+        return { category: "exams", action: `${verb} ${who(n)}'s ${title(n)} submission (${pct(p)} → ${pct(n)})` };
+      }
+    }
+  }
+  return null;
+}
+
 function summarizePages(prev, next) {
   const cal = summarizeCalendar(prev, next);
   if (cal) return cal;
+  const subm = summarizeSubmissions(prev, next);
+  if (subm) return subm;
   const pp = byId(prev);
   const np = byId(next);
   const added = [...np.keys()].filter((id) => !pp.has(id));

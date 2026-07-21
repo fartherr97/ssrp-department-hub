@@ -72,6 +72,29 @@ function tierForDepth(depth) {
 export function commandStaffFromChain(config, chainPage, { levels = 4 } = {}) {
   const root = chainPage?.config?.root;
   if (!root) return [];
+
+  // Rank seniority lookups from the roster (index 0 = most senior). A tree walk
+  // alone follows the org chart's branch order, so a Major on a later branch can
+  // land below Captains, we sort by rank afterwards to fix that.
+  const subs = config?.roster?.subdivisions || [];
+  const rankIndexById = new Map();
+  const rankIndexByName = new Map();
+  for (const sub of subs) {
+    (sub.ranks || []).forEach((r, i) => {
+      rankIndexById.set(r.id, i);
+      const key = String(r.name || "").trim().toLowerCase();
+      if (key && !rankIndexByName.has(key)) rankIndexByName.set(key, i);
+    });
+  }
+  const rankOrderOf = (node) => {
+    if (node?.link?.kind === "rank" && rankIndexById.has(node.link.rankId)) {
+      return rankIndexById.get(node.link.rankId);
+    }
+    const { rank } = splitTitle(node?.title || "");
+    const key = rank.toLowerCase();
+    return rankIndexByName.has(key) ? rankIndexByName.get(key) : null;
+  };
+
   const out = [];
   const walk = (node, depth) => {
     if (!node || depth > levels) return;
@@ -85,11 +108,18 @@ export function commandStaffFromChain(config, chainPage, { levels = 4 } = {}) {
           rank: node.title || "",
           avatarUrl: node.imageUrl || "",
           tier: tierForDepth(depth),
+          _order: rankOrderOf(node),
+          _depth: depth,
         });
       }
     }
     (node.children || []).forEach((c) => walk(c, depth + 1));
   };
   walk(root, 0);
-  return out;
+
+  // Order by rank seniority when known; boxes whose rank we can't resolve fall
+  // back to their tree depth so they still sit sensibly. Sort is stable, so the
+  // original tree order is preserved among equally-ranked members.
+  out.sort((a, b) => (a._order ?? 100 + a._depth) - (b._order ?? 100 + b._depth));
+  return out.map(({ _order, _depth, ...m }) => m);
 }

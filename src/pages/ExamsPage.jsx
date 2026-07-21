@@ -381,14 +381,26 @@ function ResultModal({ open, onClose, result }) {
 // ── Submissions + review ─────────────────────────────────────────────────────
 
 function SubmissionDetail({ submission, canReview, onReview }) {
+  // Any question worth points is gradable. A "manual" one couldn't be
+  // auto-decided (paragraph or an un-keyed field), so it needs a human on the
+  // first pass. Re-grading lets a reviewer override ANY gradable question.
+  const gradable = (submission.graded || []).filter((g) => g.max > 0);
+  const noScore = !submission.maxScore; // survey / feedback form: nothing to grade
+  const pending = gradable.some((g) => g.needsReview);
+
+  // "Re-grade" re-opens the award inputs for an already-scored submission.
+  const [regrade, setRegrade] = useState(false);
+  const editing = canReview && (pending || regrade);
+  // While first reviewing, only the manual questions take input; when
+  // re-grading, every gradable question is editable.
+  const showInput = (g) => editing && g.max > 0 && (regrade || g.correct == null);
   const [awards, setAwards] = useState(() => {
     const o = {};
-    (submission.graded || []).forEach((g) => { if (g.needsReview) o[g.questionId] = g.awarded; });
+    gradable.forEach((g) => { o[g.questionId] = g.awarded; });
     return o;
   });
-  const qById = (id) => (submission.questions || []).find((q) => q.id === id) || {};
+
   const gById = (id) => (submission.graded || []).find((g) => g.questionId === id) || {};
-  const pending = (submission.graded || []).some((g) => g.needsReview);
 
   return (
     <div className="grid gap-3">
@@ -398,27 +410,34 @@ function SubmissionDetail({ submission, canReview, onReview }) {
         <span className="text-slate-500">·</span>
         <span className="text-slate-400">{submission.examTitle}</span>
         <span className="ml-auto flex items-center gap-2">
-          <span className="text-slate-400">{submission.score}/{submission.maxScore} ({submission.percent}%)</span>
-          <StatusBadge s={submission.status} />
+          {noScore ? (
+            <Badge color="#64748b">Not graded</Badge>
+          ) : (
+            <>
+              <span className="text-slate-400">{submission.score}/{submission.maxScore} ({submission.percent}%)</span>
+              <StatusBadge s={submission.status} />
+            </>
+          )}
         </span>
       </div>
       {(submission.questions || []).map((q, i) => {
         const g = gById(q.id);
-        const ans = submission.answers?.[q.id];
-        const ansText = formatAnswer(ans);
+        const graded = g.max > 0; // a 0-point survey field has no score to show
         return (
           <div key={q.id} className="rounded-lg border border-white/10 bg-[var(--color-surface-2)] p-3">
             <div className="mb-1 flex items-start justify-between gap-2">
               <div className="text-sm font-semibold text-white">{i + 1}. {q.prompt}</div>
-              <div className="shrink-0 text-xs text-slate-400">
-                {g.needsReview ? `— / ${g.max}` : `${g.awarded} / ${g.max}`}
-                {!g.needsReview && q.type !== "paragraph" && (
-                  g.correct ? <Check size={13} className="ml-1 inline text-green-400" /> : <X size={13} className="ml-1 inline text-red-400" />
-                )}
-              </div>
+              {graded && (
+                <div className="shrink-0 text-xs text-slate-400">
+                  {g.needsReview ? `— / ${g.max}` : `${g.awarded} / ${g.max}`}
+                  {!g.needsReview && q.type !== "paragraph" && g.correct != null && (
+                    g.correct ? <Check size={13} className="ml-1 inline text-green-400" /> : <X size={13} className="ml-1 inline text-red-400" />
+                  )}
+                </div>
+              )}
             </div>
-            <div className="text-sm text-slate-300">{ansText || <span className="italic text-slate-600">No answer</span>}</div>
-            {g.needsReview && canReview && (
+            <div className="text-sm text-slate-300">{formatAnswer(submission.answers?.[q.id]) || <span className="italic text-slate-600">No answer</span>}</div>
+            {showInput(g) && (
               <div className="mt-2 flex items-center gap-2">
                 <span className="text-xs text-slate-500">Award points:</span>
                 <Input type="number" min={0} max={g.max} value={awards[q.id] ?? 0}
@@ -429,9 +448,20 @@ function SubmissionDetail({ submission, canReview, onReview }) {
           </div>
         );
       })}
-      {pending && canReview && (
-        <div className="flex justify-end">
-          <Button onClick={() => onReview(submission, awards)}>Save review &amp; grade</Button>
+      {canReview && !noScore && (
+        <div className="flex items-center justify-end gap-2">
+          {editing ? (
+            <>
+              {regrade && !pending && (
+                <Button variant="secondary" onClick={() => setRegrade(false)}>Cancel</Button>
+              )}
+              <Button onClick={() => { onReview(submission, awards); setRegrade(false); }}>
+                {pending ? "Save review & grade" : "Save changes"}
+              </Button>
+            </>
+          ) : (
+            <Button variant="secondary" icon={Pencil} onClick={() => setRegrade(true)}>Re-grade</Button>
+          )}
         </div>
       )}
     </div>

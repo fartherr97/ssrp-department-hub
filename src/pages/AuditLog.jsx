@@ -22,6 +22,7 @@ const CATEGORY_META = {
   calendar: { label: "Calendar", color: "#1eb854" },
   branding: { label: "Branding", color: "#8b5cf6" },
   pages: { label: "Pages", color: "#d98a1e" },
+  exams: { label: "Exams", color: "#14b8a6" },
   access: { label: "Access", color: "#e0556e" },
   config: { label: "Config", color: "#93a4bd" },
 };
