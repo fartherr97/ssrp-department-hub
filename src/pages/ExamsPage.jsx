@@ -15,7 +15,7 @@ import {
   gradeSubmission, applyReview, canManageExams, canTakeExam, canReviewExam, canReviewAny,
   isFeedbackExam, asFeedbackExam, aggregateResponses,
 } from "../lib/exams.js";
-import { BarChart3, MessageSquareText, Sparkles, Layers } from "lucide-react";
+import { BarChart3, MessageSquareText, Sparkles, Layers, ArrowLeft } from "lucide-react";
 
 const who = (u) => u?.displayName || u?.username || "Unknown";
 function formatAnswer(ans) {
@@ -244,7 +244,10 @@ function AnswerInput({ q, value, onChange, readOnly = false }) {
 
 const progressKey = (examId) => `exam-progress:${examId}`;
 
-function TakeExamModal({ open, onClose, exam, user, onSubmit }) {
+// A full dedicated page for taking an exam / filling a form (not a modal), so
+// long forms get the whole screen. Mirrors the staff Forms layout: a back
+// button, banner + intro card, then each question in its own card.
+function TakeExamView({ exam, user, onClose, onSubmit }) {
   // Restore any auto-saved progress for this exam.
   const saved = (() => {
     try { return JSON.parse(localStorage.getItem(progressKey(exam.id)) || "null"); } catch { return null; }
@@ -297,54 +300,69 @@ function TakeExamModal({ open, onClose, exam, user, onSubmit }) {
     onSubmit(exam, answers, identity);
   }
 
+  const backLabel = isFeedbackExam(exam) ? "Back to Forms" : "Back to Exams";
+  const showPoints = !isFeedbackExam(exam);
+
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title={exam.title}
-      size="lg"
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button onClick={submit}>{isFeedbackExam(exam) ? "Submit form" : "Submit exam"}</Button>
-        </>
-      }
-    >
-      <div className="grid gap-4">
+    <div className="mx-auto max-w-3xl animate-pageFade pb-10">
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <Button variant="secondary" icon={ArrowLeft} onClick={onClose}>{backLabel}</Button>
+        {!exam.anonymous && <span className="text-xs text-slate-500">Progress auto-saves as you go</span>}
+      </div>
+
+      {/* Intro card: banner, title, description, resources */}
+      <Panel className="overflow-hidden p-0">
         {safeMediaUrl(exam.banner) && (
           <img src={safeMediaUrl(exam.banner)} alt="" onError={(e) => (e.currentTarget.style.display = "none")}
-            className="h-28 w-full rounded-xl object-cover" />
+            className="h-40 w-full object-cover sm:h-52" />
         )}
-        {exam.description && <RichText text={exam.description} className="text-sm leading-relaxed text-slate-400" />}
-        <ResourceButtons links={exam.resourceLinks} />
-        {!exam.anonymous && (
-          <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/5 text-xs font-bold text-slate-300">
-              {(identity.name || "?").slice(0, 2).toUpperCase()}
-            </span>
-            <div className="min-w-0">
-              <div className="truncate text-sm font-semibold text-white">Submitting as {identity.name}</div>
-              <div className="truncate font-mono text-xs text-slate-500">{identity.discordId || "no Discord ID on file"}</div>
-            </div>
+        <div className="h-1 w-full bg-[var(--color-primary)]" />
+        <div className="p-6 sm:p-8">
+          <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl">{exam.title}</h1>
+          {exam.description && <RichText text={exam.description} className="mt-3 text-sm leading-relaxed text-slate-300" />}
+          {(exam.resourceLinks || []).length > 0 && <div className="mt-4"><ResourceButtons links={exam.resourceLinks} /></div>}
+          <p className="mt-5 text-xs font-semibold text-red-400">* Indicates required question</p>
+        </div>
+      </Panel>
+
+      {/* Who's submitting (auto-pulled from Discord) */}
+      {!exam.anonymous ? (
+        <Panel className="mt-4 flex items-center gap-3 p-4">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/5 text-sm font-bold text-slate-300">
+            {(identity.name || "?").slice(0, 2).toUpperCase()}
+          </span>
+          <div className="min-w-0">
+            <div className="text-[10px] font-bold uppercase tracking-wide text-cad-muted">Submitting as</div>
+            <div className="truncate text-sm font-semibold text-white">{identity.name}</div>
+            <div className="truncate font-mono text-xs text-slate-500">{identity.discordId || "no Discord ID on file"}</div>
           </div>
-        )}
-        <p className="text-xs text-slate-500">
-          {exam.anonymous ? "Anonymous, your name and Discord ID are not recorded. " : `Pass mark ${exam.passThreshold}%. Pulled from your Discord login. `}
-          Required questions are marked with *. {!exam.anonymous && "Progress auto-saves as you go."}
-        </p>
+          <span className="ml-auto text-xs text-slate-500">Pass mark {exam.passThreshold}%</span>
+        </Panel>
+      ) : (
+        <p className="mt-4 text-xs text-slate-500">Anonymous — your name and Discord ID are not recorded.</p>
+      )}
+
+      {/* Questions */}
+      <div className="mt-4 grid gap-4">
         {questions.map((q, i) => (
-          <div key={q.id} className="rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-3">
-            <div className="mb-2 text-sm font-semibold text-white">
+          <Panel key={q.id} className="p-5">
+            <div className="mb-3 text-sm font-semibold text-white">
               {i + 1}. {q.prompt || <span className="italic text-slate-500">Untitled question</span>}
               {q.required && <span className="ml-1 text-red-400">*</span>}
-              <span className="ml-2 text-xs font-normal text-slate-500">({q.points} pt{q.points === 1 ? "" : "s"})</span>
+              {showPoints && <span className="ml-2 text-xs font-normal text-slate-500">({q.points} pt{q.points === 1 ? "" : "s"})</span>}
             </div>
             <AnswerInput q={q} value={answers[q.id]} onChange={(v) => set(q.id, v)} />
-          </div>
+          </Panel>
         ))}
-        {err && <p className="text-sm text-red-300">{err}</p>}
       </div>
-    </Modal>
+
+      {err && <p className="mt-4 text-sm text-red-300">{err}</p>}
+
+      <div className="mt-6 flex items-center justify-between gap-3">
+        <Button variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button onClick={submit}>{isFeedbackExam(exam) ? "Submit form" : "Submit exam"}</Button>
+      </div>
+    </div>
   );
 }
 
@@ -1370,7 +1388,6 @@ export default function ExamsPage({ page, user }) {
   const [tab, setTab] = useState("take");
 
   const [taking, setTaking] = useState(null);
-  const takingM = useModalData(taking);
   const [result, setResult] = useState(null);
   const [editing, setEditing] = useState(null);
   const editingM = useModalData(editing);
@@ -1448,6 +1465,17 @@ export default function ExamsPage({ page, user }) {
   function purgeSubmission(id) {
     setSubmissions(submissions.filter((s) => s.id !== id));
     show("Deleted permanently");
+  }
+
+  // Taking an exam takes over the whole page (dedicated view, not a modal).
+  if (taking) {
+    return (
+      <>
+        <TakeExamView exam={taking} user={user} onClose={() => setTaking(null)} onSubmit={submitExam} />
+        <ResultModal open={Boolean(result)} onClose={() => setResult(null)} result={result} />
+        {toast && <Toast message={toast} />}
+      </>
+    );
   }
 
   return (
@@ -1562,9 +1590,6 @@ export default function ExamsPage({ page, user }) {
         </div>
       </div>
 
-      {takingM.data && (
-        <TakeExamModal key={takingM.key} open={takingM.open} onClose={() => setTaking(null)} exam={takingM.data} user={user} onSubmit={submitExam} />
-      )}
       <ResultModal open={Boolean(result)} onClose={() => setResult(null)} result={result} />
       {editingM.data && (
         <ExamEditor key={editingM.key} open={editingM.open} onClose={() => setEditing(null)} exam={editingM.data} groups={groups} onSave={saveExam} onAutoSave={autoSaveExam} />
