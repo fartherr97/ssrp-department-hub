@@ -4,6 +4,7 @@ import {
   CircleCheck, CircleX, Clock, FileText, Eye, EyeOff, Copy, ExternalLink, Link2, Users, RotateCcw,
 } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
+import { aiAsk as apiAiAsk } from "../lib/api.js";
 import { safeLinkUrl, safeMediaUrl } from "../lib/urls.js";
 import {
   Panel, PageHeader, SectionHeader, Button, IconButton, Field, Input, Select,
@@ -12,7 +13,9 @@ import {
 import {
   QUESTION_TYPES, blankExam, blankQuestion, typeHasOptions,
   gradeSubmission, applyReview, canManageExams, canTakeExam, canReviewExam, canReviewAny,
+  isFeedbackExam, asFeedbackExam, aggregateResponses,
 } from "../lib/exams.js";
+import { BarChart3, MessageSquareText, Sparkles } from "lucide-react";
 
 const who = (u) => u?.displayName || u?.username || "Unknown";
 function formatAnswer(ans) {
@@ -755,7 +758,7 @@ function ResourceLinksEditor({ links, onChange }) {
   );
 }
 
-function QuestionEditor({ q, index, total, onMove, onChange, onDelete }) {
+function QuestionEditor({ q, index, total, onMove, onChange, onDelete, feedback = false }) {
   const patch = (p) => onChange({ ...q, ...p });
   const setOptions = (options) => {
     // keep correct answers valid against the new options
@@ -789,7 +792,7 @@ function QuestionEditor({ q, index, total, onMove, onChange, onDelete }) {
       {typeHasOptions(q.type) && (
         <div className="mt-2 grid gap-1.5">
           <div className="text-[11px] font-bold uppercase tracking-[0.5px] text-cad-muted">
-            Options {q.type === "checkboxes" ? "(tick every correct one)" : "(tick the correct one)"}
+            Options {feedback ? "" : q.type === "checkboxes" ? "(tick every correct one)" : "(tick the correct one)"}
           </div>
           {(q.options || []).map((o, i) => {
             const isCorrect = q.type === "checkboxes" ? (q.correct || []).includes(o) : q.correct === o;
@@ -799,10 +802,12 @@ function QuestionEditor({ q, index, total, onMove, onChange, onDelete }) {
                 : patch({ correct: o });
             return (
               <div key={i} className="flex items-center gap-2">
-                <button type="button" onClick={markCorrect} title="Mark correct"
-                  className={`flex h-5 w-5 shrink-0 items-center justify-center border ${q.type === "checkboxes" ? "rounded" : "rounded-full"} ${isCorrect ? "border-green-500 bg-green-500 text-white" : "border-white/25 text-transparent"}`}>
-                  <Check size={12} />
-                </button>
+                {!feedback && (
+                  <button type="button" onClick={markCorrect} title="Mark correct"
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center border ${q.type === "checkboxes" ? "rounded" : "rounded-full"} ${isCorrect ? "border-green-500 bg-green-500 text-white" : "border-white/25 text-transparent"}`}>
+                    <Check size={12} />
+                  </button>
+                )}
                 <Input value={o} onChange={(e) => setOptions((q.options || []).map((x, j) => (j === i ? e.target.value : x)))} className="flex-1" />
                 <IconButton icon={Trash2} label="Remove option" onClick={() => setOptions((q.options || []).filter((_, j) => j !== i))} className="hover:border-red-500/40 hover:text-red-300" />
               </div>
@@ -814,7 +819,7 @@ function QuestionEditor({ q, index, total, onMove, onChange, onDelete }) {
         </div>
       )}
 
-      {q.type === "truefalse" && (
+      {!feedback && q.type === "truefalse" && (
         <Field label="Correct answer" className="mt-2">
           <Select value={q.correct} onChange={(e) => patch({ correct: e.target.value })}>
             <option value="True">True</option>
@@ -823,7 +828,7 @@ function QuestionEditor({ q, index, total, onMove, onChange, onDelete }) {
         </Field>
       )}
 
-      {q.type === "short" && (
+      {!feedback && q.type === "short" && (
         <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_180px]">
           <Field label="Accepted answers" hint="Comma-separated. Leave blank to grade this one by hand.">
             <CommaListInput value={q.correct || []} onChange={(correct) => patch({ correct })} placeholder="10-7, ten seven" />
@@ -843,18 +848,18 @@ function QuestionEditor({ q, index, total, onMove, onChange, onDelete }) {
           <Field label="To"><Input type="number" value={q.scaleMax ?? 5} onChange={(e) => patch({ scaleMax: Number(e.target.value) })} /></Field>
           <Field label="Low label"><Input value={q.minLabel || ""} onChange={(e) => patch({ minLabel: e.target.value })} placeholder="e.g. Poor" /></Field>
           <Field label="High label"><Input value={q.maxLabel || ""} onChange={(e) => patch({ maxLabel: e.target.value })} placeholder="e.g. Great" /></Field>
-          <Field label="Correct value" hint="Blank = ungraded (survey)." className="sm:col-span-2"><Input value={q.correct || ""} onChange={(e) => patch({ correct: e.target.value })} placeholder="e.g. 5" /></Field>
+          {!feedback && <Field label="Correct value" hint="Blank = ungraded (survey)." className="sm:col-span-2"><Input value={q.correct || ""} onChange={(e) => patch({ correct: e.target.value })} placeholder="e.g. 5" /></Field>}
         </div>
       )}
 
       {q.type === "rating" && (
         <div className="mt-2 grid gap-2 sm:grid-cols-2">
           <Field label="Max stars"><Input type="number" min={2} max={10} value={q.ratingMax ?? 5} onChange={(e) => patch({ ratingMax: Number(e.target.value) })} /></Field>
-          <Field label="Correct value" hint="Blank = ungraded."><Input value={q.correct || ""} onChange={(e) => patch({ correct: e.target.value })} placeholder="e.g. 5" /></Field>
+          {!feedback && <Field label="Correct value" hint="Blank = ungraded."><Input value={q.correct || ""} onChange={(e) => patch({ correct: e.target.value })} placeholder="e.g. 5" /></Field>}
         </div>
       )}
 
-      {(q.type === "date" || q.type === "time") && (
+      {!feedback && (q.type === "date" || q.type === "time") && (
         <Field label="Correct answer" hint="Blank = ungraded (just collects the value)." className="mt-2">
           <Input type={q.type} value={q.correct || ""} onChange={(e) => patch({ correct: e.target.value })} />
         </Field>
@@ -866,6 +871,7 @@ function QuestionEditor({ q, index, total, onMove, onChange, onDelete }) {
             <Field label="Rows"><CommaListInput value={q.rows || []} onChange={(rows) => patch({ rows, correct: {} })} placeholder="Row 1, Row 2" /></Field>
             <Field label="Columns"><CommaListInput value={q.columns || []} onChange={(columns) => patch({ columns, correct: {} })} placeholder="Column 1, Column 2" /></Field>
           </div>
+          {!feedback && (
           <div className="rounded-lg border border-white/10 bg-white/[0.02] p-2">
             <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.5px] text-cad-muted">Answer key {q.type === "cbgrid" ? "(tick every correct cell)" : "(tick the correct cell per row)"} · blank = ungraded</div>
             <div className="overflow-x-auto">
@@ -896,11 +902,12 @@ function QuestionEditor({ q, index, total, onMove, onChange, onDelete }) {
               </table>
             </div>
           </div>
+          )}
         </div>
       )}
 
       {q.type === "paragraph" && (
-        <p className="mt-2 text-xs text-slate-500">Graded by a reviewer, no answer key.</p>
+        <p className="mt-2 text-xs text-slate-500">{feedback ? "Open comment field." : "Graded by a reviewer, no answer key."}</p>
       )}
 
       <div className="mt-3 flex items-center gap-3">
@@ -908,10 +915,12 @@ function QuestionEditor({ q, index, total, onMove, onChange, onDelete }) {
           <input type="checkbox" checked={q.required} onChange={(e) => patch({ required: e.target.checked })} className="h-3.5 w-3.5 accent-[var(--color-primary)]" />
           Required
         </label>
-        <label className="flex items-center gap-1.5 text-xs text-slate-400">
-          Points
-          <Input type="number" min={0} value={q.points} onChange={(e) => patch({ points: Number(e.target.value) || 0 })} className="w-16" />
-        </label>
+        {!feedback && (
+          <label className="flex items-center gap-1.5 text-xs text-slate-400">
+            Points
+            <Input type="number" min={0} value={q.points} onChange={(e) => patch({ points: Number(e.target.value) || 0 })} className="w-16" />
+          </label>
+        )}
       </div>
     </div>
   );
@@ -920,6 +929,11 @@ function QuestionEditor({ q, index, total, onMove, onChange, onDelete }) {
 function ExamEditor({ open, onClose, exam, groups, onSave }) {
   const [draft, setDraft] = useState(exam);
   const patch = (p) => setDraft((d) => ({ ...d, ...p }));
+  const feedback = !!draft.feedback;
+  const noun = feedback ? "form" : "exam";
+  // Turning on feedback mode implies anonymous + ungraded by default.
+  const toggleFeedback = (on) =>
+    setDraft((d) => (on ? { ...asFeedbackExam(d), feedback: true, anonymous: true } : { ...d, feedback: false }));
   const setQ = (id, q) => patch({ questions: draft.questions.map((x) => (x.id === id ? q : x)) });
   const moveQ = (from, to) => {
     if (from === to) return;
@@ -932,11 +946,20 @@ function ExamEditor({ open, onClose, exam, groups, onSave }) {
 
   return (
     <Modal open={open} onClose={onClose} title={`Edit “${exam.title}”`} size="xl"
-      footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button disabled={!draft.title.trim()} onClick={() => onSave(draft)}>Save exam</Button></>}>
+      footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button disabled={!draft.title.trim()} onClick={() => onSave(feedback ? asFeedbackExam(draft) : draft)}>Save {noun}</Button></>}>
       <div className="grid gap-4">
-        <div className="grid gap-3 sm:grid-cols-[1fr_120px]">
-          <Field label="Exam title"><Input value={draft.title} onChange={(e) => patch({ title: e.target.value })} autoFocus /></Field>
-          <Field label="Pass mark %"><Input type="number" min={0} max={100} value={draft.passThreshold} onChange={(e) => patch({ passThreshold: Number(e.target.value) || 0 })} /></Field>
+        <label className="flex items-start gap-2 rounded-xl border border-white/10 bg-[color:var(--color-primary)]/5 p-3 text-sm text-slate-300">
+          <input type="checkbox" checked={feedback} onChange={(e) => toggleFeedback(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[var(--color-primary)]" />
+          <span>
+            <strong className="text-white">Feedback form</strong> — a survey with no grading, scores, or pass mark.
+            <span className="text-slate-500"> All questions become open responses; defaults to anonymous. Use the Summary tab to see results.</span>
+          </span>
+        </label>
+        <div className={`grid gap-3 ${feedback ? "" : "sm:grid-cols-[1fr_120px]"}`}>
+          <Field label={feedback ? "Form title" : "Exam title"}><Input value={draft.title} onChange={(e) => patch({ title: e.target.value })} autoFocus /></Field>
+          {!feedback && (
+            <Field label="Pass mark %"><Input type="number" min={0} max={100} value={draft.passThreshold} onChange={(e) => patch({ passThreshold: Number(e.target.value) || 0 })} /></Field>
+          )}
         </div>
         <Field label="Banner image" hint="Optional header image shown on the form.">
           <Input value={draft.banner || ""} onChange={(e) => patch({ banner: e.target.value })} placeholder="https://… (direct image link)" />
@@ -973,23 +996,183 @@ function ExamEditor({ open, onClose, exam, groups, onSave }) {
 
         <div className="flex items-center justify-between">
           <div className="text-[11px] font-bold uppercase tracking-[0.5px] text-cad-muted">
-            Questions ({draft.questions.length}) · {total} pts total
+            Questions ({draft.questions.length}){!feedback && ` · ${total} pts total`}
           </div>
           <label className="flex items-center gap-1.5 text-xs text-slate-400">
             <input type="checkbox" checked={draft.published} onChange={(e) => patch({ published: e.target.checked })} className="h-3.5 w-3.5 accent-[var(--color-primary)]" />
-            Published (people can take it)
+            Published (people can {feedback ? "fill it out" : "take it"})
           </label>
         </div>
 
         <div className="grid gap-2">
           {draft.questions.map((q, i) => (
-            <QuestionEditor key={q.id} q={q} index={i} total={draft.questions.length} onMove={moveQ}
+            <QuestionEditor key={q.id} q={q} index={i} total={draft.questions.length} feedback={feedback} onMove={moveQ}
               onChange={(nq) => setQ(q.id, nq)} onDelete={() => patch({ questions: draft.questions.filter((x) => x.id !== q.id) })} />
           ))}
         </div>
         <Button variant="secondary" icon={Plus} onClick={() => patch({ questions: [...draft.questions, blankQuestion("multiple")] })}>Add question</Button>
       </div>
     </Modal>
+  );
+}
+
+// ── Summary tab (response aggregation + AI) ──────────────────────────────────
+
+function AggChoice({ counts, total }) {
+  const entries = Object.entries(counts);
+  return (
+    <div className="grid gap-1.5">
+      {entries.map(([label, n]) => {
+        const pct = total ? Math.round((n / total) * 100) : 0;
+        return (
+          <div key={label} className="grid grid-cols-[1fr_auto] items-center gap-2">
+            <div className="min-w-0">
+              <div className="mb-0.5 flex items-center justify-between gap-2 text-xs">
+                <span className="truncate text-slate-300">{label}</span>
+                <span className="shrink-0 font-semibold text-slate-400">{n} · {pct}%</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-white/5">
+                <div className="h-full rounded-full bg-[var(--color-primary)]" style={{ width: `${pct}%` }} />
+              </div>
+            </div>
+          </div>
+        );
+      })}
+      {entries.length === 0 && <p className="text-xs text-slate-500">No options.</p>}
+    </div>
+  );
+}
+
+function AggNumeric({ avg, dist, total, min, max }) {
+  const buckets = [];
+  for (let i = min; i <= max; i++) buckets.push(i);
+  const peak = Math.max(1, ...Object.values(dist));
+  return (
+    <div>
+      <div className="mb-2 flex items-baseline gap-2">
+        <span className="text-2xl font-black text-[var(--color-primary)]">{avg.toFixed(1)}</span>
+        <span className="text-xs text-slate-500">average · {total} response{total === 1 ? "" : "s"}</span>
+      </div>
+      <div className="flex items-end gap-1.5">
+        {buckets.map((b) => {
+          const n = dist[b] || 0;
+          return (
+            <div key={b} className="flex flex-1 flex-col items-center gap-1">
+              <div className="flex h-16 w-full items-end">
+                <div className="w-full rounded-t bg-[var(--color-primary)]/70" style={{ height: `${(n / peak) * 100}%` }} title={`${n}`} />
+              </div>
+              <span className="text-[10px] text-slate-500">{b}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function AskAI({ pageId, exam }) {
+  const [q, setQ] = useState("");
+  const [answer, setAnswer] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const ask = async (question) => {
+    const text = (question ?? q).trim();
+    if (!text || loading) return;
+    setLoading(true); setError(""); setAnswer("");
+    try {
+      const res = await apiAiAsk({ pageId, examId: exam.id, question: text });
+      setAnswer(res.answer || "");
+      if (res.error) setError(res.error);
+    } catch (e) {
+      setError(e.message || "Couldn't reach the AI service.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  const suggestions = ["Summarize the overall feedback.", "What are the most common themes?", "What did people say about Captains?"];
+  return (
+    <Panel className="p-4">
+      <div className="mb-2 flex items-center gap-2">
+        <Sparkles size={16} className="text-[var(--color-primary)]" />
+        <span className="text-sm font-bold text-white">Ask AI about these responses</span>
+      </div>
+      <p className="mb-3 text-xs text-slate-500">
+        Ask a question in plain English and get a summary drawn from every response — e.g. “What did people say about our Captains?”
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {suggestions.map((s) => (
+          <button key={s} type="button" onClick={() => { setQ(s); ask(s); }}
+            className="press rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-slate-300 hover:border-[color:var(--color-border-strong)] hover:text-white">
+            {s}
+          </button>
+        ))}
+      </div>
+      <div className="mt-3 flex gap-2">
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ask a question…"
+          onKeyDown={(e) => e.key === "Enter" && ask()} className="flex-1" />
+        <Button icon={Sparkles} disabled={loading || !q.trim()} onClick={() => ask()}>{loading ? "Thinking…" : "Ask"}</Button>
+      </div>
+      {error && <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-200/90">{error}</p>}
+      {answer && (
+        <div className="mt-3 whitespace-pre-line rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-3 text-sm leading-6 text-slate-200">
+          {answer}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+function SummaryTab({ exams, submissions, user, config, pageId }) {
+  const reviewable = exams.filter((e) => canReviewExam(user, config, e));
+  const [examId, setExamId] = useState(reviewable[0]?.id || "");
+  const exam = reviewable.find((e) => e.id === examId) || reviewable[0];
+  if (!reviewable.length) {
+    return <EmptyState icon={BarChart3} title="Nothing to summarize" subtitle="You don't review submissions for any exam or form yet." />;
+  }
+  const subs = submissions.filter((s) => !s.deleted && s.examId === exam.id);
+  const agg = aggregateResponses(exam, submissions);
+  return (
+    <div className="grid gap-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <Select value={exam.id} onChange={(e) => setExamId(e.target.value)} className="max-w-xs">
+          {reviewable.map((e) => <option key={e.id} value={e.id}>{e.title}</option>)}
+        </Select>
+        <Badge>{subs.length} response{subs.length === 1 ? "" : "s"}</Badge>
+        {isFeedbackExam(exam) && <Badge color="#a855f7">Feedback form</Badge>}
+      </div>
+
+      <AskAI pageId={pageId} exam={exam} />
+
+      {subs.length === 0 ? (
+        <EmptyState icon={MessageSquareText} title="No responses yet" subtitle="Aggregates appear here once people respond." />
+      ) : (
+        <div className="grid gap-3">
+          {agg.map(({ question, answered, summary }, i) => (
+            <Panel key={question.id} className="p-4">
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div className="text-sm font-semibold text-white">
+                  <span className="text-slate-500">Q{i + 1}. </span>{question.prompt || "(untitled)"}
+                </div>
+                <span className="shrink-0 text-xs text-slate-500">{answered} answered</span>
+              </div>
+              {summary.kind === "choice" && <AggChoice counts={summary.counts} total={summary.total} />}
+              {summary.kind === "numeric" && <AggNumeric avg={summary.avg} dist={summary.dist} total={summary.total} min={summary.min} max={summary.max} />}
+              {summary.kind === "text" && (
+                summary.items.length === 0 ? (
+                  <p className="text-xs text-slate-500">No answers.</p>
+                ) : (
+                  <div className="grid max-h-64 gap-1.5 overflow-y-auto">
+                    {summary.items.map((t, j) => (
+                      <div key={j} className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-slate-300">{t}</div>
+                    ))}
+                  </div>
+                )
+              )}
+            </Panel>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1012,6 +1195,7 @@ export default function ExamsPage({ page, user }) {
 
   const TABS = [{ id: "take", label: "Available exams", icon: GraduationCap }];
   if (reviewer) TABS.push({ id: "submissions", label: "Recent submissions", icon: ClipboardList });
+  if (reviewer) TABS.push({ id: "summary", label: "Summary", icon: BarChart3 });
   if (reviewer) TABS.push({ id: "members", label: "Members", icon: Users });
   if (isManager) TABS.push({ id: "manage", label: "Manage exams", icon: Pencil });
   const [tab, setTab] = useState("take");
@@ -1144,6 +1328,10 @@ export default function ExamsPage({ page, user }) {
       {tab === "submissions" && reviewer && (
         <SubmissionsTab exams={exams} submissions={submissions} user={user} config={config}
           onReview={reviewSubmission} onTrash={trashSubmission} onPurge={purgeSubmission} isManager={isManager} />
+      )}
+
+      {tab === "summary" && reviewer && (
+        <SummaryTab exams={exams} submissions={submissions} user={user} config={config} pageId={page?.id} />
       )}
 
       {tab === "members" && reviewer && (

@@ -97,9 +97,24 @@ export function blankExam() {
     roleId: "", // optional Discord role gate
     roleBypass: true, // true: role OR rank; false: role AND rank
     anonymous: false, // no name/Discord recorded (surveys/feedback)
+    feedback: false, // feedback-form mode: no grading, all questions are survey fields
     scramble: false, // randomize question order per attempt
     published: false,
     questions: [blankQuestion("multiple")],
+  };
+}
+
+// A feedback form has no scoring: every question is a 0-point survey field.
+export function isFeedbackExam(exam) {
+  return !!exam?.feedback;
+}
+
+// Normalize an exam for feedback mode: strip points and answer keys so nothing
+// is graded and every response is a survey field.
+export function asFeedbackExam(exam) {
+  return {
+    ...exam,
+    questions: (exam.questions || []).map((q) => ({ ...q, points: 0 })),
   };
 }
 
@@ -114,6 +129,9 @@ export function gradeAnswer(question, value) {
   const t = question.type;
 
   if (t === "paragraph") {
+    // A 0-point paragraph is an open survey/comment field, not something a
+    // reviewer needs to grade.
+    if (max === 0) return { awarded: 0, max: 0, needsReview: false, correct: null };
     return { awarded: 0, max, needsReview: true, correct: null };
   }
 
@@ -139,7 +157,8 @@ export function gradeAnswer(question, value) {
     const v = norm(value);
     let ok = false;
     if (!accepted.length) {
-      // No answer key set → can't auto-grade; defer to a reviewer.
+      // No answer key set → survey field if ungraded, else defer to a reviewer.
+      if (max === 0) return { awarded: 0, max: 0, needsReview: false, correct: null };
       return { awarded: 0, max, needsReview: true, correct: null };
     }
     if (question.matchMode === "keywords") ok = accepted.every((k) => v.includes(k));
@@ -260,4 +279,63 @@ export function canReviewExam(user, config, exam) {
 // "Submissions" tab shows at all)?
 export function canReviewAny(user, config, exams) {
   return (exams || []).some((e) => canReviewExam(user, config, e));
+}
+
+// ── Response aggregation (summary view) ──────────────────────────────────────
+
+// Aggregate every submission's answers per question, so the summary view can
+// render counts/percentages, scale/rating averages, and lists of text answers.
+// Returns [{ question, responses, summary }] where summary depends on the type.
+export function aggregateResponses(exam, submissions) {
+  const subs = (submissions || []).filter((s) => !s.deleted && s.examId === exam.id);
+  const answersOf = (s, qid) => s.answers?.[qid];
+
+  return (exam.questions || []).map((q) => {
+    const values = subs.map((s) => answersOf(s, q.id)).filter((v) => v != null && v !== "" && !(Array.isArray(v) && v.length === 0));
+    const answered = values.length;
+    let summary = { kind: "text", items: [] };
+
+    if (["multiple", "dropdown", "truefalse"].includes(q.type)) {
+      const opts = q.type === "truefalse" ? ["True", "False"] : q.options || [];
+      const counts = {};
+      opts.forEach((o) => (counts[o] = 0));
+      values.forEach((v) => { counts[v] = (counts[v] || 0) + 1; });
+      summary = { kind: "choice", counts, total: answered };
+    } else if (q.type === "checkboxes") {
+      const counts = {};
+      (q.options || []).forEach((o) => (counts[o] = 0));
+      values.forEach((v) => (Array.isArray(v) ? v : []).forEach((o) => { counts[o] = (counts[o] || 0) + 1; }));
+      summary = { kind: "choice", counts, total: answered };
+    } else if (q.type === "scale" || q.type === "rating") {
+      const nums = values.map(Number).filter((n) => !Number.isNaN(n));
+      const avg = nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : 0;
+      const dist = {};
+      nums.forEach((n) => { dist[n] = (dist[n] || 0) + 1; });
+      summary = { kind: "numeric", avg, dist, total: nums.length, max: q.type === "rating" ? (q.ratingMax ?? 5) : (q.scaleMax ?? 5), min: q.type === "rating" ? 1 : (q.scaleMin ?? 1) };
+    } else if (q.type === "short" || q.type === "paragraph") {
+      summary = { kind: "text", items: values.map(String) };
+    } else {
+      // grids / date / time — just list the raw values.
+      summary = { kind: "text", items: values.map((v) => (typeof v === "object" ? JSON.stringify(v) : String(v))) };
+    }
+    return { question: q, answered, summary };
+  });
+}
+
+// Compact plain-text digest of all responses, for feeding an AI summary prompt.
+export function responsesToText(exam, submissions) {
+  const subs = (submissions || []).filter((s) => !s.deleted && s.examId === exam.id);
+  const lines = [`Form: ${exam.title}`, `Total responses: ${subs.length}`, ""];
+  (exam.questions || []).forEach((q, qi) => {
+    lines.push(`Q${qi + 1}. ${q.prompt || "(untitled)"} [${q.type}]`);
+    subs.forEach((s, si) => {
+      const v = s.answers?.[q.id];
+      if (v == null || v === "") return;
+      const who = exam.anonymous ? `R${si + 1}` : s.subject?.name || `R${si + 1}`;
+      const val = Array.isArray(v) ? v.join(", ") : typeof v === "object" ? JSON.stringify(v) : String(v);
+      lines.push(`  - ${who}: ${val}`);
+    });
+    lines.push("");
+  });
+  return lines.join("\n");
 }
