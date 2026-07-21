@@ -15,7 +15,7 @@ import {
   gradeSubmission, applyReview, canManageExams, canTakeExam, canReviewExam, canReviewAny,
   isFeedbackExam, asFeedbackExam, aggregateResponses,
 } from "../lib/exams.js";
-import { BarChart3, MessageSquareText, Sparkles } from "lucide-react";
+import { BarChart3, MessageSquareText, Sparkles, Layers } from "lucide-react";
 
 const who = (u) => u?.displayName || u?.username || "Unknown";
 function formatAnswer(ans) {
@@ -595,69 +595,85 @@ function SubmissionsTab({ exams, submissions, user, config, onReview, onTrash, o
   const mine = submissions.filter(canReviewSub);
   const live = mine.filter((s) => !s.deleted);
   const deleted = mine.filter((s) => s.deleted);
-  const scoped = live.filter((s) => examFilter === "all" || s.examId === examFilter);
-  const counts = {
-    all: scoped.length,
-    review: scoped.filter((s) => resultOf(s) === "review").length,
-    passed: scoped.filter((s) => resultOf(s) === "passed").length,
-    failed: scoped.filter((s) => resultOf(s) === "failed").length,
-    noscore: scoped.filter((s) => resultOf(s) === "noscore").length,
-  };
   const term = q.trim().toLowerCase();
-  const rows = scoped
-    .filter((s) => statusFilter === "all" || resultOf(s) === statusFilter)
-    .filter((s) => !term || `${s.subject?.name || ""} ${s.subject?.discordId || ""}`.toLowerCase().includes(term))
-    .sort((a, b) => (b.at || "").localeCompare(a.at || ""));
-  const examCount = (id) => live.filter((s) => s.examId === id).length;
+  const matchesTerm = (s) => !term || `${s.subject?.name || ""} ${s.subject?.discordId || ""}`.toLowerCase().includes(term);
+  const byNewest = (a, b) => (b.at || "").localeCompare(a.at || "");
+
+  // Submissions for one exam, newest first, honoring the search box.
+  const forExam = (id) => live.filter((s) => s.examId === id && matchesTerm(s)).sort(byNewest);
 
   if (reviewableExams.length === 0) {
     return <EmptyState icon={ClipboardList} title="Nothing to review" subtitle="You don't review submissions for any exam yet." />;
   }
 
+  const selectedExam = examFilter === "all" ? null : examById(examFilter);
+  // In the grouped overview each exam shows its 5 most recent; a specific exam
+  // shows the full list with the status filter.
+  const detailRows = selectedExam
+    ? forExam(selectedExam.id).filter((s) => statusFilter === "all" || resultOf(s) === statusFilter)
+    : [];
+  const statusCounts = selectedExam
+    ? {
+        all: forExam(selectedExam.id).length,
+        review: forExam(selectedExam.id).filter((s) => resultOf(s) === "review").length,
+        passed: forExam(selectedExam.id).filter((s) => resultOf(s) === "passed").length,
+        failed: forExam(selectedExam.id).filter((s) => resultOf(s) === "failed").length,
+        noscore: forExam(selectedExam.id).filter((s) => resultOf(s) === "noscore").length,
+      }
+    : null;
+
+  const ScoreChip = ({ s }) => (
+    <span className="shrink-0 whitespace-nowrap rounded-md border border-white/10 bg-black/25 px-2 py-1 text-xs tabular-nums">
+      {s.maxScore ? <><b className="text-white">{s.score}</b><span className="text-slate-500"> / {s.maxScore}</span></> : <span className="text-slate-500">—</span>}
+    </span>
+  );
+
   return (
     <div className="grid grid-cols-1 gap-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="text-lg font-bold text-white">Submission Center</div>
-          <div className="text-xs text-slate-500">Review, search, and grade exam submissions.</div>
+      {/* Header, styled like the staff exam backend */}
+      <Panel className="p-4 sm:p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-cad-muted">Exam Backend</div>
+            <div className="mt-0.5 flex items-center gap-2">
+              <span className="text-lg font-bold text-white">Recent Submissions</span>
+              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />Live
+              </span>
+            </div>
+            <div className="mt-0.5 text-xs text-slate-500">Latest exam submissions, grouped by exam.</div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <StatPill icon={ClipboardList} value={live.length} label="Submissions" />
+            <StatPill icon={Layers} value={reviewableExams.length} label="Exam types" />
+            {isManager && deleted.length > 0 && (
+              <Button variant="secondary" icon={Trash2} onClick={() => setBinOpen(true)}>Recycle Bin ({deleted.length})</Button>
+            )}
+          </div>
         </div>
-        {isManager && deleted.length > 0 && (
-          <Button variant="secondary" icon={Trash2} onClick={() => setBinOpen(true)}>Recycle Bin ({deleted.length})</Button>
-        )}
-      </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[240px_minmax(0,1fr)]">
-        {/* Exam list */}
-        <Panel className="h-fit p-2">
-          <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-cad-muted">Exams</div>
-          <div className="grid grid-cols-1 gap-0.5">
-            <button onClick={() => setExamFilter("all")}
-              className={`flex items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm transition ${examFilter === "all" ? "bg-[color:var(--color-primary)]/15 text-white" : "text-slate-300 hover:bg-white/[0.04]"}`}>
-              <span>All exams</span><span className="text-xs text-slate-500">{live.length}</span>
-            </button>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <div className="relative w-full sm:w-64">
+            <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name or Discord ID…" className="pl-9" />
+          </div>
+          <div className="flex flex-1 gap-1 overflow-x-auto">
+            <Chip active={examFilter === "all"} onClick={() => setExamFilter("all")}>All Exams</Chip>
             {reviewableExams.map((e) => (
-              <button key={e.id} onClick={() => setExamFilter(e.id)}
-                className={`flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${examFilter === e.id ? "bg-[color:var(--color-primary)]/15 text-white" : "text-slate-300 hover:bg-white/[0.04]"}`}>
-                <span className="min-w-0 truncate">{e.title}</span><span className="shrink-0 text-xs text-slate-500">{examCount(e.id)}</span>
-              </button>
+              <Chip key={e.id} active={examFilter === e.id} onClick={() => setExamFilter(e.id)}>{e.title}</Chip>
             ))}
           </div>
-        </Panel>
+        </div>
+      </Panel>
 
-        {/* Main */}
+      {selectedExam ? (
+        /* Single-exam view: full list + status filter */
         <div className="grid grid-cols-1 gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex gap-1 overflow-x-auto">
-              {[["all", "All"], ["review", "Needs Review"], ["passed", "Passed"], ["failed", "Failed"], ["noscore", "No Score"]].map(([k, label]) => (
-                <Chip key={k} active={statusFilter === k} onClick={() => setStatusFilter(k)}>{label} ({counts[k]})</Chip>
-              ))}
-            </div>
-            <div className="relative ml-auto min-w-48 flex-1 sm:max-w-xs">
-              <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name or Discord ID…" className="pl-9" />
-            </div>
+          <div className="flex gap-1 overflow-x-auto">
+            {[["all", "All"], ["review", "Needs Review"], ["passed", "Passed"], ["failed", "Failed"], ["noscore", "No Score"]].map(([k, label]) => (
+              <Chip key={k} active={statusFilter === k} onClick={() => setStatusFilter(k)}>{label} ({statusCounts[k]})</Chip>
+            ))}
           </div>
-
           <Panel className="overflow-hidden p-0">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[660px] border-collapse text-left text-sm">
@@ -673,7 +689,7 @@ function SubmissionsTab({ exams, submissions, user, config, onReview, onTrash, o
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((s) => (
+                  {detailRows.map((s) => (
                     <tr key={s.id} onClick={() => setDetail(s)} className="cursor-pointer border-b border-white/5 transition last:border-0 hover:bg-white/[0.03]">
                       <td className="px-4 py-2.5 font-semibold text-white">{s.subject?.name || "Anonymous"}</td>
                       <td className="px-4 py-2.5 font-mono text-xs text-slate-500">{s.subject?.discordId || "—"}</td>
@@ -686,7 +702,7 @@ function SubmissionsTab({ exams, submissions, user, config, onReview, onTrash, o
                       </td>
                     </tr>
                   ))}
-                  {rows.length === 0 && (
+                  {detailRows.length === 0 && (
                     <tr><td colSpan={7} className="px-4 py-12 text-center text-sm text-slate-500">No submissions match.</td></tr>
                   )}
                 </tbody>
@@ -694,7 +710,49 @@ function SubmissionsTab({ exams, submissions, user, config, onReview, onTrash, o
             </div>
           </Panel>
         </div>
-      </div>
+      ) : (
+        /* Grouped overview: 5 most recent per exam */
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {reviewableExams.map((e) => {
+            const all = forExam(e.id);
+            const recent = all.slice(0, 5);
+            const Icon = isFeedbackExam(e) ? MessageSquareText : GraduationCap;
+            return (
+              <Panel key={e.id} className="flex flex-col overflow-hidden p-0">
+                <div className="flex items-center gap-2.5 border-b border-white/10 px-4 py-3">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-[color:var(--color-primary)]/12">
+                    <Icon size={16} className="text-[var(--color-primary)]" />
+                  </span>
+                  <span className="min-w-0 flex-1 truncate font-semibold text-white">{e.title}</span>
+                  <Badge>{all.length}</Badge>
+                </div>
+                <div className="flex flex-col divide-y divide-white/5">
+                  {recent.map((s) => (
+                    <button key={s.id} onClick={() => setDetail(s)}
+                      className="flex items-center gap-3 px-4 py-2.5 text-left transition hover:bg-white/[0.03]">
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-semibold text-white">{s.subject?.name || "Anonymous"}</div>
+                        <div className="truncate text-xs text-slate-500">{s.subject?.discordId || fmtDateTime(s.at)}</div>
+                      </div>
+                      <ScoreChip s={s} />
+                      <ResultPill s={s} />
+                    </button>
+                  ))}
+                  {recent.length === 0 && (
+                    <div className="px-4 py-10 text-center text-sm text-slate-500">No submissions.</div>
+                  )}
+                </div>
+                {all.length > recent.length && (
+                  <button onClick={() => { setExamFilter(e.id); setStatusFilter("all"); }}
+                    className="flex items-center justify-center gap-1.5 border-t border-white/10 px-4 py-2.5 text-xs font-semibold text-[var(--color-primary)] transition hover:bg-white/[0.03]">
+                    <Layers size={13} />View all submissions ({all.length})
+                  </button>
+                )}
+              </Panel>
+            );
+          })}
+        </div>
+      )}
 
       {detail && (
         <SubmissionModal submission={detail} exam={examById(detail.examId)} canReview={canReviewSub(detail)}
@@ -1303,7 +1361,7 @@ export default function ExamsPage({ page, user }) {
   if (reviewer) TABS.push({ id: "submissions", label: "Recent submissions", icon: ClipboardList });
   if (reviewer) TABS.push({ id: "summary", label: "Summary", icon: BarChart3 });
   if (reviewer) TABS.push({ id: "members", label: "Members", icon: Users });
-  if (isManager) TABS.push({ id: "manage", label: "Manage exams", icon: Pencil });
+  if (isManager) TABS.push({ id: "manage", label: "Exam Editor", icon: Pencil });
   const [tab, setTab] = useState("take");
 
   const [taking, setTaking] = useState(null);
@@ -1413,9 +1471,10 @@ export default function ExamsPage({ page, user }) {
         )}
 
         <div className="min-w-0 flex-1">
+        <div key={tab} className="animate-pageFade">
       {tab === "take" && (
         takeable.length === 0 ? (
-          <EmptyState icon={FileText} title="No exams available" subtitle={isManager ? "Create one under Manage exams, then publish it." : "Nothing has been assigned to you yet."} />
+          <EmptyState icon={FileText} title="No exams available" subtitle={isManager ? "Create one under Exam Editor, then publish it." : "Nothing has been assigned to you yet."} />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {takeable.map((e) => (
@@ -1494,6 +1553,7 @@ export default function ExamsPage({ page, user }) {
           </div>
         )
       )}
+        </div>
         </div>
       </div>
 
