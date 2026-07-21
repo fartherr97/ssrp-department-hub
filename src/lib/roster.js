@@ -24,6 +24,34 @@ function setSubdivisions(config, subdivisions) {
   return { ...config, roster: { ...config.roster, subdivisions } };
 }
 
+// A member's avatar is "auto" (safe to refresh from Discord) when it's empty or
+// already a Discord CDN URL. A hand-entered custom URL is left alone.
+function isAutoAvatar(url) {
+  return !url || /cdn\.discordapp\.com\/(avatars|embed\/avatars)\//i.test(url);
+}
+
+// Update every roster member whose Discord ID matches to their current Discord
+// avatar (called on login). Returns the same config object when nothing changed,
+// so callers can skip a save. Custom (non-Discord) avatars are preserved.
+export function applyDiscordAvatar(config, discordId, avatarUrl) {
+  if (!config?.roster?.subdivisions || !discordId || !avatarUrl) return config;
+  let changed = false;
+  const subdivisions = config.roster.subdivisions.map((sub) => ({
+    ...sub,
+    categories: (sub.categories || []).map((cat) => ({
+      ...cat,
+      members: (cat.members || []).map((m) => {
+        if (String(m.discordId) === String(discordId) && m.avatarUrl !== avatarUrl && isAutoAvatar(m.avatarUrl)) {
+          changed = true;
+          return { ...m, avatarUrl };
+        }
+        return m;
+      }),
+    })),
+  }));
+  return changed ? setSubdivisions(config, subdivisions) : config;
+}
+
 // Map over a single subdivision's categories, leaving the others untouched.
 function mapCategories(config, subId, fn) {
   return setSubdivisions(

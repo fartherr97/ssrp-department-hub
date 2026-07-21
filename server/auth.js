@@ -14,8 +14,9 @@ import passport from "passport";
 import { Strategy as DiscordStrategy } from "passport-discord";
 import { env, assertDiscordConfigured } from "./env.js";
 import { buildSessionUser } from "./permissions.js";
-import { loadConfig } from "./db.js";
+import { loadConfig, saveConfig } from "./db.js";
 import { resolveDepartmentId } from "./tenant.js";
+import { applyDiscordAvatar } from "../src/lib/roster.js";
 import { isSameOrigin } from "./security.js";
 
 const SCOPES = ["identify", "guilds.members.read"];
@@ -100,16 +101,30 @@ export function configurePassport() {
           // Resolve the department the user logged in from first, so we can also
           // scan that department's own Discord guild(s) for roles — not just the
           // main SSRP guild.
-          const config = await loadConfig(resolveDepartmentId(req));
+          const departmentId = resolveDepartmentId(req);
+          const config = await loadConfig(departmentId);
           const deptGuildIds = parseGuildIds(config?.auth?.discordGuildId);
           const { nick, roleIds } = await fetchMemberRoles(accessToken, deptGuildIds, env.discord.guildId);
+          const avatar = avatarUrl(profile.id, profile.avatar);
           const user = buildSessionUser(config || { groups: [] }, {
             discordId: profile.id,
             username: profile.global_name || profile.username,
             displayName: nick || profile.global_name || profile.username,
-            avatarUrl: avatarUrl(profile.id, profile.avatar),
+            avatarUrl: avatar,
             roleIds,
           });
+          // Keep the signed-in member's roster avatar current with their Discord
+          // profile picture (only writes when it actually changed).
+          if (config && avatar) {
+            const next = applyDiscordAvatar(config, profile.id, avatar);
+            if (next !== config) {
+              try {
+                await saveConfig(departmentId, next);
+              } catch (e) {
+                console.warn("[auth] could not update roster avatar:", e?.message || e);
+              }
+            }
+          }
           done(null, user);
         } catch (err) {
           done(err);
