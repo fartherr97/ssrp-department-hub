@@ -315,6 +315,19 @@ button:disabled,
 }
 .lift:hover { transform: translateY(-2px); }
 
+/* A softer, slower lift for large hero / call-to-action buttons, where the
+   default snappy lift feels too abrupt. Owns every transition on the element so
+   it isn't overridden by .press / Tailwind's `transition` utility. */
+.lift-slow {
+  transition: transform 0.4s var(--ease-out), box-shadow 0.4s ease,
+    filter 0.4s ease, background-color 0.4s ease, border-color 0.4s ease !important;
+}
+.lift-slow:hover { transform: translateY(-3px); }
+@media (prefers-reduced-motion: reduce) {
+  .lift-slow { transition: none !important; }
+  .lift-slow:hover { transform: none; }
+}
+
 /* Shared card hover: a subtle lift plus an accent glow outline. Applied to the
  * hub's card grids (exams, uniforms, vehicles…) so they feel consistent. */
 .hub-card-hover {

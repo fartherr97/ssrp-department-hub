@@ -126,7 +126,7 @@ function Hero({ cfg, kicker }) {
                   href={applyUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="press lift inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-bold text-black shadow-lg transition hover:brightness-110"
+                  className="press lift-slow inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-bold text-black shadow-lg transition hover:brightness-110"
                   style={{ background: "var(--wel)" }}
                 >
                   <Users size={17} />
@@ -138,7 +138,7 @@ function Hero({ cfg, kicker }) {
                   href={discordUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="press lift inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-5 py-3 text-sm font-bold text-white backdrop-blur transition hover:bg-white/15"
+                  className="press lift-slow inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-5 py-3 text-sm font-bold text-white backdrop-blur transition hover:bg-white/15"
                 >
                   <DiscordIcon size={18} />
                   Department Discord
@@ -158,7 +158,7 @@ function Ticker({ notices }) {
   const list = (notices || []).filter((n) => n.text?.trim());
   if (!list.length) return null;
   // Duration scales with content length so long tickers keep a steady pace.
-  const duration = Math.max(12, list.reduce((n, x) => n + (x.text?.length || 0), 0) * 0.08);
+  const duration = Math.max(6, list.reduce((n, x) => n + (x.text?.length || 0), 0) * 0.04);
   const Item = ({ n }) => {
     const url = safeLinkUrl(n.url);
     const body = (
@@ -420,7 +420,7 @@ function Recruit({ cfg }) {
             href={applyUrl}
             target="_blank"
             rel="noreferrer"
-            className="press lift inline-flex shrink-0 items-center gap-2 rounded-xl px-5 py-3 text-sm font-bold text-black transition hover:brightness-110"
+            className="press lift-slow inline-flex shrink-0 items-center gap-2 rounded-xl px-5 py-3 text-sm font-bold text-black transition hover:brightness-110"
             style={{ background: "var(--wel)" }}
           >
             Apply Now
