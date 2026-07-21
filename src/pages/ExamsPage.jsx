@@ -386,15 +386,16 @@ function ResultModal({ open, onClose, result }) {
 
 // ── Submissions + review ─────────────────────────────────────────────────────
 
-function SubmissionDetail({ submission, canReview, onReview, exam }) {
+// Review state for one submission, shared between the detail body (which shows
+// per-question award inputs) and the action buttons (which can live in a modal
+// footer). Kept in a hook so both render from the same source of truth.
+function useReview(submission, canReview) {
   // Any question worth points is gradable. A "manual" one couldn't be
   // auto-decided (paragraph or an un-keyed field), so it needs a human on the
   // first pass. Re-grading lets a reviewer override ANY gradable question.
   const gradable = (submission.graded || []).filter((g) => g.max > 0);
   const noScore = !submission.maxScore; // survey / feedback form: nothing to grade
   const pending = gradable.some((g) => g.needsReview);
-
-  // "Re-grade" re-opens the award inputs for an already-scored submission.
   const [regrade, setRegrade] = useState(false);
   const editing = canReview && (pending || regrade);
   // While first reviewing, only the manual questions take input; when
@@ -405,7 +406,31 @@ function SubmissionDetail({ submission, canReview, onReview, exam }) {
     gradable.forEach((g) => { o[g.questionId] = g.awarded; });
     return o;
   });
+  return { noScore, pending, regrade, setRegrade, editing, showInput, awards, setAwards, canGrade: canReview && !noScore };
+}
 
+// The Re-grade / Save / Cancel buttons. Rendered in the modal footer next to
+// Close, or inline under the body when there's no footer.
+function ReviewActions({ review, submission, onReview }) {
+  const { canGrade, editing, pending, regrade, setRegrade, awards } = review;
+  if (!canGrade) return null;
+  if (!editing) {
+    return <Button variant="secondary" icon={Pencil} onClick={() => setRegrade(true)}>Re-grade</Button>;
+  }
+  return (
+    <>
+      {regrade && !pending && (
+        <Button variant="secondary" onClick={() => setRegrade(false)}>Cancel</Button>
+      )}
+      <Button onClick={() => { onReview(submission, awards); setRegrade(false); }}>
+        {pending ? "Save review & grade" : "Save changes"}
+      </Button>
+    </>
+  );
+}
+
+function SubmissionDetail({ submission, review, exam }) {
+  const { noScore, showInput, awards, setAwards } = review;
   const gById = (id) => (submission.graded || []).find((g) => g.questionId === id) || {};
   // Old submissions only snapshotted a few fields; fall back to the live exam
   // question so scale bounds, labels, grid rows, etc. still render.
@@ -469,23 +494,38 @@ function SubmissionDetail({ submission, canReview, onReview, exam }) {
           </div>
         );
       })}
-      {canReview && !noScore && (
-        <div className="flex items-center justify-end gap-2">
-          {editing ? (
-            <>
-              {regrade && !pending && (
-                <Button variant="secondary" onClick={() => setRegrade(false)}>Cancel</Button>
-              )}
-              <Button onClick={() => { onReview(submission, awards); setRegrade(false); }}>
-                {pending ? "Save review & grade" : "Save changes"}
-              </Button>
-            </>
-          ) : (
-            <Button variant="secondary" icon={Pencil} onClick={() => setRegrade(true)}>Re-grade</Button>
-          )}
+    </div>
+  );
+}
+
+// Full submission modal: body + a footer with the review actions next to Close.
+function SubmissionModal({ submission, exam, canReview, onReview, onClose }) {
+  const review = useReview(submission, canReview);
+  return (
+    <Modal open onClose={onClose} title="Submission" size="lg"
+      footer={
+        <>
+          <ReviewActions review={review} submission={submission} onReview={(s, a) => { onReview(s, a); onClose(); }} />
+          <Button variant="secondary" onClick={onClose}>Close</Button>
+        </>
+      }>
+      <SubmissionDetail submission={submission} exam={exam} review={review} />
+    </Modal>
+  );
+}
+
+// Inline (non-modal) submission view, e.g. the Members tab accordion.
+function SubmissionInline({ submission, exam, canReview, onReview }) {
+  const review = useReview(submission, canReview);
+  return (
+    <>
+      <SubmissionDetail submission={submission} exam={exam} review={review} />
+      {review.canGrade && (
+        <div className="mt-3 flex items-center justify-end gap-2">
+          <ReviewActions review={review} submission={submission} onReview={onReview} />
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -657,10 +697,8 @@ function SubmissionsTab({ exams, submissions, user, config, onReview, onTrash, o
       </div>
 
       {detail && (
-        <Modal open onClose={() => setDetail(null)} title="Submission" size="lg"
-          footer={<Button variant="secondary" onClick={() => setDetail(null)}>Close</Button>}>
-          <SubmissionDetail submission={detail} exam={examById(detail.examId)} canReview={canReviewSub(detail)} onReview={(s, a) => { onReview(s, a); setDetail(null); }} />
-        </Modal>
+        <SubmissionModal submission={detail} exam={examById(detail.examId)} canReview={canReviewSub(detail)}
+          onReview={onReview} onClose={() => setDetail(null)} />
       )}
       {binOpen && (
         <RecycleBinModal deleted={deleted} onClose={() => setBinOpen(false)} onRestore={(id) => onTrash(id, false)} onPurge={onPurge} />
@@ -753,7 +791,7 @@ function MembersTab({ exams, submissions, user, config, onReview }) {
                 </button>
                 {openSub === s.id && (
                   <div className="border-t border-white/10 p-3">
-                    <SubmissionDetail submission={s} exam={examById(s.examId)} canReview={canReviewSub(s)} onReview={onReview} />
+                    <SubmissionInline submission={s} exam={examById(s.examId)} canReview={canReviewSub(s)} onReview={onReview} />
                   </div>
                 )}
               </div>
@@ -1166,7 +1204,7 @@ function AskAI({ exam, submissions }) {
         <span className="text-sm font-bold text-white">Ask about these responses</span>
       </div>
       <p className="mb-3 text-xs text-slate-500">
-        A built-in assistant reads the responses and answers right here — no external service, nothing leaves your hub. Try “What did people say about our Captains?”
+        A built-in assistant reads the responses and answers right here, with no external service, nothing leaves your hub. Try “What did people say about our Captains?”
       </p>
       <div className="flex flex-wrap gap-1.5">
         {suggestions.map((s) => (
@@ -1360,17 +1398,21 @@ export default function ExamsPage({ page, user }) {
         )}
       />
 
-      {TABS.length > 1 && (
-        <div className="mb-5 flex gap-1 overflow-x-auto rounded-xl border border-white/10 bg-[var(--color-surface-1)] p-1">
-          {TABS.map((t) => (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              className={`flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold transition sm:flex-1 ${tab === t.id ? "bg-[color:var(--color-primary)]/20 text-white" : "text-slate-400 hover:text-white"}`}>
-              <t.icon size={15} />{t.label}
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+        {TABS.length > 1 && (
+          <nav className="lg:w-56 lg:shrink-0">
+            <div className="flex gap-1 overflow-x-auto rounded-xl border border-white/10 bg-[var(--color-surface-1)] p-1.5 lg:flex-col lg:gap-0.5">
+              {TABS.map((t) => (
+                <button key={t.id} onClick={() => setTab(t.id)}
+                  className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm font-semibold transition lg:w-full ${tab === t.id ? "bg-[color:var(--color-primary)]/20 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}>
+                  <t.icon size={16} className={`shrink-0 ${tab === t.id ? "text-[var(--color-primary)]" : ""}`} />{t.label}
+                </button>
+              ))}
+            </div>
+          </nav>
+        )}
 
+        <div className="min-w-0 flex-1">
       {tab === "take" && (
         takeable.length === 0 ? (
           <EmptyState icon={FileText} title="No exams available" subtitle={isManager ? "Create one under Manage exams, then publish it." : "Nothing has been assigned to you yet."} />
@@ -1452,6 +1494,8 @@ export default function ExamsPage({ page, user }) {
           </div>
         )
       )}
+        </div>
+      </div>
 
       {takingM.data && (
         <TakeExamModal key={takingM.key} open={takingM.open} onClose={() => setTaking(null)} exam={takingM.data} user={user} onSubmit={submitExam} />
