@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, CalendarDays, Archive, Check, X, MapPin } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, CalendarDays, Archive, Check, X, MapPin, Users } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
 import { canManageCalendar } from "../lib/permissions.js";
 import { uid } from "../lib/roster.js";
@@ -260,6 +260,90 @@ function ArchiveModal({ open, onClose, events }) {
   );
 }
 
+// A "Today / Tomorrow / In N days" label for an event date (both YYYY-MM-DD).
+function whenLabel(dateKey, todayKey) {
+  if (dateKey === todayKey) return "Today";
+  const a = new Date(dateKey + "T00:00:00");
+  const b = new Date(todayKey + "T00:00:00");
+  const diff = Math.round((a - b) / 86400000);
+  if (diff === 1) return "Tomorrow";
+  if (diff > 1 && diff <= 30) return `In ${diff} days`;
+  return "";
+}
+
+// Right-hand sidebar: the next 30 days of events, like the SSRP Server Calendar.
+function UpcomingPanel({ events, now, user, onOpen }) {
+  const pad2 = (n) => String(n).padStart(2, "0");
+  const todayKey = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+  const end = new Date(now);
+  end.setDate(end.getDate() + 30);
+  const endKey = `${end.getFullYear()}-${pad2(end.getMonth() + 1)}-${pad2(end.getDate())}`;
+  const upcoming = (events || [])
+    .filter((e) => e.date && e.date >= todayKey && e.date <= endKey)
+    .sort((a, b) => `${a.date} ${a.startTime || a.time || ""}`.localeCompare(`${b.date} ${b.startTime || b.time || ""}`))
+    .slice(0, 12);
+  return (
+    <Panel className="h-fit p-4">
+      <div className="mb-0.5 flex items-center justify-between gap-2">
+        <h3 className="text-sm font-bold text-white">Upcoming</h3>
+        <Badge>{upcoming.length} event{upcoming.length === 1 ? "" : "s"}</Badge>
+      </div>
+      <p className="mb-3 text-xs text-slate-500">Next 30 days</p>
+      {upcoming.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-white/10 p-4 text-center text-sm text-slate-500">
+          Nothing scheduled in the next 30 days.
+        </p>
+      ) : (
+        <div className="grid gap-2">
+          {upcoming.map((e) => {
+            const attending = (e.attendees || []).some((a) => a.id === user?.id);
+            const rel = whenLabel(e.date, todayKey);
+            return (
+              <button
+                key={e.id}
+                onClick={() => onOpen(e.id)}
+                className={`lift w-full rounded-xl border-l-2 border-y border-r p-3 text-left transition ${
+                  attending
+                    ? "border-emerald-500/50 border-l-emerald-500 bg-emerald-500/10 hover:bg-emerald-500/15"
+                    : "border-white/10 border-l-[color:var(--color-primary)] bg-white/[0.02] hover:border-[color:var(--color-border-strong)]"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className="min-w-0 truncate text-sm font-bold text-white">{e.title}</span>
+                  {rel && (
+                    <span className={`shrink-0 text-[10px] font-bold uppercase tracking-wide ${attending ? "text-emerald-400" : "text-[var(--color-primary)]"}`}>
+                      {rel}
+                    </span>
+                  )}
+                </div>
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-400">
+                  <span className="inline-flex items-center gap-1">
+                    <CalendarDays size={12} />
+                    {formatEventDate(e.date)}
+                    {(e.startTime || e.time) && ` · ${e.startTime || e.time}`}
+                  </span>
+                  {e.location && (
+                    <span className="inline-flex items-center gap-1">
+                      <MapPin size={12} />
+                      {e.location}
+                    </span>
+                  )}
+                  {(e.attendees || []).length > 0 && (
+                    <span className="inline-flex items-center gap-1">
+                      <Users size={12} />
+                      {e.attendees.length}
+                    </span>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
 export default function CalendarPage({ page, user }) {
   const { config, mutate } = useConfig();
   const canManage = canManageCalendar(user, config);
@@ -388,6 +472,7 @@ export default function CalendarPage({ page, user }) {
         }
       />
 
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
       <Panel className="p-4">
         {/* Month header */}
         <div className="mb-3 flex items-center justify-between">
@@ -540,6 +625,9 @@ export default function CalendarPage({ page, user }) {
           )}
         </div>
       </Panel>
+
+      <UpcomingPanel events={events} now={now} user={user} onOpen={setDetailsId} />
+      </div>
 
       {eventM.data && (
         <EventModal
