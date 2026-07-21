@@ -1,6 +1,6 @@
-import { memo, useCallback, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Plus, Pencil, Trash2, ChevronUp, ChevronDown, Lock, GripVertical, Maximize2, X, Archive, RotateCcw, AlertTriangle } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronUp, ChevronDown, Lock, GripVertical, Maximize2, X, Archive, RotateCcw, AlertTriangle, ArrowLeft, Check } from "lucide-react";
 import { useConfig } from "../../lib/configContext.jsx";
 import { getIcon, ICON_NAMES } from "../../lib/icons.js";
 import { canManageSite } from "../../lib/permissions.js";
@@ -18,7 +18,6 @@ import {
   Input,
   Select,
   Badge,
-  useModalData,
 } from "../../components/common/index.jsx";
 import BlockEditor from "./BlockEditor.jsx";
 import WelcomeEditor from "./WelcomeEditor.jsx";
@@ -208,11 +207,21 @@ const IconGrid = memo(function IconGrid({ selected, query, onPick }) {
   );
 });
 
-function PageModal({ open, onClose, config, page, user, onSave }) {
+// A dedicated full-page editor (not a modal): a left sidebar to jump between
+// pages, the edit form in the middle, and a live preview on the right. Editing
+// one page and clicking another in the sidebar saves the first automatically.
+function PageEditor({ config, pages, page, user, onSave, onSwitch, onBack, onAddPage }) {
   const [draft, setDraft] = useState(page);
   const [iconQuery, setIconQuery] = useState("");
   const [fullPreview, setFullPreview] = useState(false);
-  if (open && draft.id !== page.id) setDraft(page);
+  const [saved, setSaved] = useState(false);
+  // Reset the draft whenever the selected page changes (sidebar switch / new).
+  const pageIdRef = useRef(page.id);
+  if (pageIdRef.current !== page.id) {
+    pageIdRef.current = page.id;
+    setDraft(page);
+    setSaved(false);
+  }
 
   // Debounce the live preview so it re-renders after a pause, not per keystroke.
   const [previewDraft, setPreviewDraft] = useState(draft);
@@ -220,6 +229,8 @@ function PageModal({ open, onClose, config, page, user, onSave }) {
     const id = setTimeout(() => setPreviewDraft(draft), 150);
     return () => clearTimeout(id);
   }, [draft]);
+  // Any edit clears the "Saved" flag.
+  useEffect(() => { setSaved(false); }, [draft]);
 
   const isContentLike = draft.type === "content" || draft.type === "home";
   const isWelcome = draft.type === "welcome";
@@ -251,29 +262,61 @@ function PageModal({ open, onClose, config, page, user, onSave }) {
       return { ...d, access: [...set] };
     });
 
+  // Never save yourself out of your own page: keep your group in the access list.
+  const commitDraft = () => {
+    let d = draft;
+    if (d.restricted && myGroupId && !(Array.isArray(d.access) ? d.access : []).includes(myGroupId)) {
+      d = { ...d, access: [...(d.access || []), myGroupId] };
+    }
+    return d;
+  };
+  const doSave = () => { onSave(commitDraft()); setSaved(true); };
+
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title={page.isNew ? "Add page" : `Edit “${page.label}”`}
-      size="xl"
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={() => {
-            // Never save yourself out of your own page: keep your group in the list.
-            let d = draft;
-            if (d.restricted && myGroupId && !(Array.isArray(d.access) ? d.access : []).includes(myGroupId)) {
-              d = { ...d, access: [...(d.access || []), myGroupId] };
-            }
-            onSave(d);
-          }}>Save page</Button>
-        </>
-      }
-    >
-      <div className={`grid gap-5 ${hasPreview ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)]" : ""}`}>
+    <div className="animate-pageFade">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <Button variant="secondary" icon={ArrowLeft} onClick={() => onBack(commitDraft())}>Back to Pages</Button>
+        <div className="flex items-center gap-2">
+          {saved && (
+            <span className="flex items-center gap-1 text-xs font-semibold text-emerald-400">
+              <Check size={13} /> Saved
+            </span>
+          )}
+          <Button onClick={doSave}>Save page</Button>
+        </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
+        {/* Sidebar: jump between pages (auto-saves the current one first) */}
+        <nav className="lg:sticky lg:top-4">
+          <Panel className="p-2">
+            <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-cad-muted">Pages</div>
+            <div className="grid max-h-[55vh] grid-cols-1 gap-0.5 overflow-y-auto">
+              {pages.map((p) => {
+                const Icon = getIcon(p.icon);
+                const active = p.id === page.id;
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => { if (p.id !== page.id) onSwitch(commitDraft(), p); }}
+                    className={`flex items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${
+                      active ? "bg-[color:var(--color-primary)]/15 font-semibold text-white" : "text-slate-300 hover:bg-white/[0.04]"
+                    }`}
+                  >
+                    <Icon size={15} className={`shrink-0 ${active ? "text-[var(--color-primary)]" : "text-slate-500"}`} />
+                    <span className="min-w-0 flex-1 truncate">{p.label}</span>
+                    {p.isNew && <span className="text-[10px] uppercase tracking-wide text-[var(--color-primary)]">new</span>}
+                  </button>
+                );
+              })}
+            </div>
+            <Button variant="secondary" icon={Plus} className="mt-1 w-full justify-center" onClick={() => onAddPage(commitDraft())}>
+              Add page
+            </Button>
+          </Panel>
+        </nav>
+
+        <div className={`grid gap-5 ${hasPreview ? "xl:grid-cols-[minmax(0,1fr)_minmax(0,360px)]" : ""}`}>
       <div className="grid content-start gap-5">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Label">
@@ -477,21 +520,22 @@ function PageModal({ open, onClose, config, page, user, onSave }) {
       </div>
 
       {hasPreview && (
-        <div className="hidden min-w-0 lg:block">
+        <div className="hidden min-w-0 xl:block">
           <PagePreview draft={previewDraft} onExpand={() => setFullPreview(true)} />
         </div>
       )}
-      {/* On phones/tablets the docked preview is hidden; expose full-screen there too. */}
+      {/* On narrower screens the docked preview is hidden; expose full-screen there too. */}
       {hasPreview && (
-        <div className="lg:hidden">
+        <div className="xl:hidden">
           <Button variant="secondary" icon={Maximize2} onClick={() => setFullPreview(true)}>
             Full-screen preview
           </Button>
         </div>
       )}
+        </div>
       </div>
       {fullPreview && <FullPreview draft={previewDraft} onClose={() => setFullPreview(false)} />}
-    </Modal>
+    </div>
   );
 }
 
@@ -659,7 +703,6 @@ export default function PagesTab({ user }) {
   const [editing, setEditing] = useState(null);
   const [confirm, setConfirm] = useState(null); // page pending archive
   const [purge, setPurge] = useState(null); // page pending permanent delete
-  const editingM = useModalData(editing);
 
   const isManager = canManageSite(user, config);
   const activePages = config.pages.filter((p) => !p.archived);
@@ -712,24 +755,37 @@ export default function PagesTab({ user }) {
     mutate((cfg) => ({ ...cfg, pages: cfg.pages.filter((p) => p.id !== id) }));
   }
 
-  function savePage(draft) {
+  // Write a draft into the config (upsert). Page ids double as the URL path, so
+  // a new page (or a legacy random "page-xxxx" id) gets a readable slug from its
+  // label. Returns the saved page and keeps the editor pointed at it (its id may
+  // have changed). Does NOT leave the editor — that's the caller's choice.
+  function persistPage(draft) {
     const { isNew, ...clean } = draft;
-    mutate((cfg) => {
-      // Page ids are the URL path, so derive a readable slug from the label
-      // (new pages always; older random "page-xxxx" ids upgrade on save).
-      const page = { ...clean };
-      if (isNew || isGeneratedPageId(page.id)) {
-        const taken = cfg.pages.filter((p) => p.id !== clean.id).map((p) => p.id);
-        page.id = pageSlug(page.label, taken);
-      }
-      return {
-        ...cfg,
-        pages: isNew
-          ? [...cfg.pages, page]
-          : cfg.pages.map((p) => (p.id === clean.id ? page : p)),
-      };
-    });
+    const finalPage = { ...clean };
+    if (isNew || isGeneratedPageId(finalPage.id)) {
+      const taken = config.pages.filter((p) => p.id !== clean.id).map((p) => p.id);
+      finalPage.id = pageSlug(finalPage.label, taken);
+    }
+    mutate((cfg) => ({
+      ...cfg,
+      pages: cfg.pages.some((p) => p.id === clean.id)
+        ? cfg.pages.map((p) => (p.id === clean.id ? finalPage : p))
+        : [...cfg.pages, finalPage],
+    }));
+    setEditing((cur) => (cur && cur.id === draft.id ? finalPage : cur));
+    return finalPage;
+  }
+  function switchPage(draft, next) {
+    persistPage(draft);
+    setEditing(next);
+  }
+  function closeEditor(draft) {
+    if (draft) persistPage(draft);
     setEditing(null);
+  }
+  function addPageFrom(draft) {
+    if (draft) persistPage(draft);
+    addPage();
   }
 
   function addPage() {
@@ -744,6 +800,27 @@ export default function PagesTab({ user }) {
       config: { heroTitle: "New Page", blocks: [] },
       isNew: true,
     });
+  }
+
+  // Editing takes over the whole tab: sidebar of pages + the editor for one.
+  if (editing) {
+    const sidebarPages =
+      editing.isNew && !activePages.some((p) => p.id === editing.id)
+        ? [...activePages, editing]
+        : activePages;
+    return (
+      <PageEditor
+        key={editing.id}
+        config={config}
+        pages={sidebarPages}
+        page={editing}
+        user={user}
+        onSave={persistPage}
+        onSwitch={switchPage}
+        onBack={closeEditor}
+        onAddPage={addPageFrom}
+      />
+    );
   }
 
   return (
@@ -857,17 +934,6 @@ export default function PagesTab({ user }) {
         </Panel>
       )}
 
-      {editingM.data && (
-        <PageModal
-          key={editingM.key}
-          open={editingM.open}
-          onClose={() => setEditing(null)}
-          config={config}
-          page={editingM.data}
-          user={user}
-          onSave={savePage}
-        />
-      )}
 
       <ConfirmDialog
         open={Boolean(confirm)}
