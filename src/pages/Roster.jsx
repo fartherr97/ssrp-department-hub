@@ -1475,14 +1475,16 @@ function FTOBody({ initialSubId, user, onToast }) {
 const CONTROLLER_TABS = [
   { id: "ranks", label: "Ranks", icon: Award },
   { id: "columns", label: "Columns", icon: Columns3 },
+  { id: "promotions", label: "Promotions", icon: Award },
   { id: "stats", label: "Statistics", icon: BarChart3 },
   { id: "fto", label: "FTO / Cadets", icon: GraduationCap },
   { id: "terminations", label: "Terminations", icon: Archive },
 ];
 
 function RosterControllerModal({ open, onClose, initialTab = "ranks", initialSubId, statsSubId, allowedTabs, user, onToast }) {
-  const { config } = useConfig();
+  const { config, mutate } = useConfig();
   const [tab, setTab] = useState(initialTab);
+  const canEditStructure = canEditRosterStructure(user, config);
   const subdivisions = config.roster.subdivisions || [];
   const [subId, setSubId] = useState(initialSubId || subdivisions[0]?.id);
   const sub = subdivisions.find((x) => x.id === subId) || subdivisions[0];
@@ -1541,6 +1543,16 @@ function RosterControllerModal({ open, onClose, initialTab = "ranks", initialSub
         </div>
       )}
       {tab === "columns" && <ColumnsEditor />}
+      {tab === "promotions" && (
+        <PromotionChecker
+          config={config}
+          mutate={mutate}
+          user={user}
+          subdivisions={subdivisions}
+          initialSubId={subId}
+          canEditStructure={canEditStructure}
+        />
+      )}
       {tab === "stats" && (
         <div>
           <p className="mb-4 text-sm text-slate-400">
@@ -2062,7 +2074,6 @@ export default function Roster({ user, page }) {
   );
   const [memberModal, setMemberModal] = useState(null);
   const [categoryModal, setCategoryModal] = useState(null);
-  const [promoOpen, setPromoOpen] = useState(false);
   const [subModal, setSubModal] = useState(null);
   // One tabbed controller for ranks / columns / stats / terminations.
   const [controller, setController] = useState(null); // { tab, subId? }
@@ -2417,16 +2428,6 @@ export default function Roster({ user, page }) {
                 }}
                 className="disabled:opacity-40"
               />
-            )}
-            {subdivisions.length > 0 && (
-              <Button
-                variant="secondary"
-                icon={Award}
-                onClick={() => setPromoOpen(true)}
-                title="See who is eligible for promotion (off probation, no active DA, time in grade…)"
-              >
-                Promotions
-              </Button>
             )}
             {(canEditStructure || canEditActive) && (
             <>
@@ -2876,19 +2877,6 @@ export default function Roster({ user, page }) {
           allowedTabs={controllerM.data.allowedTabs}
           user={user}
           onToast={show}
-        />
-      )}
-
-      {promoOpen && subdivisions.length > 0 && (
-        <PromotionChecker
-          open
-          onClose={() => setPromoOpen(false)}
-          config={config}
-          mutate={mutate}
-          user={user}
-          subdivisions={subdivisions}
-          initialSubId={subId}
-          canEditStructure={canEditStructure}
         />
       )}
 

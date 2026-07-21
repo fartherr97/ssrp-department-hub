@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Award, Search, SlidersHorizontal, Check, Vote } from "lucide-react";
-import { Modal, Button, Input, Select, Badge, Field } from "../common/index.jsx";
+import { Search, SlidersHorizontal, Check, Vote } from "lucide-react";
+import { Button, Input, Select, Badge, Field } from "../common/index.jsx";
 import { callsignFieldId } from "../../lib/roster.js";
 import { canManageSite } from "../../lib/permissions.js";
 import { promoSettings, collectDAs, evaluateMember, DEFAULT_PROMO } from "../../lib/promotion.js";
@@ -21,8 +21,11 @@ const initials = (name) => {
  * greys out members who aren't eligible for their next rank, with the reason(s)
  * why (on probation, active DA, not enough time in grade, on LOA, top rank).
  * Criteria are configurable and persisted to config.roster.promoEligibility.
+ *
+ * Renders as plain content (no Modal of its own) so it can live as a tab inside
+ * the Roster controller ("Manage").
  */
-export default function PromotionChecker({ open, onClose, config, mutate, user, subdivisions, initialSubId, canEditStructure }) {
+export default function PromotionChecker({ config, mutate, user, subdivisions, initialSubId, canEditStructure }) {
   const [subId, setSubId] = useState(initialSubId || subdivisions[0]?.id);
   const [q, setQ] = useState("");
   const [catFilter, setCatFilter] = useState("all");
@@ -84,16 +87,8 @@ export default function PromotionChecker({ open, onClose, config, mutate, user, 
     mutate((c) => ({ ...c, roster: { ...c.roster, promoEligibility: { ...promoSettings(c), ...patch } } }));
 
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      size="xl"
-      title={`Promotion eligibility — ${sub?.name || ""}`}
-      footer={<Button onClick={onClose}>Done</Button>}
-    >
-      <div className="grid grid-cols-1 gap-4">
-        {/* Controls */}
-        <div className="flex flex-wrap items-center gap-2">
+    <div className="grid grid-cols-1 gap-4">
+      <div className="flex flex-wrap items-center gap-2">
           {subdivisions.length > 1 && (
             <Select value={subId} onChange={(e) => setSubId(e.target.value)} className="w-auto">
               {subdivisions.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -233,8 +228,5 @@ export default function PromotionChecker({ open, onClose, config, mutate, user, 
           </div>
         )}
       </div>
-    </Modal>
   );
 }
-
-export { Award };
