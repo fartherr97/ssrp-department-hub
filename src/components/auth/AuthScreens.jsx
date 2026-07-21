@@ -3,16 +3,31 @@ import { LogIn } from "lucide-react";
 import Logo from "../common/Logo.jsx";
 import { Button, BrandName } from "../common/index.jsx";
 import { getIcon } from "../../lib/icons.js";
-import { safeLinkUrl } from "../../lib/urls.js";
+import { safeLinkUrl, safeMediaUrl } from "../../lib/urls.js";
 
 // ─── Loading ─────────────────────────────────────────────────────────────────
 
+// A single, calm department-style loading screen: the brand logo (only when a
+// real one is set — never a placeholder initial, which used to flash a "D"
+// before the config loaded) above a spinning circle.
 export function LoadingScreen({ branding }) {
+  const logo = safeMediaUrl(branding?.logoUrl);
   return (
     <div className="flex min-h-screen items-center justify-center bg-[var(--color-body-bg)] text-white">
-      <div className="flex flex-col items-center gap-4">
-        <Logo branding={branding} size={56} className="animate-pulse" />
-        <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--color-text-muted)]">
+      <div className="flex flex-col items-center gap-5">
+        {logo && (
+          <img
+            src={logo}
+            alt=""
+            className="h-14 w-14 rounded-xl object-contain"
+            onError={(e) => (e.currentTarget.style.display = "none")}
+          />
+        )}
+        <span
+          className="h-9 w-9 animate-spin rounded-full border-2 border-white/15 border-t-[var(--color-primary)]"
+          aria-hidden="true"
+        />
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-muted)]">
           Loading…
         </p>
       </div>
