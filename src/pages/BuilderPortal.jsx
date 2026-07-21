@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Palette, LayoutList, Users, Database, Check, Compass, Undo2, BookOpen, Webhook } from "lucide-react";
+import { Palette, LayoutList, Users, Database, Check, Compass, Undo2, Redo2, BookOpen, Webhook } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
 import { canManageSite } from "../lib/permissions.js";
 import { getSubPagePath, buildSubPath } from "../lib/navigation.js";
@@ -25,7 +25,7 @@ const TABS = [
 ];
 
 export default function BuilderPortal({ user, page }) {
-  const { config, saving, undo, canUndo } = useConfig();
+  const { config, saving, undo, canUndo, redo, canRedo } = useConfig();
   const allowed = canManageSite(user, config);
   const tabs = allowed ? TABS : [];
   // Tabs are routable: /builder/branding, /builder/pages, …
@@ -68,6 +68,15 @@ export default function BuilderPortal({ user, page }) {
             title={canUndo ? "Revert the most recent change" : "Nothing to undo yet"}
           >
             Undo
+          </Button>
+          <Button
+            variant="secondary"
+            icon={Redo2}
+            onClick={redo}
+            disabled={!canRedo}
+            title={canRedo ? "Re-apply the change you just undid" : "Nothing to redo"}
+          >
+            Redo
           </Button>
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${

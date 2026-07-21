@@ -116,10 +116,13 @@ export async function saveConfig(departmentId, config) {
 
 export async function loadAudit(departmentId, limit = 1000) {
   const db = getPool();
+  // Inline the (server-controlled, integer) LIMIT rather than binding it: some
+  // MySQL/MariaDB setups reject a bound parameter in LIMIT.
+  const n = Math.max(1, Math.min(5000, Number(limit) || 1000));
   const [rows] = await db.query(
     `SELECT entry FROM audit_log WHERE department_id = ?
-     ORDER BY id DESC LIMIT ?`,
-    [departmentId, limit]
+     ORDER BY id DESC LIMIT ${n}`,
+    [departmentId]
   );
   return rows.map((r) => (typeof r.entry === "string" ? JSON.parse(r.entry) : r.entry));
 }
@@ -135,13 +138,33 @@ export async function appendAudit(departmentId, entry) {
 
 // ─── Version history (config snapshots) ──────────────────────────────────────
 
+// Defensively (re)create the snapshots table — so version history works even
+// if the initial migrate() didn't run or was interrupted on this deploy.
+async function ensureVersionsTable() {
+  const db = getPool();
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS config_versions (
+      id            BIGINT AUTO_INCREMENT PRIMARY KEY,
+      department_id VARCHAR(64) NOT NULL,
+      snapshot      JSON        NOT NULL,
+      actor         JSON        NULL,
+      category      VARCHAR(32) NULL,
+      action        VARCHAR(255) NULL,
+      created_at    TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_ver_dept_created (department_id, created_at)
+    )
+  `);
+}
+
 export async function loadVersions(departmentId, limit = 100) {
   const db = getPool();
+  await ensureVersionsTable();
+  const n = Math.max(1, Math.min(1000, Number(limit) || 100));
   const [rows] = await db.query(
     `SELECT id, snapshot, actor, category, action, created_at
      FROM config_versions WHERE department_id = ?
-     ORDER BY id DESC LIMIT ?`,
-    [departmentId, limit]
+     ORDER BY id DESC LIMIT ${n}`,
+    [departmentId]
   );
   return rows.map((r) => ({
     id: String(r.id),
@@ -155,6 +178,7 @@ export async function loadVersions(departmentId, limit = 100) {
 
 export async function appendVersion(departmentId, version) {
   const db = getPool();
+  await ensureVersionsTable();
   // Truncate to the column widths so a long action/category (e.g. a page or
   // event with a very long name) can never fail the INSERT in strict mode and
   // silently lose the snapshot.

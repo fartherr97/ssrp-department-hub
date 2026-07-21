@@ -41,6 +41,10 @@ export function ConfigProvider({ children }) {
   const historyRef = useRef([]);
   const lastSnapAt = useRef(0);
   const [undoDepth, setUndoDepth] = useState(0);
+  // Redo stack: configs popped by an undo, so an undo can be reversed. Cleared
+  // as soon as a fresh edit happens (that edit branches the history).
+  const redoRef = useRef([]);
+  const [redoDepth, setRedoDepth] = useState(0);
 
   // Fetch (or re-fetch) the config from the data layer and load it into state.
   // Called once on mount, and again on every auth change: the backend tailors
@@ -121,6 +125,11 @@ export function ConfigProvider({ children }) {
   // feel stuck on save), so we keep it in-memory only.
   const trackChange = useCallback((prev) => {
     if (!prev) return;
+    // A fresh edit invalidates any pending redo (we've branched off it).
+    if (redoRef.current.length) {
+      redoRef.current = [];
+      setRedoDepth(0);
+    }
     const now = Date.now();
     const sameBurst = now - lastSnapAt.current < HISTORY_STEP_GAP;
     lastSnapAt.current = now;
@@ -131,15 +140,37 @@ export function ConfigProvider({ children }) {
     writeJSON(HISTORY_KEY, historyRef.current);
   }, []);
 
-  // Revert to the most recent snapshot. Returns true if something was undone.
+  // Revert to the most recent snapshot, stashing the current state so the undo
+  // can be reversed with redo(). Returns true if something was undone.
   const undo = useCallback(() => {
     const prev = historyRef.current.pop();
     if (!prev) return false;
     setUndoDepth(historyRef.current.length);
     writeJSON(HISTORY_KEY, historyRef.current);
     lastSnapAt.current = 0; // the next edit starts a fresh undo step
-    setConfigState(prev);
+    setConfigState((current) => {
+      redoRef.current = [...redoRef.current, current].slice(-HISTORY_LIMIT);
+      setRedoDepth(redoRef.current.length);
+      return prev;
+    });
     persist(prev);
+    return true;
+  }, [persist]);
+
+  // Re-apply the most recently undone state. The current state goes back onto
+  // the undo stack, so undo/redo can be toggled freely. Returns true if it did.
+  const redo = useCallback(() => {
+    const next = redoRef.current.pop();
+    if (next === undefined) return false;
+    setRedoDepth(redoRef.current.length);
+    lastSnapAt.current = 0;
+    setConfigState((current) => {
+      historyRef.current = [...historyRef.current, current].slice(-HISTORY_LIMIT);
+      setUndoDepth(historyRef.current.length);
+      if (!isLargeConfig(current)) writeJSON(HISTORY_KEY, historyRef.current);
+      return next;
+    });
+    persist(next);
     return true;
   }, [persist]);
 
@@ -180,6 +211,8 @@ export function ConfigProvider({ children }) {
         reload,
         undo,
         canUndo: undoDepth > 0,
+        redo,
+        canRedo: redoDepth > 0,
       }}
     >
       {children}
