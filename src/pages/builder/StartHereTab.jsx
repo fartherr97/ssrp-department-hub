@@ -1,9 +1,7 @@
-import { useState } from "react";
-import { Check, ArrowRight, Palette, LayoutList, Users, Database, Shield, Save, Paintbrush, UserSquare2, Sparkles } from "lucide-react";
+import { Check, ArrowRight, Palette, LayoutList, Users, Database, Shield, Save, Paintbrush, UserSquare2 } from "lucide-react";
 import { useConfig } from "../../lib/configContext.jsx";
 import { defaultConfig } from "../../config/defaultConfig.js";
-import { TEMPLATES } from "../../config/templates.js";
-import { Panel, SectionHeader, Button, ConfirmDialog } from "../../components/common/index.jsx";
+import { Panel, SectionHeader, Button } from "../../components/common/index.jsx";
 
 /*
  * The Builder's landing tab, a plain-English guide for Department Heads with
@@ -113,8 +111,7 @@ const GOOD_TO_KNOW = [
 ];
 
 export default function StartHereTab({ goTo }) {
-  const { config, replaceConfig } = useConfig();
-  const [confirmTemplate, setConfirmTemplate] = useState(null);
+  const { config } = useConfig();
   const items = buildChecklist(config);
   const doneCount = items.filter((i) => i.done).length;
 
@@ -143,47 +140,6 @@ export default function StartHereTab({ goTo }) {
         </p>
       </Panel>
 
-      <Panel className="p-5">
-        <SectionHeader
-          title="Starter templates"
-          subtitle="Optional head start: apply a themed setup, colors, ranks, subdivisions, and a starter SOPs page, then make it yours."
-        />
-        <div className="grid gap-3 sm:grid-cols-3">
-          {TEMPLATES.map((t) => (
-            <div
-              key={t.id}
-              className="flex flex-col rounded-xl border border-white/10 bg-[var(--color-surface-2)] p-4"
-            >
-              <div className="mb-2 flex items-center gap-2">
-                <span className="flex -space-x-1">
-                  {t.swatch.map((c) => (
-                    <span
-                      key={c}
-                      className="h-4 w-4 rounded-full border border-white/20"
-                      style={{ background: c }}
-                    />
-                  ))}
-                </span>
-                <span className="text-sm font-bold text-white">{t.label}</span>
-              </div>
-              <p className="flex-1 text-xs leading-relaxed text-slate-400">{t.desc}</p>
-              <Button
-                variant="secondary"
-                icon={Sparkles}
-                className="mt-3 !py-1.5 text-xs"
-                onClick={() => setConfirmTemplate(t)}
-              >
-                Use this template
-              </Button>
-            </div>
-          ))}
-        </div>
-        <p className="mt-3 text-xs text-slate-500">
-          Applying a template replaces your current setup (you can restore a prior version from
-          the Audit Log, and a backup can be downloaded first under Backup &amp; Restore). Roster
-          members are not carried over.
-        </p>
-      </Panel>
 
       <Panel className="p-5">
         <SectionHeader
@@ -283,18 +239,6 @@ export default function StartHereTab({ goTo }) {
           })}
         </div>
       </Panel>
-
-      <ConfirmDialog
-        open={Boolean(confirmTemplate)}
-        title={`Apply the ${confirmTemplate?.label} template?`}
-        message="This replaces your current branding, pages, and roster structure with the template. You can restore a prior version from Audit Log → Version history, but downloading a backup first (Backup & Restore) is the safest."
-        confirmLabel="Apply template"
-        onCancel={() => setConfirmTemplate(null)}
-        onConfirm={() => {
-          replaceConfig(confirmTemplate.build());
-          setConfirmTemplate(null);
-        }}
-      />
     </div>
   );
 }

@@ -212,6 +212,36 @@ export function configRouter() {
     }
   });
 
+  // Whole-config restore (backup file or version-history snapshot). This is a
+  // deliberate manager-only "replace everything" action, so it does NOT run the
+  // per-section edit checks that guard ordinary saves — re-adding groups and
+  // their capabilities is the whole point and must not be rejected. Manage-site
+  // is required (same tier that can view/restore version history).
+  router.put(
+    "/config/restore",
+    requireAuth,
+    async (req, res, next) => {
+      try {
+        const incoming = req.body;
+        if (!incoming || typeof incoming !== "object" || Array.isArray(incoming)) {
+          return res.status(400).json({ ok: false, error: "Config must be an object" });
+        }
+        if (Buffer.byteLength(JSON.stringify(incoming)) > MAX_CONFIG_BYTES) {
+          return res.status(413).json({ ok: false, error: "Config too large" });
+        }
+        const departmentId = req.departmentId || resolveDepartmentId(req);
+        const current = await currentConfig(departmentId);
+        if (!canManageSite(req.user, current)) {
+          return res.status(403).json({ ok: false, error: "Restoring requires Manage Site" });
+        }
+        const saved = await saveConfig(departmentId, incoming);
+        res.json({ ok: true, data: saved });
+      } catch (err) {
+        next(err);
+      }
+    }
+  );
+
   return router;
 }
 

@@ -105,16 +105,21 @@ export function ConfigProvider({ children }) {
     }
   }, [brandName, brandLogo]);
 
-  const persist = useCallback((next) => {
+  const persist = useCallback((next, opts = {}) => {
     setSaving(true);
     clearTimeout(saveTimer.current);
-    // Debounce so rapid edits (sliders, typing) don't thrash storage/the API.
+    // Restores (whole-config replace) save immediately and via the manager-only
+    // restore endpoint, which bypasses the per-section edit checks; ordinary
+    // edits debounce so rapid changes (sliders, typing) don't thrash the API.
     saveTimer.current = setTimeout(() => {
       // Record who changed what (net change since the last save), then persist.
       audit.recordChange(lastSavedRef.current, next);
       lastSavedRef.current = next;
-      api.saveConfig(next).finally(() => setSaving(false));
-    }, 300);
+      api
+        .saveConfig(next, opts)
+        .catch((e) => console.error("[config] save failed:", e?.message || e))
+        .finally(() => setSaving(false));
+    }, opts.restore ? 0 : 300);
   }, []);
 
   // Push an undo snapshot of `prev`. Edits made within HISTORY_STEP_GAP of each
@@ -153,7 +158,7 @@ export function ConfigProvider({ children }) {
       setRedoDepth(redoRef.current.length);
       return prev;
     });
-    persist(prev);
+    persist(prev, { restore: true });
     return true;
   }, [persist]);
 
@@ -170,18 +175,20 @@ export function ConfigProvider({ children }) {
       if (!isLargeConfig(current)) writeJSON(HISTORY_KEY, historyRef.current);
       return next;
     });
-    persist(next);
+    persist(next, { restore: true });
     return true;
   }, [persist]);
 
-  // Replace the whole config.
+  // Replace the whole config (backup restore, version-history restore). Saved
+  // via the restore endpoint so re-adding groups/capabilities isn't blocked by
+  // the granular edit checks.
   const replaceConfig = useCallback(
     (next) => {
       setConfigState((prev) => {
         trackChange(prev);
         return next;
       });
-      persist(next);
+      persist(next, { restore: true });
     },
     [persist, trackChange]
   );

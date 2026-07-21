@@ -214,9 +214,14 @@ export async function getConfig() {
   return stripRemovedLogTypes(ensureSystemPages(raw));
 }
 
-export async function saveConfig(config) {
+// opts.restore: a wholesale replace (backup / version restore). It goes to the
+// manager-only restore endpoint that bypasses the per-section edit checks, so
+// re-adding groups and capabilities isn't rejected as "a permission you don't
+// have" (that guard is for targeted edits by limited editors, not restores).
+export async function saveConfig(config, opts = {}) {
   if (USE_BACKEND) {
-    return http("/config", { method: "PUT", body: JSON.stringify(config) });
+    const path = opts.restore ? "/config/restore" : "/config";
+    return http(path, { method: "PUT", body: JSON.stringify(config) });
   }
   const next = { ...config, version: CONFIG_VERSION };
   writeJSON(CONFIG_KEY, next);
