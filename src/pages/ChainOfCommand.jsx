@@ -44,24 +44,46 @@ function newNode(title = "New Position") {
 
 
 // ── Auto-import an org chart from the roster ─────────────────────────────────
-// Builds a COMPACT leadership pyramid, not the whole roster: it takes only the
-// top few rank tiers (Colonel → Captains for a typical dept) so the chart stays
-// readable and the rest is filled in by hand. Ranks are grouped into tiers by
-// their base name (rank order = seniority), and each box is placed under the
-// senior in the tier above that shares the most of its "position" words — so a
-// "Captain - Patrol Operations A" lands under "Major - Operations Bureau" rather
-// than scattering. Unmatched boxes go under the first senior, keeping a bureau's
-// units together instead of round-robining them across the chart.
-
-// How many rank tiers to import. Keeps the auto-chart a compact top-of-house
-// pyramid; editors grow the lower ranks manually from there.
-const MAX_IMPORT_TIERS = 4;
+// Imports the WHOLE roster (down to the lowest line rank), organized cleanly:
+//   • Ranks are read as "{Grade} - {Assignment}" (e.g. "Staff Sergeant - Alpha
+//     Troop"), which is how the roster encodes units. The grade sets seniority,
+//     the assignment sets the unit.
+//   • Leadership grades (Sergeant and up) each get their own box, nested under
+//     the senior box whose assignment shares the most words.
+//   • Rank-and-file grades (Corporals, Troopers, Officers…) don't get their own
+//     boxes — they're listed inside their unit's box, senior-first, just like
+//     the Cpl/Trooper columns at the bottom of an org sheet.
+//   • Recruits and Applicants are left out (nothing below the line ranks).
+// Unmatched boxes go under the nearest senior; editors drag them into place.
 
 const baseOf = (name) => String(name || "").split(" - ")[0].trim();
 const positionOf = (name) => {
   const i = String(name || "").indexOf(" - ");
   return i >= 0 ? name.slice(i + 3).trim().toLowerCase() : "";
 };
+
+// A rank's grade "family" is its last word ("Master Sergeant" → "sergeant"), so
+// Staff/Master/Senior variants share one tier instead of splintering.
+const familyOf = (grade) => String(grade || "").trim().toLowerCase().split(/\s+/).pop() || "";
+// Grades left out of the chart entirely (Recruits, Applicants).
+const EXEMPT_RE = /\b(recruit|applicant)\b/i;
+// "Line" grades: the rank-and-file listed inside a unit box rather than getting
+// their own box. Matched anywhere in the grade so "Master Trooper" and "Trooper
+// First Class" both count. Everything else (Sergeant and up) is leadership.
+const LINE_RE = /\b(trooper|officer|deputy|corporal|constable|patrolman|cadet)\b/i;
+
+// Compact rank prefixes for the member lists ("Corporal" → "Cpl.").
+const GRADE_ABBR = [
+  [/master sergeant/i, "M.Sgt."], [/staff sergeant/i, "S.Sgt."], [/sergeant/i, "Sgt."],
+  [/master corporal/i, "M.Cpl."], [/senior corporal/i, "Sr.Cpl."], [/corporal/i, "Cpl."],
+  [/lt\.?\s*colonel/i, "Lt.Col."], [/colonel/i, "Col."], [/major/i, "Maj."],
+  [/captain/i, "Capt."], [/lieutenant/i, "Lt."], [/trooper/i, "Tpr."],
+  [/officer/i, "Ofc."], [/deputy/i, "Dep."], [/detective/i, "Det."],
+];
+function abbrevGrade(grade) {
+  for (const [re, ab] of GRADE_ABBR) if (re.test(grade)) return ab;
+  return grade;
+}
 
 // The distinguishing words of a position ("patrol operations a" → patrol,
 // operations). Only bare connectors are dropped — unlike the old matcher we KEEP
@@ -110,60 +132,151 @@ export function buildTreeFromRoster(config, subId) {
   const sub = subs.find((s) => s.id === subId) || subs.find((s) => s.main) || subs[0];
   if (!sub) return { root: null, count: 0, subName: "" };
 
-  const holdersByRank = new Map();
+  // Rank id → { name, idx } where idx is the rank's position in the ordered list
+  // (0 = most senior). Resolves a member's snapshotted grade/assignment.
+  const rankById = new Map((sub.ranks || []).map((r, i) => [r.id, { name: r.name || "", idx: i }]));
+
+  // Every filled, non-exempt member, parsed into grade / assignment / seniority.
+  const people = [];
   for (const cat of sub.categories || [])
-    for (const m of cat.members || [])
-      if (m.rank) {
-        if (!holdersByRank.has(m.rank)) holdersByRank.set(m.rank, []);
-        holdersByRank.get(m.rank).push(m.name || "Unnamed");
-      }
-  const withHolders = (sub.ranks || []).filter((r) => (holdersByRank.get(r.id) || []).length);
-  if (!withHolders.length) return { root: null, count: 0, subName: sub.name };
-
-  // Group the held ranks into tiers by base rank name (seniority order), then
-  // keep only the top few so the chart stays a compact leadership pyramid.
-  const tiers = [];
-  let curBase = null;
-  for (const r of withHolders) {
-    const base = baseOf(r.name);
-    if (base !== curBase) {
-      tiers.push([]);
-      curBase = base;
+    for (const m of cat.members || []) {
+      if (!m.name || !m.rank) continue;
+      const info = rankById.get(m.rank);
+      const rankName = info?.name || "";
+      const grade = baseOf(rankName);
+      if (!grade || EXEMPT_RE.test(grade)) continue;
+      people.push({
+        name: m.name, grade, family: familyOf(grade), line: LINE_RE.test(grade),
+        assignment: positionOf(rankName), // "" for command staff / plain ranks
+        fields: m.fields || {},
+        idx: info ? info.idx : Number.MAX_SAFE_INTEGER,
+      });
     }
-    tiers[tiers.length - 1].push(r);
-  }
-  const kept = tiers.slice(0, MAX_IMPORT_TIERS);
+  if (!people.length) return { root: null, count: 0, subName: sub.name };
 
-  const mk = (title, holders) => ({
-    id: uid("node"),
-    title,
-    name: holders.length === 1 ? holders[0] : "",
-    color: "",
-    imageUrl: "",
-    members: holders.length > 1 ? holders : [],
-    children: [],
+  // A member's unit can be in the rank suffix ("Corporal - Alpha Troop") OR, for
+  // troopers, in a column ("troop" = "Alpha"). Auto-detect which column that is
+  // by finding the field whose values line up best with the words that appear in
+  // leadership assignments — so we use the real troop/division column and ignore
+  // noise like callsigns, dates, and status.
+  const leadAssignWords = new Set();
+  for (const p of people) if (!p.line) for (const w of positionWords(p.assignment)) leadAssignWords.add(w);
+  const fieldScore = new Map();
+  for (const p of people)
+    for (const [k, v] of Object.entries(p.fields))
+      if (typeof v === "string")
+        for (const w of positionWords(v)) if (leadAssignWords.has(w)) fieldScore.set(k, (fieldScore.get(k) || 0) + 1);
+  const unitField = [...fieldScore.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+
+  // Unit words per member: the rank-suffix assignment, else (for line members)
+  // the detected unit column's value.
+  for (const p of people) {
+    p.unitWords = new Set(positionWords(p.assignment));
+    if (p.line && !p.unitWords.size && unitField) {
+      for (const w of positionWords(String(p.fields[unitField] || ""))) p.unitWords.add(w);
+    }
+  }
+
+  // Order grade families by seniority (their most-senior holder's rank index).
+  const famBest = new Map();
+  for (const p of people) if (!famBest.has(p.family) || p.idx < famBest.get(p.family)) famBest.set(p.family, p.idx);
+  const families = [...famBest.entries()].sort((a, b) => a[1] - b[1]).map(([f]) => f);
+  const famLevel = new Map(families.map((f, i) => [f, i]));
+  // Troopers list plainly; other line grades (Corporals) keep a short prefix.
+  const memberLine = (p) => (/trooper/i.test(p.grade) ? p.name : `${abbrevGrade(p.grade)} ${p.name}`);
+  const overlap = (a, b) => { let n = 0; for (const w of a) if (b.has(w)) n++; return n; };
+  const titleCase = (s) => String(s || "").replace(/\b\w/g, (c) => c.toUpperCase());
+  const boxTitle = (grade, assignment) => `${grade} - ${titleCase(assignment)}`;
+
+  const mk = (title, name, members = []) => ({
+    id: uid("node"), title, name: name || "", color: "", imageUrl: "", members, children: [],
   });
 
-  const root = mk(sub.name || "Command", []);
-  let count = 1;
-  let seniors = [root];
+  const leadership = people.filter((p) => !p.line);
+  const line = people.filter((p) => p.line);
+  let count = 0;
 
-  for (const tier of kept) {
-    const nodes = tier.map((r) => {
+  // Command staff (a grade with no assignment, e.g. Colonel) forms a straight
+  // chain at the very top, senior first.
+  const command = leadership.filter((p) => !p.assignment).sort((a, b) => a.idx - b.idx);
+  let root = null, tail = null;
+  for (const p of command) {
+    const node = mk(p.grade, p.name);
+    count++;
+    if (!root) { root = node; } else { tail.children.push(node); }
+    tail = node;
+  }
+  if (!root) { root = mk(sub.name || "Command", ""); tail = root; count = 1; }
+
+  // One box per assigned leadership rank (grade + assignment). Same exact rank
+  // held by several people → one box, extras listed as members.
+  const boxByRank = new Map(); // "grade|assignment" → box meta
+  for (const p of leadership.filter((x) => x.assignment)) {
+    const key = `${p.grade}|${p.assignment}`;
+    let entry = boxByRank.get(key);
+    if (!entry) {
+      const node = mk(boxTitle(p.grade, p.assignment), p.name);
+      entry = { node, assignment: p.assignment, unitWords: p.unitWords, level: famLevel.get(p.family), leaderIdx: p.idx };
+      boxByRank.set(key, entry);
       count++;
-      // Auto-link each imported box to its rank so it stays live: rename or
-      // reassign the holder on the roster and the chart follows. The copied
-      // name/members stay as a fallback if the rank is later deleted.
-      return { ...mk(r.name, holdersByRank.get(r.id) || []), link: { subId: sub.id, kind: "rank", rankId: r.id } };
-    });
-    tier.forEach((r, i) => {
-      // A single senior owns the whole tier below it (boxes fan out as siblings);
-      // with several seniors, group each box under the best bureau/troop match.
-      let parent = seniors.length > 1 ? bestSeniorFor(seniors, positionOf(r.name)) : null;
-      if (!parent) parent = seniors[0];
-      parent.children.push(nodes[i]);
-    });
-    seniors = nodes;
+    } else if (p.idx < entry.leaderIdx) {
+      entry.node.members.unshift(memberLine({ ...p }));
+      entry.node.name = p.name; entry.leaderIdx = p.idx;
+    } else {
+      entry.node.members.push(memberLine(p));
+    }
+  }
+  const boxes = [...boxByRank.values()];
+
+  // Attach each rank-and-file member to the leadership box whose unit words
+  // overlap theirs most (so "Alpha" troopers land under "Alpha Troop"); ties go
+  // to the most junior box (their direct supervisor). No overlap → orphaned.
+  const orphans = [];
+  for (const p of line.sort((a, b) => a.idx - b.idx)) {
+    let best = null, bestScore = 0;
+    for (const b of boxes) {
+      const s = overlap(p.unitWords, b.unitWords);
+      if (s > bestScore || (s === bestScore && s > 0 && best && b.level > best.level)) { best = b; bestScore = s; }
+    }
+    if (best && bestScore > 0) best.node.members.push(memberLine(p));
+    else orphans.push(p);
+  }
+  // Anything unmatched (a unit with no supervisor at all) is grouped by its unit
+  // words into its own box, led by the senior member; truly unassigned members
+  // fall into one "Unassigned" box.
+  const orphanGroups = new Map();
+  for (const p of orphans) {
+    const key = [...p.unitWords].sort().join(" ") || "unassigned";
+    if (!orphanGroups.has(key)) orphanGroups.set(key, []);
+    orphanGroups.get(key).push(p);
+  }
+  for (const [key, list] of orphanGroups) {
+    list.sort((a, b) => a.idx - b.idx);
+    const leader = list[0];
+    const label = key === "unassigned"
+      ? "Unassigned"
+      : key.replace(/\b\w/g, (c) => c.toUpperCase());
+    const node = mk(label, leader.name, list.slice(1).map(memberLine));
+    boxes.push({ node, assignment: key === "unassigned" ? "" : key, unitWords: leader.unitWords, level: famLevel.get(leader.family), leaderIdx: leader.idx });
+    count++;
+  }
+
+  // Place boxes tier by tier (senior grade first); each lands under the senior
+  // box whose assignment shares the most words, else the first senior.
+  boxes.sort((a, b) => a.level - b.level || a.leaderIdx - b.leaderIdx);
+  const byLevel = new Map();
+  for (const b of boxes) {
+    if (!byLevel.has(b.level)) byLevel.set(b.level, []);
+    byLevel.get(b.level).push(b);
+  }
+  let seniors = [tail]; // start under the command-staff chain
+  for (const level of [...byLevel.keys()].sort((a, b) => a - b)) {
+    const here = byLevel.get(level);
+    for (const b of here) {
+      const parent = (seniors.length > 1 ? bestSeniorFor(seniors, b.assignment) : null) || seniors[0] || tail;
+      parent.children.push(b.node);
+    }
+    seniors = here.map((b) => b.node);
   }
   return { root, count, subName: sub.name };
 }
@@ -937,7 +1050,7 @@ export default function ChainOfCommand({ page, user }) {
     if (root) setConfirmImport(built); // replacing an existing chart → confirm
     else {
       setRoot(built.root);
-      setZoom(1); // compact chart fits at full size
+      setZoom(0.4); // the full roster is wide — start zoomed out
     }
   }
 
@@ -1144,14 +1257,14 @@ export default function ChainOfCommand({ page, user }) {
       <ConfirmDialog
         open={Boolean(confirmImport)}
         title="Import from roster?"
-        message={`Replace the current chart with ${confirmImport?.count || 0} boxes: the top leadership tiers of ${
+        message={`Replace the current chart with ${confirmImport?.count || 0} boxes built from ${
           confirmImport?.subName || "the roster"
-        } (down to captains), grouped by bureau or troop. It's a compact starting pyramid, add the lower ranks by hand or drag boxes to rearrange.`}
+        }: everyone down to Trooper (Recruits and Applicants left out), with each unit's rank-and-file listed inside its supervisor's box. Units are nested where their names line up; drag boxes to arrange the rest (e.g. which troop sits under which lieutenant).`}
         confirmLabel="Import & replace"
         onCancel={() => setConfirmImport(null)}
         onConfirm={() => {
           setRoot(confirmImport.root);
-          setZoom(1); // compact chart fits at full size
+          setZoom(0.4); // the full roster is wide — start zoomed out
           setConfirmImport(null);
         }}
       />
