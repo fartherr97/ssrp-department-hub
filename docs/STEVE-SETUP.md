@@ -108,11 +108,9 @@ Set these on the **app** service (Railway → Settings → Variables, or your
 | `BOT_SYNC_SECRET_MAP` | per-department bot secrets: `fhp=secretA,tpd=secretB`. Prefer this over a single global secret so one leak can't write every tenant. |
 | `DEV_LOGIN_ENABLED` | **leave OFF/blank in production.** Only turn on temporarily for the seeding trick in §4b, then turn it back off. |
 
-> **Build-time flag:** the front-end must be built with `VITE_USE_BACKEND=true`
-> so it calls the API instead of a local mock. On Railway, service Variables are
-> available at build time, so just add `VITE_USE_BACKEND=true` as a Variable and
-> it's inlined when `npm run build` runs. (If you build locally/CI, export it
-> before `npm run build`.)
+> **No build-time flags.** The front-end always talks to the Express + MariaDB
+> API (there's no localStorage mock to toggle), so `npm run build` needs no
+> special env vars — just build and start.
 
 ---
 
@@ -202,7 +200,7 @@ manage everything else in the UI.
 
 ### On Railway
 1. Two services in one project: the **MySQL** database (§1) and this **app**.
-2. Set the app's Variables (§2), including `VITE_USE_BACKEND=true`.
+2. Set the app's Variables (§2).
 3. `railway.json` already sets build = `npm run build`, start = `npm start`.
    Railway runs `npm install → npm run build → npm start` and injects `PORT`.
 4. Add the Discord redirect (§3a), seed access (§4), deploy, visit the app URL,
@@ -211,7 +209,7 @@ manage everything else in the UI.
 ### On your own box
 ```bash
 npm install
-VITE_USE_BACKEND=true npm run build   # builds the front-end into dist/
+npm run build                         # builds the front-end into dist/
 npm start                             # serves dist/ + /api + /auth on PORT (default 3003)
 ```
 Put it behind your reverse proxy (TLS terminating), set `TRUST_PROXY` to the
@@ -268,7 +266,6 @@ You don't configure these — they're baked in — but you should know them:
 - [ ] Tables `department_config`, `audit_log`, `config_versions`, `sessions`
       exist (auto-created).
 - [ ] `NODE_ENV=production`, `SESSION_SECRET` strong, `TRUST_PROXY=1` on Railway.
-- [ ] `VITE_USE_BACKEND=true` was set when the build ran.
 - [ ] Discord redirect URI matches `DISCORD_CALLBACK_URL` exactly.
 - [ ] `auth.roleMappings` seeded with Director Team + Management team → `management`.
 - [ ] `DEV_LOGIN_ENABLED` is OFF.
