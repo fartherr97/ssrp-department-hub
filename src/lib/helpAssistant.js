@@ -24,7 +24,7 @@ const SECURITY_PATTERNS = [
 const DEFLECTION =
   "I'm here to help you build and run the hub, so I can't get into anything about " +
   "security, credentials, or how the site is protected. If you have a security " +
-  "question or concern, please reach out to your department head or Steve directly.";
+  "question or concern, please reach out to your department head or a site administrator.";
 
 const GREETING =
   "Hi! I'm the Hub Assistant. Tell me what you're trying to do — for example " +

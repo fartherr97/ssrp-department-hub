@@ -7,8 +7,8 @@ import { Panel, PageHeader, EmptyState } from "../components/common/index.jsx";
 
 /*
  * Duty hours dashboard. On-duty time comes from the external Duty Hub (the
- * backend serves GET /api/hours; the mock synthesizes it). We join those hours
- * to roster members for rank + callsign, and count strikes from the admin logs,
+ * backend serves GET /api/hours). We join those hours to roster members for rank
+ * + callsign, and count strikes from the admin logs,
  * so command can see name / rank / callsign / hours / strikes in one place — and
  * a weekly leaderboard for the hours prize.
  */
@@ -208,9 +208,7 @@ export default function DutyHours({ page }) {
           </div>
 
           <p className="px-1 text-[11px] text-slate-600">
-            {feed?.source === "mock"
-              ? "Showing sample hours. Connect the Duty Hub feed (backend) for live numbers."
-              : updated
+            {updated
               ? `Hours synced from the Duty Hub · updated ${updated}`
               : "Hours from the Duty Hub."}
           </p>

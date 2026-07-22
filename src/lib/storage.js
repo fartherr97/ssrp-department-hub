@@ -1,5 +1,7 @@
 /*
- * Tiny localStorage wrapper used by the front-end-only mock backend.
+ * Tiny localStorage wrapper for client-only persistence (e.g. the Builder
+ * Portal's undo/redo history — see configContext.jsx). All app data lives on the
+ * backend; this is just for browser-local UI state.
  * Safe against quota errors, JSON parse failures, and SSR (no window).
  */
 

@@ -51,8 +51,6 @@ export const defaultConfig = {
     roleMappings: [
       // { roleId: "1234", roleName: "Command Staff", group: "command" },
     ],
-    // Lets you preview the hub as any role without a backend (front-end demo).
-    devLoginEnabled: true,
   },
 
   /*
@@ -64,8 +62,8 @@ export const defaultConfig = {
     // Each group carries capability flags + an explicit member list. A member's
     // role is "member" or "manager" (managers can add/remove that group's
     // people). You can only administer groups at or below your own level.
-    { id: "dept-heads", label: "Department Heads", level: 4, manageSite: true, manageAccess: true, editRoster: true, editSubdivisions: true, manageCalendar: true, manageLogs: true, members: [] },
-    { id: "management", label: "Management", level: 3, manageSite: true, manageAccess: true, editRoster: true, editSubdivisions: true, manageCalendar: true, manageLogs: true, members: [] },
+    { id: "dept-heads", label: "Department Heads", level: 4, manageSite: true, manageAccess: true, editRoster: true, editSubdivisions: true, manageCalendar: true, manageLogs: true, viewAuditLog: true, viewVersionHistory: true, members: [] },
+    { id: "management", label: "Management", level: 3, manageSite: true, manageAccess: true, editRoster: true, editSubdivisions: true, manageCalendar: true, manageLogs: true, viewAuditLog: true, viewVersionHistory: true, members: [] },
     { id: "command", label: "Command Staff", level: 2, manageSite: false, manageAccess: false, editRoster: true, editSubdivisions: true, manageCalendar: true, manageLogs: true, members: [] },
     { id: "subdivisions", label: "Subdivisions", level: 1, manageSite: false, manageAccess: false, editRoster: false, editSubdivisions: true, manageCalendar: false, manageLogs: false, members: [] },
   ],
@@ -85,34 +83,10 @@ export const defaultConfig = {
       icon: "Home",
       type: "home",
       config: {
-        heroKicker: "Welcome",
-        heroTitle: "Welcome to the Department Hub",
-        heroSubtitle:
-          "This is a blank template. Open the Builder Portal to make it your own.",
-        blocks: [
-          {
-            id: "block-getting-started",
-            type: "callout",
-            title: "Getting started",
-            body: "Head to the Builder Portal (Administration → Builder Portal) to set your branding, build out pages, and configure your roster.",
-          },
-          {
-            id: "block-quick-links",
-            type: "links",
-            layout: "cards",
-            columns: "2",
-            kicker: "Quick Access",
-            title: "Quick Resources",
-            allLabel: "All",
-            allUrl: "",
-            items: [
-              { id: "ql-1", label: "Department Discord", url: "#", icon: "MessageCircle" },
-              { id: "ql-2", label: "Standard Operating Procedures", url: "#", icon: "BookOpen" },
-              { id: "ql-3", label: "Roster", url: "#", icon: "Users" },
-              { id: "ql-4", label: "Training", url: "#", icon: "GraduationCap" },
-            ],
-          },
-        ],
+        heroKicker: "",
+        heroTitle: "",
+        heroSubtitle: "",
+        blocks: [],
       },
     },
     {
@@ -130,15 +104,8 @@ export const defaultConfig = {
       type: "content",
       config: {
         heroTitle: "Resources",
-        heroSubtitle: "Documents, guides, and references for the department.",
-        blocks: [
-          {
-            id: "block-resources-intro",
-            type: "text",
-            title: "About this page",
-            body: "Replace this with your department's resources. Add link lists, documents, or notices from the Builder Portal.",
-          },
-        ],
+        heroSubtitle: "",
+        blocks: [],
       },
     },
     {
@@ -230,16 +197,7 @@ export const defaultConfig = {
             name: "Command",
             color: "#f59e0b",
             insigniaUrl: "",
-            members: [
-              {
-                id: "member-1",
-                name: "Jane Doe",
-                rank: "rank-chief",
-                discordId: "",
-                avatarUrl: "",
-                fields: { callsign: "C-1", status: "Active", fto: true, academy: true },
-              },
-            ],
+            members: [],
           },
           {
             id: "cat-supervisor",
@@ -253,16 +211,7 @@ export const defaultConfig = {
             name: "Members",
             color: "#22c55e",
             insigniaUrl: "",
-            members: [
-              {
-                id: "member-2",
-                name: "John Smith",
-                rank: "rank-officer",
-                discordId: "",
-                avatarUrl: "",
-                fields: { callsign: "M-14", status: "Active" },
-              },
-            ],
+            members: [],
           },
         ],
       },

@@ -68,6 +68,39 @@ export function redactSensitive(config) {
   return out;
 }
 
+// Strip the role→group mapping table and the configured guild id. These are
+// access-control metadata only ever needed by the Access & Roles / Builder
+// screens (manage-access and up); a rank-and-file member or a signed-in visitor
+// has no use for them, and exposing them hands an attacker a map of "which
+// Discord role grants which power" plus the guild to target. Applied on top of
+// redactSensitive for non-staff readers.
+export function redactRoleMappings(config) {
+  if (!config || typeof config !== "object" || !config.auth) return config;
+  return { ...config, auth: { ...config.auth, roleMappings: [], discordGuildId: "" } };
+}
+
+// Blank roster members' Discord ids. Members legitimately see these (the roster
+// renders a Discord chip and joins duty hours by id), but a signed-in VISITOR —
+// someone with no group, who can't even open the roster page — should not be
+// able to pull the full member-directory PII out of the raw config document.
+export function redactMemberIds(config) {
+  const subs = config?.roster?.subdivisions;
+  if (!Array.isArray(subs)) return config;
+  return {
+    ...config,
+    roster: {
+      ...config.roster,
+      subdivisions: subs.map((s) => ({
+        ...s,
+        categories: (s.categories || []).map((c) => ({
+          ...c,
+          members: (c.members || []).map((m) => (m.discordId ? { ...m, discordId: "" } : m)),
+        })),
+      })),
+    },
+  };
+}
+
 // Before persisting an incoming config from a non-manager, restore any webhook
 // URL they received redacted (so a routine save can't wipe the real secret). We
 // match pages by id and only touch the redaction sentinel.

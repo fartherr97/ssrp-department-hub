@@ -483,8 +483,8 @@ export function CommaListInput({ value = [], onChange, placeholder, className = 
  * image hosting. Uploaded images are downscaled and stored inline (data URL)
  * in the config; pasting a normal https:// URL still works exactly as before.
  * kind="video" accepts small video files; bigger ones should be linked
- * (YouTube / Discord) since the front-end mock stores everything in the
- * browser. When the real backend lands, the upload path can swap to a POST.
+ * (YouTube / Discord) rather than uploaded, since an inline data URL is stored
+ * in the config document and bloats it.
  */
 const VIDEO_UPLOAD_LIMIT = 2.5 * 1024 * 1024;
 

@@ -137,7 +137,7 @@ function ActiveView({ page, user, config }) {
 
 export default function App() {
   const { config, ready, reload } = useConfig();
-  const { user, checking, devLogin, logout } = useAuth();
+  const { user, checking, logout } = useAuth();
   const [activePageId, setActivePageId] = useState(null);
 
   // Tell the audit log who is currently acting.
@@ -198,7 +198,7 @@ export default function App() {
   }, [activePageId, config]);
 
   if (!ready || checking) return <LoadingScreen branding={config?.branding} />;
-  if (!user) return <LoginScreen config={config} onDevLogin={devLogin} />;
+  if (!user) return <LoginScreen config={config} />;
   // Signed in, but the config in hand may still be the guest subset the backend
   // returns before login (it deliberately omits `pages`). Wait for the reload
   // triggered on the auth change to bring the full, authorized config.

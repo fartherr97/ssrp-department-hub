@@ -62,6 +62,16 @@ export const CAPABILITIES = [
     desc: "Add and manage main-roster members up to a chosen rank ceiling (e.g. Cadet up to Police Officer I), and promote them within that range. Lets training/recruiting supervisors onboard and pass cadets without full roster access. Set the ceiling rank below.",
     hasRankCeiling: true,
   },
+  {
+    key: "viewAuditLog",
+    title: "View & access the audit log",
+    desc: "Open the Audit Log page and see the activity history — who changed what, and the before/after of each change. Read-only oversight; typically Management only.",
+  },
+  {
+    key: "viewVersionHistory",
+    title: "View version history",
+    desc: "See the saved version snapshots (who saved what, and when) on the Audit Log page. Restoring a version still requires Manage site, since a snapshot can re-grant permissions.",
+  },
 ];
 
 export function userGroup(config, user) {
@@ -226,6 +236,21 @@ export function canModerateLogs(user, config) {
   return g.id === "management" || /^management$/i.test(g.label || "");
 }
 
+// Audit Log page — the activity history. A dedicated capability so it can be
+// granted (typically to Management) without handing out roster/site management.
+// Manage site always implies it (via hasCapability's admin short-circuit).
+export function canViewAuditLog(user, config) {
+  return hasCapability(user, config, "viewAuditLog") || canManageSite(user, config);
+}
+
+// Version history (the config snapshots list). Separate from the audit log so the
+// two can be granted independently. Viewing the list is safe (metadata only);
+// RESTORING a snapshot still requires Manage site (see canManageSite), because a
+// restore replaces the whole config and can re-grant permissions.
+export function canViewVersionHistory(user, config) {
+  return hasCapability(user, config, "viewVersionHistory") || canManageSite(user, config);
+}
+
 // Vehicle roster (fleet) pages, main-roster editors and site managers.
 export function canEditFleet(user, config) {
   return hasCapability(user, config, "editRoster") || canManageSite(user, config);
@@ -318,13 +343,10 @@ export function canAccessPage(user, page, config) {
   if (page.type === "help") return canManageSite(user, config);
   if (page.type === "access") return canManageAccess(user, config) || isManagerOfAny(user, config);
   if (page.type === "audit") {
-    // Oversight tool, visible to staff (anyone who can edit or manage).
-    return (
-      canManageSite(user, config) ||
-      canManageAccess(user, config) ||
-      canEditAnyRoster(user, config) ||
-      isManagerOfAny(user, config)
-    );
+    // Gated by the dedicated audit / version-history capabilities (Manage site
+    // implies both). Restricting this to those caps keeps the activity history
+    // out of reach of general staff (roster editors, group managers).
+    return canViewAuditLog(user, config) || canViewVersionHistory(user, config);
   }
   // Content pages may opt in to group restrictions (page.restricted + access
   // list of group ids). Site managers and backend admins always see every page

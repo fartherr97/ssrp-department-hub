@@ -8,11 +8,11 @@ configured from an in-app **Builder Portal**, no code changes required.
 Built with the same stack as the SSRP Staff Hub: **Vite + React + Tailwind**,
 styled with theme CSS variables, designed around **Discord auth** + **MariaDB**.
 
-> **Works with or without a backend.** Every data call goes through a single
-> module (`src/lib/api.js`). Out of the box it's backed by `localStorage`, so the
-> whole app — Builder Portal, roster editing, dev login — runs with no server.
-> An Express + MariaDB backend implementing the documented contract now lives in
-> [`server/`](server/README.md); set `VITE_USE_BACKEND=true` to use it.
+> **Backend-driven.** Every data call goes through a single module
+> (`src/lib/api.js`) that talks to the Express + MariaDB backend in
+> [`server/`](server/README.md) — config, roster, audit, versions, duty hours,
+> and Discord auth all live server-side. The front-end needs that server running
+> to load.
 
 ---
 
@@ -20,12 +20,14 @@ styled with theme CSS variables, designed around **Discord auth** + **MariaDB**.
 
 ```bash
 npm install
-npm run dev
+npm run server   # start the backend (see server/README.md for env + DB)
+npm run dev      # in another terminal — Vite proxies /api + /auth to the server
 ```
 
-Open the app and use **Developer preview** on the login screen to enter as any
-permission group (no Discord needed yet). Sign in as **Administrator** to see
-the **Builder Portal** under *Administration*.
+Sign in with **Discord** on the login screen. A member whose Discord role maps to
+a group with **Manage site** sees the **Builder Portal** under *Administration*.
+For local testing without Discord, the backend exposes a gated `POST
+/auth/dev-login` (set `DEV_LOGIN_ENABLED=true`; never enabled in production).
 
 ## Scripts
 
@@ -113,18 +115,16 @@ custom columns, and drag-to-move members between ranks.
 
 A reference Express + MariaDB server lives in **[`server/`](server/README.md)**
 and implements the entire contract below. It runs as a single service (serves
-the built `dist/` *and* the API), uses passport-discord for auth, and reuses the
+the built `dist/` *and* the API), uses Discord OAuth2 (passport) for auth, and reuses the
 front-end's own pure modules (`permissions.js`, `roster.js`, `defaultConfig.js`)
 so client and server rules can't drift. See [`server/README.md`](server/README.md)
 for local setup and a step-by-step **Railway** deploy (app + MySQL).
 
 The front-end never calls `fetch` directly except inside **`src/lib/api.js`** —
-that file is the entire contract. To use the backend instead of the localStorage
-mock:
+that file is the entire contract:
 
-1. Set `VITE_USE_BACKEND=true` (build-time, e.g. in `.env`), or flip
-   `USE_BACKEND` in `src/lib/api.js`.
-2. `vite.config.js`'s dev proxy already forwards `/api` + `/auth` to the server.
+1. Every call in `src/lib/api.js` hits the backend at `/api` (or `/auth`).
+2. `vite.config.js`'s dev proxy forwards `/api` + `/auth` to the server on :3003.
 3. The endpoints below are implemented in `server/`. All JSON responses use
    `{ ok: true, data }` or `{ ok: false, error }`.
 
@@ -165,7 +165,7 @@ the Duty Hub API. The front-end joins these to roster members by `discordId` for
 rank + callsign and counts strikes from the admin logs, so the endpoint only
 needs the raw hours.
 
-### Auth (Discord via passport-discord)
+### Auth (Discord OAuth2 via passport-oauth2)
 
 | Method | Path                     | Purpose                                   |
 | ------ | ------------------------ | ----------------------------------------- |

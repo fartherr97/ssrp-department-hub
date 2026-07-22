@@ -1,6 +1,6 @@
 /*
- * User display helpers. Works for both the dev-login mock user and a real
- * Discord-authenticated user (which carries id + avatar hash).
+ * User display helpers. Works for both a Discord-authenticated user (which
+ * carries id + avatar hash) and the gated backend dev-login user.
  */
 import { groupLabel } from "./permissions.js";
 

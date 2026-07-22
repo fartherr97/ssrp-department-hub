@@ -15,6 +15,7 @@ import {
   canEditAnyRoster,
   isManagerOfAny,
 } from "../src/lib/permissions.js";
+import { resolveDepartmentId } from "./tenant.js";
 
 /*
  * Resolve a Discord member to a permission group, exactly as documented in the
@@ -41,7 +42,11 @@ export function resolveUserGroup(config, discordId, roleIds = []) {
 }
 
 // Build the user object the front-end expects (see README "Auth" section).
-export function buildSessionUser(config, profile) {
+// `loginDepartmentId` records which department this session was minted for, so a
+// stolen/replayed cookie can't be pointed at another tenant via the Host header
+// (enforced in hydrateSessionUser). `group`/`isAdmin` here are a login-time
+// snapshot for display only — every /api request re-derives them server-side.
+export function buildSessionUser(config, profile, departmentId) {
   const group = resolveUserGroup(config, profile.discordId, profile.roleIds);
   return {
     id: profile.discordId,
@@ -50,8 +55,63 @@ export function buildSessionUser(config, profile) {
     avatarUrl: profile.avatarUrl || "",
     group: group?.id || null,
     isAdmin: !!group?.manageSite,
+    loginDepartmentId: departmentId || null,
     // Kept so features can gate on a specific Discord role (e.g. exam access).
     roleIds: (profile.roleIds || []).map(String),
+  };
+}
+
+/*
+ * Re-derive the caller's group and privileges from the CURRENT department's
+ * config on every request, and refuse a session that was minted for a different
+ * department. This is the server-authoritative core of the auth model:
+ *
+ *   • Cross-tenant defense: the session is bound to loginDepartmentId; a cookie
+ *     replayed against another tenant's Host is rejected (403). Even without the
+ *     binding, a real user's group is resolved by identity (discordId + Discord
+ *     roleIds) against THIS config, so they never inherit a same-named group in a
+ *     department they don't actually belong to.
+ *   • No stale privilege: isAdmin/group are recomputed here, so a demotion in
+ *     Access & Roles takes effect on the very next request instead of lingering
+ *     in the session for the life of the 14-day cookie.
+ *
+ * We reassign req.user to a fresh object (never mutate the session copy) so this
+ * never accidentally persists back into the session store.
+ */
+// Re-derive a user's group + isAdmin from a specific department's config. Pure;
+// returns a NEW user object (never mutates the session copy). This is the single
+// definition of "who is this caller, right now, in this department" — used by the
+// per-request middleware below and by /auth/me so the client UI reflects a
+// demotion immediately too.
+export function reconcileUserWithConfig(user, config) {
+  if (!user) return user;
+  if (user.isDev) {
+    // Dev sessions pick a group directly; still resolve isAdmin from THIS
+    // department's config so a dev cookie can't carry manageSite elsewhere.
+    const g = (config?.groups || []).find((x) => x.id === user.group) || null;
+    return { ...user, isAdmin: !!g?.manageSite };
+  }
+  const g = resolveUserGroup(config, user.id, user.roleIds);
+  return { ...user, group: g?.id || null, isAdmin: !!g?.manageSite };
+}
+
+export function hydrateSessionUser(getConfig) {
+  return async (req, res, next) => {
+    try {
+      if (!req.user) return next();
+      const deptId = req.departmentId || resolveDepartmentId(req);
+      // Bind the session to the department it was created for.
+      if (req.user.loginDepartmentId && req.user.loginDepartmentId !== deptId) {
+        return res
+          .status(403)
+          .json({ ok: false, error: "Session is not valid for this department" });
+      }
+      const config = await getConfig(req);
+      req.user = reconcileUserWithConfig(req.user, config);
+      next();
+    } catch (err) {
+      next(err);
+    }
   };
 }
 

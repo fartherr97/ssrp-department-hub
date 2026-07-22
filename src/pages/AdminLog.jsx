@@ -1038,8 +1038,8 @@ function WebhookModal({ open, onClose, webhook, books, onSave, onToast }) {
         </div>
 
         <p className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-200/90">
-          The webhook URL is stored in the site config. For production, Steve should move sending to
-          the backend and redact the URL from non-manager reads (see README).
+          The webhook URL is a write credential for your Discord channel. It's stored in the site
+          config and hidden from non-manager reads — only site managers can view or change it.
         </p>
       </div>
     </Modal>

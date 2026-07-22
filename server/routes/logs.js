@@ -6,8 +6,8 @@
  *
  * The hub posts one admin-log entry here. The SERVER stamps who logged it (from
  * the session) and the department (from the host) so neither can be forged, then
- * forwards it to Steve's Records DB via forwardLog(). There is intentionally no
- * GET — reads come from the Records portal, not this service.
+ * forwards it to the Records DB via forwardLog(). There is intentionally no GET —
+ * reads come from the Records portal, not this service.
  */
 import { Router } from "express";
 import { requireAuth } from "../permissions.js";

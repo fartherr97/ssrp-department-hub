@@ -1,11 +1,8 @@
 /*
- * MariaDB/MySQL data access. Two tables, mirroring the localStorage mock the
- * front-end ships with:
+ * MariaDB/MySQL data access. Core tables:
  *
  *   department_config  — one JSON document per department (the whole config)
  *   audit_log          — append-only history; kept FOREVER (no delete, no cap).
- *                        The mock's 500-entry limit existed only for browser
- *                        quota and intentionally does NOT carry over here.
  *
  * Sessions get their own table too (managed by express-mysql-session).
  *

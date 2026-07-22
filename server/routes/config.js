@@ -10,7 +10,7 @@
  */
 import { Router } from "express";
 import { loadConfig, saveConfig } from "../db.js";
-import { requireAuth, canManageSite } from "../permissions.js";
+import { requireAuth, canManageSite, isStaff } from "../permissions.js";
 import { resolveDepartmentId } from "../tenant.js";
 import { cloneDefaultConfig } from "../../src/config/defaultConfig.js";
 import {
@@ -20,8 +20,33 @@ import {
   canManageCalendar,
   canWriteLogs,
   authorizeGroupHierarchy,
+  isDepartmentMember,
+  rosterRankCeiling,
+  rankWithinCeiling,
 } from "../../src/lib/permissions.js";
-import { publicConfig, redactSensitive, mergeRedactedBack } from "../configView.js";
+import {
+  publicConfig,
+  redactSensitive,
+  mergeRedactedBack,
+  redactRoleMappings,
+  redactMemberIds,
+} from "../configView.js";
+
+// Shape the config to what the caller is allowed to see:
+//   • site manager        → the full document (secrets and all)
+//   • other staff         → redactSensitive (webhook URLs blanked)
+//   • rank-and-file member → + role mappings / guild id stripped (access metadata)
+//   • signed-in visitor    → + roster member Discord ids stripped (directory PII)
+// Guests (no session) are handled with publicConfig at the call sites.
+function viewConfigFor(user, config) {
+  if (canManageSite(user, config)) return config;
+  let view = redactSensitive(config);
+  if (!isStaff(user, config)) {
+    view = redactRoleMappings(view);
+    if (!isDepartmentMember(user, config)) view = redactMemberIds(view);
+  }
+  return view;
+}
 
 const MAX_CONFIG_BYTES = 16 * 1024 * 1024; // 16 MB ceiling on a single config doc
 
@@ -91,6 +116,89 @@ function changedPageTypes(current, incoming) {
   return types;
 }
 
+// Main-roster members keyed by id, plus the main subdivision itself. The rank
+// ceiling is defined against the main roster only (see canEditRosterLimited).
+function mainRosterMembers(config) {
+  const main = (config?.roster?.subdivisions || []).find((s) => s.main);
+  const members = new Map();
+  for (const cat of main?.categories || []) {
+    for (const m of cat.members || []) members.set(m.id, m);
+  }
+  return { main, members };
+}
+
+/*
+ * Server-side enforcement of the "junior ranks only" ceiling. The client
+ * (canEditMember / rankWithinCeiling / assignableRanks) is UX only; on the
+ * whole-document PUT the server must independently confirm a limited editor only
+ * adds/edits/removes MAIN-roster members at or below their ceiling — otherwise a
+ * "recruiter" could promote anyone to the top rank or delete senior members.
+ * Returns a human-readable reason string, or null if the change is allowed.
+ */
+function limitedRosterCeilingViolation(user, current, incoming) {
+  const ceilingId = rosterRankCeiling(user, current);
+  if (!ceilingId) return "the roster"; // limited editor with no ceiling configured
+  const { main: curMain, members: cur } = mainRosterMembers(current);
+  const { main: incMain, members: inc } = mainRosterMembers(incoming);
+  // The rank ladder itself (ids + order) must be unchanged: the ceiling is an
+  // index into it, so letting a limited editor renumber/rename ranks would let
+  // them move their own ceiling.
+  if (JSON.stringify(curMain?.ranks || []) !== JSON.stringify(incMain?.ranks || [])) {
+    return "roster ranks";
+  }
+  const withinCeiling = (rankId) => rankWithinCeiling(curMain, rankId, ceilingId);
+  // Added or edited members must END UP at/below the ceiling, and an edited
+  // existing member must have STARTED at/below it (can't touch seniors at all).
+  for (const [id, m] of inc) {
+    const before = cur.get(id);
+    if (before && JSON.stringify(before) === JSON.stringify(m)) continue; // untouched
+    if (!withinCeiling(m.rank)) return "a roster member above your rank ceiling";
+    if (before && !withinCeiling(before.rank)) return "a roster member above your rank ceiling";
+  }
+  // Removals: only members at/below the ceiling may be removed.
+  for (const [id, before] of cur) {
+    if (!inc.has(id) && !withinCeiling(before.rank)) {
+      return "a roster member above your rank ceiling";
+    }
+  }
+  return null;
+}
+
+// Did any page's admin-log webhook URL change? A webhook URL is a Discord write
+// credential (future log entries POST to it), so — like the site-level webhooks
+// map — only a site manager may set or change one, even on a log page a
+// log-writer is otherwise allowed to edit. Runs on the post-merge config, so an
+// unchanged (REDACTED→restored) URL reads as equal and is not flagged.
+function pageWebhookUrlChanged(current, incoming) {
+  const curById = new Map((current?.pages || []).map((p) => [p.id, p]));
+  for (const p of incoming?.pages || []) {
+    const now = p?.config?.webhook?.url || "";
+    const was = curById.get(p.id)?.config?.webhook?.url || "";
+    if (now !== was) return true;
+  }
+  return false;
+}
+
+/*
+ * Reconcile an incoming config from a writer with the view they were served,
+ * BEFORE authorization/save:
+ *   • site managers saw the full doc → trust it as-is.
+ *   • everyone else had webhook URLs redacted → mergeRedactedBack restores the
+ *     real secrets from storage so a routine save can't blank them (and the
+ *     REDACTED sentinel doesn't read as a change).
+ *   • non-manage-access writers additionally had the auth section (role
+ *     mappings, guild id) stripped and may not change it anyway → pin it to
+ *     stored, so the stripped view neither blanks it nor trips the auth gate.
+ */
+function prepareIncomingForSave(user, incoming, current) {
+  if (canManageSite(user, current)) return incoming;
+  let merged = mergeRedactedBack(incoming, current);
+  if (!canManageAccess(user, current)) {
+    merged = { ...merged, auth: current.auth };
+  }
+  return merged;
+}
+
 function authorizeConfigChange(user, current, incoming) {
   // Groups / auth (role mappings, capability grants) → manage-access or above,
   // AND the rank hierarchy: you can never create, edit, delete, or map a role to a
@@ -98,6 +206,15 @@ function authorizeConfigChange(user, current, incoming) {
   if (changed(current, incoming, "groups") || changed(current, incoming, "auth")) {
     if (!canManageAccess(user, current) && !canManageSite(user, current)) {
       return "groups or access settings";
+    }
+    // The configured Discord guild is the SOURCE OF TRUTH for role→group
+    // resolution at login; repointing it at an attacker-controlled guild is a
+    // site-infrastructure change, so require manage-site (not just manage-access).
+    if (
+      String(current?.auth?.discordGuildId || "") !== String(incoming?.auth?.discordGuildId || "") &&
+      !canManageSite(user, current)
+    ) {
+      return "the Discord guild";
     }
     const blockedHierarchy = authorizeGroupHierarchy(user, current, incoming);
     if (blockedHierarchy) return blockedHierarchy;
@@ -126,6 +243,10 @@ function authorizeConfigChange(user, current, incoming) {
       for (const id of changedSubdivisionIds(current, incoming)) {
         if (id !== mainId) return "subdivision rosters";
       }
+      // Confined to the main roster — now enforce the per-member rank ceiling
+      // (client checks are UX only; this is the real gate).
+      const violation = limitedRosterCeilingViolation(user, current, incoming);
+      if (violation) return violation;
     }
   }
   // Page content: calendar pages need manage-calendar, log pages need manage-logs
@@ -139,6 +260,12 @@ function authorizeConfigChange(user, current, incoming) {
     const incomingIds = new Set((incoming?.pages || []).map((p) => p.id));
     if ((current?.pages || []).some((p) => !incomingIds.has(p.id))) {
       return "deleting pages";
+    }
+    // A per-page admin-log webhook URL is a write credential, exactly like the
+    // site-level webhooks map above — setting/changing one is manager-only even
+    // for a log-writer who may otherwise edit the page's content.
+    if (pageWebhookUrlChanged(current, incoming)) {
+      return "an admin-log webhook URL";
     }
     const types = changedPageTypes(current, incoming);
     if (types.has("calendar") && !canManageCalendar(user, current)) {
@@ -166,8 +293,7 @@ export function configRouter() {
     try {
       const config = await configForReq(req);
       if (!req.user) return res.json({ ok: true, data: publicConfig(config) });
-      if (canManageSite(req.user, config)) return res.json({ ok: true, data: config });
-      return res.json({ ok: true, data: redactSensitive(config) });
+      return res.json({ ok: true, data: viewConfigFor(req.user, config) });
     } catch (err) {
       next(err);
     }
@@ -187,13 +313,10 @@ export function configRouter() {
       if (!canWriteConfig(req.user, current)) {
         return res.status(403).json({ ok: false, error: "Insufficient permissions" });
       }
-      // Non-managers received the config with webhook URLs redacted; restore the
-      // real secrets from the stored config before doing anything else, so a
-      // routine save can't blank them AND so the redaction sentinel doesn't look
-      // like a real change to authorizeConfigChange below.
-      const merged = canManageSite(req.user, current)
-        ? incoming
-        : mergeRedactedBack(incoming, current);
+      // Reconcile the incoming doc with what the caller was actually allowed to
+      // see (restore redacted secrets, pin sections they can't touch) before
+      // authorizing/saving. See prepareIncomingForSave.
+      const merged = prepareIncomingForSave(req.user, incoming, current);
       const blocked = authorizeConfigChange(req.user, current, merged);
       if (blocked) {
         return res
@@ -203,10 +326,7 @@ export function configRouter() {
       const saved = await saveConfig(req.departmentId || resolveDepartmentId(req), merged);
       // Echo back the same view the caller is allowed to see (don't leak secrets
       // a non-manager didn't have a moment ago).
-      res.json({
-        ok: true,
-        data: canManageSite(req.user, saved) ? saved : redactSensitive(saved),
-      });
+      res.json({ ok: true, data: viewConfigFor(req.user, saved) });
     } catch (err) {
       next(err);
     }
@@ -245,4 +365,11 @@ export function configRouter() {
   return router;
 }
 
-export { canManageSite };
+// Exported for unit tests (authorization is the security-critical surface).
+export {
+  canManageSite,
+  authorizeConfigChange,
+  prepareIncomingForSave,
+  viewConfigFor,
+  canWriteConfig,
+};

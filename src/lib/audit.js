@@ -258,6 +258,95 @@ export function summarizeChange(prev, next) {
   return null;
 }
 
+// ── Before/after change detail ───────────────────────────────────────────────
+// A compact, display-ready diff of what changed, shown when an audit entry is
+// expanded. Recurses into the changed sections, matches id-keyed arrays by id
+// (so it reports "Officer → Sergeant" rather than a reordered blob), and redacts
+// Discord webhook URLs (a write credential). Capped so an entry stays small.
+
+const MAX_CHANGES = 30;
+const WEBHOOK_URL =
+  /https?:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/api\/(?:v\d+\/)?webhooks\/\S+/gi;
+// Generic container keys whose names carry no meaning — skip them in the path so
+// it reads "Roster › Command › J. Smith › Rank", not "…› Subdivisions › Categories › Members ›…".
+const SKIP_KEYS = new Set([
+  "subdivisions", "categories", "members", "tiers", "vehicles", "groups", "pages",
+  "books", "entries", "events", "submissions", "blocks", "items", "roleMappings",
+]);
+
+function isPlainObject(v) {
+  return v && typeof v === "object" && !Array.isArray(v);
+}
+function humanizeKey(k) {
+  return String(k)
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .trim()
+    .replace(/^./, (c) => c.toUpperCase());
+}
+function nameOf(item) {
+  return item?.name || item?.label || item?.title || null;
+}
+function displayValue(v) {
+  if (v === undefined || v === null) return "—";
+  if (typeof v === "boolean") return v ? "on" : "off";
+  let s = typeof v === "string" || typeof v === "number" ? String(v) : JSON.stringify(v);
+  s = s.replace(WEBHOOK_URL, "«webhook URL hidden»").trim();
+  if (!s) return "(empty)";
+  return s.length > 160 ? s.slice(0, 157) + "…" : s;
+}
+function pushChange(out, path, before, after) {
+  if (out.length >= MAX_CHANGES) return;
+  out.push({ label: path.join(" › "), before: displayValue(before), after: displayValue(after) });
+}
+function walkDiff(prev, next, path, out) {
+  if (out.length >= MAX_CHANGES || j(prev) === j(next)) return;
+  const arr = Array.isArray(prev) || Array.isArray(next);
+  if (arr) {
+    const a = Array.isArray(prev) ? prev : [];
+    const b = Array.isArray(next) ? next : [];
+    const both = [...a, ...b];
+    const idKeyed = both.length > 0 && both.every((x) => isPlainObject(x) && "id" in x);
+    if (idKeyed) {
+      const am = new Map(a.map((x) => [x.id, x]));
+      const bm = new Map(b.map((x) => [x.id, x]));
+      for (const [id, item] of bm) {
+        if (!am.has(id)) pushChange(out, [...path, nameOf(item) || "new item"], undefined, "added");
+        else walkDiff(am.get(id), item, [...path, nameOf(item) || nameOf(am.get(id)) || "item"], out);
+      }
+      for (const [id, item] of am) {
+        if (!bm.has(id)) pushChange(out, [...path, nameOf(item) || "item"], "removed", undefined);
+      }
+      return;
+    }
+    pushChange(out, path, prev, next); // primitive / non-id array → leaf
+    return;
+  }
+  if (isPlainObject(prev) || isPlainObject(next)) {
+    for (const k of new Set([...Object.keys(prev || {}), ...Object.keys(next || {})])) {
+      if (k === "id" || j(prev?.[k]) === j(next?.[k])) continue;
+      walkDiff(prev?.[k], next?.[k], SKIP_KEYS.has(k) ? path : [...path, humanizeKey(k)], out);
+    }
+    return;
+  }
+  pushChange(out, path, prev, next); // leaf
+}
+
+// Public: the field-level before/after list for an audit entry (or [] on error).
+export function diffChanges(prev, next) {
+  if (!prev || !next) return [];
+  const out = [];
+  try {
+    for (const k of changedTopSections(prev, next)) {
+      walkDiff(prev[k], next[k], [humanizeKey(k)], out);
+      if (out.length >= MAX_CHANGES) break;
+    }
+  } catch {
+    return [];
+  }
+  return out.slice(0, MAX_CHANGES);
+}
+
 function entryFrom(summary) {
   return {
     id: `aud-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -281,6 +370,9 @@ export async function recordChange(prev, next) {
   }
   if (!summary) return;
   const entry = entryFrom(summary);
+  // Attach the field-level before/after so the entry can be expanded to show
+  // exactly what changed (webhook URLs redacted).
+  entry.changes = diffChanges(prev, next);
   // Record the human-readable log entry and the restorable snapshot separately,
   // so a failure on one doesn't silently drop the other — and log any failure so
   // an empty history is diagnosable instead of mysterious.

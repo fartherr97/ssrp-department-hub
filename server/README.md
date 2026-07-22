@@ -10,7 +10,7 @@ server/
   index.js            # express app: helmet, sessions, passport, routes, static dist/
   env.js              # reads .env / Railway vars into one typed config
   db.js               # mysql2 pool + migrations + config/audit data access
-  auth.js             # passport-discord OAuth + /auth routes
+  auth.js             # Discord OAuth2 (passport-oauth2) + /auth routes
   permissions.js      # server-side capability checks (reuses src/lib/permissions.js)
   routes/
     config.js         # GET/PUT /api/config
@@ -41,8 +41,7 @@ never drift between client and server.
 
 During UI development you can instead run the Vite dev server (`npm run dev`,
 port 5173) alongside `npm run server` (port 3003) — `vite.config.js` already
-proxies `/api` and `/auth` to 3003. Set `VITE_USE_BACKEND=true` so the
-front-end talks to the server instead of localStorage.
+proxies `/api` and `/auth` to 3003, so the front-end talks to the running server.
 
 Tables are created automatically on first boot (`migrate()` in `db.js`):
 `department_config`, `audit_log`, and a `sessions` table.
@@ -73,7 +72,6 @@ these **Variables** (Settings → Variables):
 | `DISCORD_CALLBACK_URL` | `https://YOUR-APP.up.railway.app/auth/discord/callback` |
 | `BOT_SYNC_SECRET` | a random string (only if you use the rank-sync bot) |
 | `DISCORD_BOT_TOKEN` | optional bot token, lets the Admin Log resolve any member's guild display name from a Discord ID (see below) |
-| `VITE_USE_BACKEND` | `true` — **build-time** flag so the front-end calls the API |
 
 ### First-login access
 On login, a member's permission group is resolved from **role mappings**
@@ -81,9 +79,10 @@ On login, a member's permission group is resolved from **role mappings**
 assignment. A brand-new config has none, so before the first real Discord login,
 **seed the config** with at least one role mapping that grants access (e.g. map
 your Management/Director Discord roles to the `management` group). Do this by
-importing a prepared config backup into the DB, or configuring Access & Roles
-while dev-login is enabled and then disabling dev-login. Admin-log moderation is
-reserved for the **Management** group.
+importing a prepared config backup into the DB, or by signing in once via the
+gated `POST /auth/dev-login` (`DEV_LOGIN_ENABLED=true`) to configure Access &
+Roles, then turning it back off. Admin-log moderation is reserved for the
+**Management** group.
 
 ### Admin Log name lookup (optional)
 When logging an entry, pasting a **Subject Discord ID** auto-fills the name. It
@@ -96,9 +95,6 @@ works; the app never blocks on the lookup.
 
 `railway.json` already sets build = `npm run build` and start = `npm start`.
 Railway injects `PORT`; the server reads it.
-
-> `VITE_USE_BACKEND` must be present **when `npm run build` runs** (Vite inlines
-> it). On Railway, service Variables are available at build time, so just set it.
 
 ### 3. Point Discord at Railway
 In the [Discord Developer Portal](https://discord.com/developers/applications)
@@ -182,10 +178,10 @@ Bot rank-sync (`POST /api/roster/sync`) isn't tied to a hostname, so include the
 target department in the body: `{ discordId, roleIds, departmentId }` (falls back
 to the host / `DEPARTMENT_ID`).
 
-## Handing off to Steve's stack
+## Moving onto another stack
 
 Everything department-specific lives in env vars, and all DB access is in
 `db.js`. To move onto a different MariaDB/Express setup: point the `DB_*` /
-`DATABASE_URL` vars at his instance — that's it. If he has an existing Express
-app, the four route modules in `routes/` (plus `auth.js`) drop in as routers; he
-only needs to provide a session store and the same env vars.
+`DATABASE_URL` vars at that instance — that's it. To fold into an existing Express
+app, the route modules in `routes/` (plus `auth.js`) drop in as routers; you only
+need to provide a session store and the same env vars.

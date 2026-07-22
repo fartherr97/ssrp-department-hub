@@ -6,7 +6,7 @@ Records-portal database** and show up on the subject member's background, linked
 their Discord ID.
 
 This document is the contract for wiring that up. The hub side (this repo) is
-prepped; the persistence is Steve's to implement in **one function**.
+prepped; the persistence is the Records portal's to implement in **one function**.
 
 ---
 
@@ -17,8 +17,8 @@ prepped; the persistence is Steve's to implement in **one function**.
   entry types / custom fields). Entries are saved via `PUT /api/config`.
 - Nothing is sent to the Records portal yet.
 
-The migration adds a dedicated ingestion endpoint so entries also flow to Steve's
-DB, without disturbing the working page (it keeps rendering from the config).
+The migration adds a dedicated ingestion endpoint so entries also flow to the
+Records DB, without disturbing the working page (it keeps rendering from the config).
 
 ---
 
@@ -102,10 +102,10 @@ what an old entry recorded.
 
 ---
 
-## Flipping the hub over (when Steve's endpoint is live)
+## Flipping the hub over (when the Records endpoint is live)
 
 The client seam already exists: `submitLog(entry)` in `src/lib/api.js` (POSTs to
-`/api/logs` when the backend is on, no-op in the mock).
+`/api/logs`).
 
 To start sending entries, call it fire-and-forget in `saveEntry` in
 `src/pages/AdminLog.jsx`, right where the Discord webhook is fired:

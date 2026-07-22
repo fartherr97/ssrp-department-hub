@@ -10,19 +10,24 @@
  */
 import { Router } from "express";
 import { loadAudit, appendAudit } from "../db.js";
-import { requireAuth, requireStaff } from "../permissions.js";
+import { requireAuth, requireCapability } from "../permissions.js";
 import { resolveDepartmentId } from "../tenant.js";
 import { currentConfig } from "./config.js";
 
 const getConfig = (req) => currentConfig(req.departmentId || resolveDepartmentId(req));
 
+// One audit entry (with its before/after diff) is small; cap it so a client
+// can't stuff the append-only table with oversized rows.
+const MAX_AUDIT_BYTES = 128 * 1024;
+
 export function auditRouter() {
   const router = Router();
 
-  // Reads are staff-only: the audit log is an oversight tool (who changed what),
-  // not member-facing. Appends stay open to any signed-in member because the
-  // client records routine actions (attendance, log writes) as they happen.
-  router.get("/audit", requireStaff(getConfig), async (req, res, next) => {
+  // Reads require the "View audit log" capability (Manage site implies it): the
+  // activity history is an oversight tool, not member-facing. Appends stay open
+  // to any signed-in member because the client records routine actions
+  // (attendance, log writes) as they happen — the server stamps the real actor.
+  router.get("/audit", requireCapability("viewAuditLog", getConfig), async (req, res, next) => {
     try {
       const departmentId = req.departmentId || resolveDepartmentId(req);
       res.json({ ok: true, data: await loadAudit(departmentId) });
@@ -36,6 +41,9 @@ export function auditRouter() {
       const entry = req.body;
       if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
         return res.status(400).json({ ok: false, error: "Entry must be an object" });
+      }
+      if (Buffer.byteLength(JSON.stringify(entry)) > MAX_AUDIT_BYTES) {
+        return res.status(413).json({ ok: false, error: "Entry too large" });
       }
       // Stamp the real actor from the session, never trust a client-supplied one.
       const stamped = {

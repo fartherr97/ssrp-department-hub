@@ -10,17 +10,20 @@
  * assignment) stay identical everywhere.
  */
 import { Router } from "express";
-import { env } from "../env.js";
+import { botSecretFor } from "../env.js";
 import { loadConfig, saveConfig, appendAudit } from "../db.js";
 import { resolveDepartmentId, validDepartmentId } from "../tenant.js";
 import { safeEqual } from "../security.js";
 import { syncMemberRanksFromDiscord } from "../../src/lib/roster.js";
 
-function botAuthed(req) {
-  if (!env.botSyncSecret) return false; // not configured → refuse everything
+// Authenticate the bot against the secret for the SPECIFIC department it named,
+// so a leaked secret for one tenant can't be used to write another.
+function botAuthed(req, departmentId) {
+  const expected = botSecretFor(departmentId);
+  if (!expected) return false; // not configured for this dept → refuse
   const header = req.get("authorization") || "";
   const token = header.replace(/^Bearer\s+/i, "").trim();
-  return safeEqual(token, env.botSyncSecret);
+  return safeEqual(token, expected);
 }
 
 export function rosterRouter() {
@@ -28,10 +31,19 @@ export function rosterRouter() {
 
   router.post("/roster/sync", async (req, res, next) => {
     try {
-      if (!botAuthed(req)) {
+      const { discordId, roleIds, departmentId: bodyDept } = req.body || {};
+      // The bot isn't tied to a hostname, so it names the department explicitly
+      // (falls back to the request host / default for single-tenant setups). A
+      // supplied id must be a valid slug so it can't be used to poke arbitrary
+      // rows or smuggle junk into the audit log. Resolve it BEFORE auth so we can
+      // check the bot's token against that department's own secret.
+      if (bodyDept != null && !validDepartmentId(bodyDept)) {
+        return res.status(400).json({ ok: false, error: "Invalid departmentId" });
+      }
+      const departmentId = validDepartmentId(bodyDept) || resolveDepartmentId(req);
+      if (!botAuthed(req, departmentId)) {
         return res.status(401).json({ ok: false, error: "Bot authentication required" });
       }
-      const { discordId, roleIds, departmentId: bodyDept } = req.body || {};
       if (!discordId || !Array.isArray(roleIds)) {
         return res
           .status(400)
@@ -42,15 +54,6 @@ export function rosterRouter() {
       if (!/^\d{1,32}$/.test(String(discordId))) {
         return res.status(400).json({ ok: false, error: "Invalid discordId" });
       }
-
-      // The bot isn't tied to a hostname, so it names the department explicitly
-      // (falls back to the request host / default for single-tenant setups). A
-      // supplied id must be a valid slug so it can't be used to poke arbitrary
-      // rows or smuggle junk into the audit log.
-      if (bodyDept != null && !validDepartmentId(bodyDept)) {
-        return res.status(400).json({ ok: false, error: "Invalid departmentId" });
-      }
-      const departmentId = validDepartmentId(bodyDept) || resolveDepartmentId(req);
 
       const config = await loadConfig(departmentId);
       if (!config) return res.status(404).json({ ok: false, error: "No config yet" });

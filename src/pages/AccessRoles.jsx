@@ -395,15 +395,6 @@ function DiscordSettings() {
             placeholder="000000000000000000, 000000000000000000"
           />
         </Field>
-        <Field label="Developer login" hint="Lets anyone preview the hub without Discord. Disable in production.">
-          <Select
-            value={auth.devLoginEnabled ? "on" : "off"}
-            onChange={(e) => setAuth({ devLoginEnabled: e.target.value === "on" })}
-          >
-            <option value="on">Enabled</option>
-            <option value="off">Disabled</option>
-          </Select>
-        </Field>
       </div>
       <p className="mt-4 text-xs text-slate-500">
         {linkedCount > 0

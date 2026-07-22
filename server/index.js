@@ -12,7 +12,7 @@
  *   npm start       # node server/index.js
  */
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import express from "express";
 import session from "express-session";
 import helmet from "helmet";
@@ -23,15 +23,17 @@ import MySQLStoreFactory from "express-mysql-session";
 import { env } from "./env.js";
 import { getSessionPool, migrate } from "./db.js";
 import { mountAuthRoutes } from "./auth.js";
-import { configRouter } from "./routes/config.js";
+import { configRouter, currentConfig } from "./routes/config.js";
+import { hydrateSessionUser } from "./permissions.js";
 import { auditRouter } from "./routes/audit.js";
 import { rosterRouter } from "./routes/roster.js";
 import { versionsRouter } from "./routes/versions.js";
 import { hoursRouter } from "./routes/hours.js";
 import { logsRouter } from "./routes/logs.js";
 import { discordRouter } from "./routes/discord.js";
-import { tenantMiddleware } from "./tenant.js";
+import { tenantMiddleware, resolveDepartmentId } from "./tenant.js";
 import { isSameOrigin } from "./security.js";
+import { helmetOptions } from "./httpSecurity.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const distDir = path.resolve(__dirname, "..", "dist");
@@ -79,6 +81,19 @@ const botLimiter = rateLimit({
   handler: limitReached,
 });
 
+// Mutating API calls (config/roster/version writes) — a much tighter budget than
+// the read ceiling. A whole-config PUT is expensive (parse + serialize a doc up
+// to 16 MB), so this blunts write floods and accidental save loops per client IP.
+// Headroom note: one builder "save" fans out to PUT /config + POST /versions +
+// POST /audit, so keep this comfortably above the human save rate.
+const writeLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 90,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: limitReached,
+});
+
 function sameOriginGuard(req, res, next) {
   if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") return next();
   // Bot/feed endpoints authenticate with a secret header, not a cookie — exempt.
@@ -115,17 +130,32 @@ async function migrateWithRetry(attempts = 6) {
 }
 
 // Refuse to boot a production deploy with a weak/default session secret. The
-// session cookie is signed with this value; the placeholder is public (it's in
-// .env.example), so shipping it would let anyone forge sessions. Fail fast rather
-// than half-start an insecure server.
+// session cookie is signed with this value; any placeholder is public (it's in
+// the repo / docs), so shipping it would let anyone forge sessions. We reject by
+// PROPERTY (known placeholders + a length floor) rather than by matching one
+// historical string, so a new example value can't quietly slip past the guard.
+const WEAK_SESSION_SECRETS = new Set([
+  "",
+  "change-me",
+  "change-me-in-production",
+  "changeme",
+  "secret",
+  "password",
+  "dev",
+  "development",
+  "test",
+]);
 function assertProdSecrets() {
   if (!env.isProd) return;
-  const secret = env.session.secret;
-  if (!process.env.SESSION_SECRET || !secret || secret === "change-me-in-production") {
+  const secret = (process.env.SESSION_SECRET || "").trim();
+  const tooShort = secret.length < 32; // e.g. `openssl rand -hex 32` → 64 chars
+  if (!secret || WEAK_SESSION_SECRETS.has(secret.toLowerCase()) || tooShort) {
     console.error(
-      "\n[boot] Refusing to start in production without a real SESSION_SECRET.\n" +
-        "       Set SESSION_SECRET to a long random string (e.g. `openssl rand -hex 32`)\n" +
-        "       in this service's Variables, then redeploy.\n"
+      "\n[boot] Refusing to start in production without a strong SESSION_SECRET.\n" +
+        "       It must be a long random string of at least 32 characters and must\n" +
+        "       not be a known placeholder. Generate one:\n" +
+        '         node -e "console.log(crypto.randomBytes(32).toString(\'hex\'))"\n' +
+        "       Set it in this service's Variables, then redeploy.\n"
     );
     process.exit(1);
   }
@@ -137,19 +167,18 @@ async function main() {
 
   const app = express();
   // Railway terminates TLS in front of us; trust the proxy so Secure cookies and
-  // req.protocol work correctly.
-  app.set("trust proxy", 1);
+  // req.protocol work correctly. The HOP COUNT matters for security: rate limits
+  // are keyed by req.ip, and if this is looser than the real number of proxies in
+  // front, a client could spoof X-Forwarded-For to forge its IP and dodge the
+  // limits. Default 1 (Railway's single edge proxy); override TRUST_PROXY only if
+  // your topology actually has more hops. Never set it to `true` in production.
+  app.set("trust proxy", env.trustProxy);
 
-  app.use(
-    helmet({
-      // The SPA inlines styles and loads media/images from arbitrary URLs the
-      // departments configure, so a strict CSP would break the builder. The
-      // front-end already sanitizes URLs at render (src/lib/urls.js).
-      contentSecurityPolicy: false,
-      crossOriginEmbedderPolicy: false,
-    })
-  );
-  app.use(express.json({ limit: "20mb" }));
+  app.use(helmet(helmetOptions()));
+  // Body cap sits just above the 16 MB config document ceiling (MAX_CONFIG_BYTES)
+  // so a version snapshot's wrapper fits, while still rejecting oversized payloads
+  // early instead of buffering 20 MB of attacker JSON per request.
+  app.use(express.json({ limit: "17mb" }));
 
   // Session, persisted in MariaDB so logins survive restarts/redeploys.
   const MySQLStore = MySQLStoreFactory(session);
@@ -164,11 +193,18 @@ async function main() {
       store: sessionStore,
       resave: false,
       saveUninitialized: false,
+      // rolling: the maxAge is an IDLE timeout — each response resets the clock,
+      // so active users stay signed in but an abandoned session expires after 7
+      // days of inactivity (shorter stolen-cookie window than a fixed 14 days).
+      // Note: a user's PRIVILEGES are re-derived from the live config on every
+      // request (hydrateSessionUser), so demoting someone takes effect on their
+      // very next request regardless of how long the session cookie lives.
+      rolling: true,
       cookie: {
         httpOnly: true,
         sameSite: "lax",
         secure: env.session.secureCookie,
-        maxAge: 1000 * 60 * 60 * 24 * 14, // 14 days
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days idle
       },
     })
   );
@@ -192,8 +228,21 @@ async function main() {
       ? botLimiter(req, res, next)
       : apiLimiter(req, res, next)
   );
+  // Throttle mutating requests harder than the broad read ceiling — config PUTs
+  // are whole-document writes and the classic abuse target.
+  api.use((req, res, next) =>
+    (req.method === "POST" || req.method === "PUT") &&
+    req.path !== "/roster/sync" &&
+    req.path !== "/hours"
+      ? writeLimiter(req, res, next)
+      : next()
+  );
   api.use(sameOriginGuard);
   api.use(tenantMiddleware);
+  // Re-derive who the caller is (group, isAdmin) from the CURRENT department's
+  // config on every request, and reject a session minted for another tenant.
+  // Must run after tenantMiddleware (needs req.departmentId) and before routers.
+  api.use(hydrateSessionUser((req) => currentConfig(req.departmentId || resolveDepartmentId(req))));
   api.use(configRouter());
   api.use(auditRouter());
   api.use(rosterRouter());
@@ -225,7 +274,15 @@ async function main() {
   });
 }
 
-main().catch((err) => {
-  console.error("Fatal startup error:", err);
-  process.exit(1);
-});
+// Only auto-boot when run directly (node server/index.js), so the module can be
+// imported by tests without starting the server / touching the DB.
+const isEntrypoint =
+  process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isEntrypoint) {
+  main().catch((err) => {
+    console.error("Fatal startup error:", err);
+    process.exit(1);
+  });
+}
+
+export { assertProdSecrets, main };

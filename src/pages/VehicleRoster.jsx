@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Car, Tags, Copy, Columns3, Rows3 } from "lucide-react";
 import { useConfig } from "../lib/configContext.jsx";
 import { canEditFleet } from "../lib/permissions.js";
@@ -126,6 +126,65 @@ function TagsModal({ open, onClose, tags, onChange }) {
         </Button>
       </div>
     </Modal>
+  );
+}
+
+/*
+ * Horizontally-scrolling panel with a SECOND scrollbar mirrored at the TOP, so on
+ * a wide fleet you don't have to scroll all the way down to find the scrollbar,
+ * drag across, then scroll back up. The two bars stay in sync; the top one only
+ * appears when the content actually overflows.
+ */
+function ColumnScroller({ children }) {
+  const topRef = useRef(null);
+  const bodyRef = useRef(null);
+  const [width, setWidth] = useState(0);
+  const [overflow, setOverflow] = useState(false);
+
+  useEffect(() => {
+    const body = bodyRef.current;
+    if (!body) return;
+    const measure = () => {
+      setWidth(body.scrollWidth);
+      setOverflow(body.scrollWidth > body.clientWidth + 1);
+    };
+    measure();
+    // Re-measure when the viewport or the content (columns added/removed) resizes.
+    const ro = new ResizeObserver(measure);
+    ro.observe(body);
+    if (body.firstElementChild) ro.observe(body.firstElementChild);
+    window.addEventListener("resize", measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, []);
+
+  // Mirror scrollLeft between the two bars. Setting scrollLeft to an unchanged
+  // value fires no scroll event, so this converges without an event loop.
+  const onTopScroll = () => {
+    if (bodyRef.current && topRef.current) bodyRef.current.scrollLeft = topRef.current.scrollLeft;
+  };
+  const onBodyScroll = () => {
+    if (bodyRef.current && topRef.current) topRef.current.scrollLeft = bodyRef.current.scrollLeft;
+  };
+
+  return (
+    <Panel className="p-0">
+      {overflow && (
+        <div
+          ref={topRef}
+          onScroll={onTopScroll}
+          aria-hidden="true"
+          className="overflow-x-auto overflow-y-hidden border-b border-white/5"
+        >
+          <div style={{ width }} className="h-2.5" />
+        </div>
+      )}
+      <div ref={bodyRef} onScroll={onBodyScroll} className="overflow-x-auto p-4">
+        {children}
+      </div>
+    </Panel>
   );
 }
 
@@ -388,7 +447,7 @@ export default function VehicleRoster({ page, user }) {
           )}
         </Panel>
       ) : layout === "columns" ? (
-        <Panel className="overflow-x-auto p-4">
+        <ColumnScroller>
           <div className="flex items-start gap-3">
             {tiers.map((tier, idx) => (
               <div key={tier.id} className="w-40 shrink-0">
@@ -419,7 +478,7 @@ export default function VehicleRoster({ page, user }) {
               </div>
             ))}
           </div>
-        </Panel>
+        </ColumnScroller>
       ) : (
         /* Rows layout: rank label on the left, vehicles flowing to the right. */
         <Panel className="grid gap-3 p-4">

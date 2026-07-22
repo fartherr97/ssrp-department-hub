@@ -1,7 +1,5 @@
-import { useState } from "react";
-import { LogIn } from "lucide-react";
 import Logo from "../common/Logo.jsx";
-import { Button, BrandName } from "../common/index.jsx";
+import { BrandName } from "../common/index.jsx";
 import { getIcon } from "../../lib/icons.js";
 import { safeLinkUrl, safeMediaUrl } from "../../lib/urls.js";
 
@@ -51,74 +49,6 @@ function DiscordButton({ className = "" }) {
   );
 }
 
-// ─── Dev login (front-end only) ──────────────────────────────────────────────
-
-function DevLogin({ groups, onDevLogin }) {
-  // "Visitor" previews someone in no permission group at all — a signed-in
-  // outsider who only sees pages a builder opted in for visitors.
-  const options = [
-    ...(groups || []),
-    { id: "viewer", label: "Visitor (outside the department)" },
-  ];
-  // Default to the highest-privilege group so a quick "Enter" previews the hub
-  // with full access (Builder, Access & Roles, etc.) rather than the lowest tier.
-  const topGroup = (groups || []).reduce(
-    (best, g) => ((g.level ?? 0) > (best?.level ?? -Infinity) ? g : best),
-    null
-  );
-  const [group, setGroup] = useState(topGroup?.id || "viewer");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  async function enter() {
-    setError("");
-    setBusy(true);
-    try {
-      await onDevLogin(group);
-    } catch (err) {
-      // Most common: the backend has dev login disabled (NODE_ENV=production
-      // without DEV_LOGIN_ENABLED=true), so the request 403s.
-      setError(
-        /disabled/i.test(String(err?.message))
-          ? "Dev login is turned off on the server. Set DEV_LOGIN_ENABLED=true (or use Discord)."
-          : `Couldn't sign in: ${err?.message || "request failed"}`
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div className="mt-10 w-full max-w-sm rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-4 text-left">
-      <div className="mb-2 text-xs font-bold uppercase tracking-wider text-amber-300/80">
-        Developer preview
-      </div>
-      <p className="mb-3 text-xs text-slate-400">
-        No backend yet, preview the hub as any permission group, or as a
-        regular member with view-only access. Replace with real Discord auth
-        when the server is wired up.
-      </p>
-      <div className="flex gap-2">
-        <select
-          value={group}
-          onChange={(e) => setGroup(e.target.value)}
-          className="flex-1 rounded-xl border border-white/10 bg-app-input px-3 py-2 text-sm text-cad-text outline-none transition focus:border-[color:var(--color-border-strong)]"
-        >
-          {options.map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.label}
-            </option>
-          ))}
-        </select>
-        <Button icon={LogIn} onClick={enter} disabled={busy}>
-          Enter
-        </Button>
-      </div>
-      {error && <p className="mt-2 text-xs text-red-300">{error}</p>}
-    </div>
-  );
-}
-
 // ─── Community socials row ("Connect With Us") ───────────────────────────────
 
 function SocialRow({ socials }) {
@@ -152,9 +82,8 @@ function SocialRow({ socials }) {
 
 // ─── Login screen ────────────────────────────────────────────────────────────
 
-export function LoginScreen({ config, onDevLogin }) {
+export function LoginScreen({ config }) {
   const branding = config?.branding || {};
-  const devEnabled = config?.auth?.devLoginEnabled;
   const socials = branding.socials || [];
 
   return (
@@ -210,8 +139,6 @@ export function LoginScreen({ config, onDevLogin }) {
           </div>
 
           <SocialRow socials={socials} />
-
-          {devEnabled && <DevLogin groups={config?.groups} onDevLogin={onDevLogin} />}
         </div>
       </main>
 

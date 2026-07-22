@@ -37,14 +37,14 @@ function canWrite(user, config) {
 export function versionsRouter() {
   const router = Router();
 
-  // A snapshot is a FULL config document (member Discord ids, webhook secrets and
-  // all), and only a site manager can actually restore one — so reading the
-  // history requires manage-site. This keeps whole-config secrets out of reach of
-  // lower-tier staff who can see the audit summary but not the raw config.
+  // The LIST is metadata only (who / when / what changed — no snapshot bodies),
+  // so viewing it just needs the "View version history" capability. The full
+  // snapshots (with member Discord ids and webhook secrets) are guarded
+  // separately on /versions/:id below.
   router.get(
     "/versions",
     requireCapability(
-      "manageSite",
+      "viewVersionHistory",
       (req) => currentConfig(req.departmentId || resolveDepartmentId(req))
     ),
     async (req, res, next) => {
@@ -57,8 +57,10 @@ export function versionsRouter() {
     }
   );
 
-  // One version's full config snapshot — fetched only when restoring, so the
-  // list stays lightweight.
+  // One version's full config snapshot — a FULL config document (member Discord
+  // ids, webhook secrets and all), fetched only when restoring. Restoring is a
+  // manage-site action (it re-grants permissions), so this stays manage-site —
+  // keeping whole-config secrets out of reach of version-history viewers.
   router.get(
     "/versions/:id",
     requireCapability(

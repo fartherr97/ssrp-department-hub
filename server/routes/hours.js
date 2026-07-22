@@ -16,7 +16,7 @@ import { getPool } from "../db.js";
 import { requireAuth } from "../permissions.js";
 import { resolveDepartmentId, validDepartmentId } from "../tenant.js";
 import { safeEqual } from "../security.js";
-import { env } from "../env.js";
+import { botSecretFor } from "../env.js";
 
 async function ensureTable() {
   const db = getPool();
@@ -30,10 +30,11 @@ async function ensureTable() {
   `);
 }
 
-function botAuthed(req) {
-  if (!env.botSyncSecret) return false;
+function botAuthed(req, departmentId) {
+  const expected = botSecretFor(departmentId);
+  if (!expected) return false;
   const token = (req.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
-  return safeEqual(token, env.botSyncSecret);
+  return safeEqual(token, expected);
 }
 
 export function hoursRouter() {
@@ -65,19 +66,19 @@ export function hoursRouter() {
   // Feed endpoint for the Duty Hub bot/cron (shared-secret auth, not a session).
   router.post("/hours", async (req, res, next) => {
     try {
-      if (!botAuthed(req)) {
-        return res.status(401).json({ ok: false, error: "Bot authentication required" });
-      }
       const { members, departmentId: bodyDept } = req.body || {};
-      if (!Array.isArray(members)) {
-        return res.status(400).json({ ok: false, error: "Expected { members: [...] }" });
-      }
       if (bodyDept != null && !validDepartmentId(bodyDept)) {
         return res.status(400).json({ ok: false, error: "Invalid departmentId" });
       }
+      const departmentId = validDepartmentId(bodyDept) || resolveDepartmentId(req);
+      if (!botAuthed(req, departmentId)) {
+        return res.status(401).json({ ok: false, error: "Bot authentication required" });
+      }
+      if (!Array.isArray(members)) {
+        return res.status(400).json({ ok: false, error: "Expected { members: [...] }" });
+      }
       await ensureTable();
       const db = getPool();
-      const departmentId = validDepartmentId(bodyDept) || resolveDepartmentId(req);
       await db.query(
         `INSERT INTO duty_hours (department_id, payload) VALUES (?, ?)
          ON DUPLICATE KEY UPDATE payload = VALUES(payload)`,

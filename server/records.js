@@ -2,13 +2,13 @@
  * Records-portal integration — the SINGLE place admin-log entries leave the hub.
  *
  * The plan: admin-log entries are written in the hub (instead of a department
- * Discord channel) and must land in Steve's EXISTING Records-portal database,
+ * Discord channel) and must land in the EXISTING Records-portal database,
  * attached to the subject member so the log shows up on that person's background.
  * POST /api/logs (routes/logs.js) validates an entry, stamps who logged it and
  * which department server-side, then hands it to forwardLog() below.
  *
- * TODO (Steve): implement forwardLog against your Records DB. Everything you need
- * is on `entry` (shape documented in docs/admin-logs-migration.md). The link to a
+ * TODO: implement forwardLog against the Records DB. Everything you need is on
+ * `entry` (shape documented in docs/admin-logs-migration.md). The link to a
  * member's background is entry.subject.discordId. Keep it non-throwing — a records
  * outage must never block logging in the hub (the route already responds ok).
  */
