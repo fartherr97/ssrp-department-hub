@@ -64,8 +64,8 @@ export const defaultConfig = {
     // Each group carries capability flags + an explicit member list. A member's
     // role is "member" or "manager" (managers can add/remove that group's
     // people). You can only administer groups at or below your own level.
-    { id: "dept-heads", label: "Department Heads", level: 4, manageSite: true, manageAccess: true, editRoster: true, editSubdivisions: true, manageCalendar: true, manageLogs: true, moderateLogs: true, members: [] },
-    { id: "management", label: "Management", level: 3, manageSite: true, manageAccess: true, editRoster: true, editSubdivisions: true, manageCalendar: true, manageLogs: true, moderateLogs: true, members: [] },
+    { id: "dept-heads", label: "Department Heads", level: 4, manageSite: true, manageAccess: true, editRoster: true, editSubdivisions: true, manageCalendar: true, manageLogs: true, members: [] },
+    { id: "management", label: "Management", level: 3, manageSite: true, manageAccess: true, editRoster: true, editSubdivisions: true, manageCalendar: true, manageLogs: true, members: [] },
     { id: "command", label: "Command Staff", level: 2, manageSite: false, manageAccess: false, editRoster: true, editSubdivisions: true, manageCalendar: true, manageLogs: true, members: [] },
     { id: "subdivisions", label: "Subdivisions", level: 1, manageSite: false, manageAccess: false, editRoster: false, editSubdivisions: true, manageCalendar: false, manageLogs: false, members: [] },
   ],
