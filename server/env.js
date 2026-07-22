@@ -81,16 +81,6 @@ export const env = {
     botToken: process.env.DISCORD_BOT_TOKEN || "",
   },
 
-  // Bootstrap owners: Discord USER ids (comma-separated) who always get full
-  // super-admin access on login, regardless of role mappings. This exists so a
-  // brand-new deployment (empty role mappings) isn't a lockout — the owner signs
-  // in, sets up Access & Roles, and can then leave this empty. Keep it to the
-  // one or two people who own the deployment.
-  ownerIds: (process.env.OWNER_DISCORD_IDS || "")
-    .split(/[\s,]+/)
-    .map((s) => s.trim())
-    .filter((s) => /^\d{5,25}$/.test(s)),
-
   // Shared secret the Discord bot sends on POST /api/roster/sync. The bot is NOT
   // a logged-in user, so it authenticates with this instead of a session.
   botSyncSecret: process.env.BOT_SYNC_SECRET || "",

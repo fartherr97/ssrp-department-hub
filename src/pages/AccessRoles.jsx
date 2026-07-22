@@ -241,7 +241,7 @@ function GroupCard({ group, user }) {
   // But you can always change your OWN group's level (otherwise lowering it would
   // trap you: your ceiling would drop with it and you couldn't raise it back). A
   // groupless backend super-admin isn't bounded either.
-  const superAdmin = (user?.isAdmin && !userGroup(config, user)) || user?.isOwner;
+  const superAdmin = user?.isAdmin && !userGroup(config, user);
   const rankCeiling = superAdmin || isOwnGroup ? 999 : userLevel(user, config);
   // Hierarchy integrity: a group can't be raised to reach or pass a group that
   // sits above it (no leapfrogging). Cap it just below the nearest group above.

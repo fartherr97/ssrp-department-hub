@@ -113,14 +113,6 @@ export function configurePassport() {
             avatarUrl: avatar,
             roleIds,
           });
-          // Bootstrap owners are full super-admins regardless of role mappings,
-          // so a fresh deployment (no mappings yet) is never a lockout. isOwner
-          // is distinct from isAdmin (which any Manage-site group grants), so it
-          // also clears the hardcoded admin-log gate.
-          if (env.ownerIds.includes(String(profile.id))) {
-            user.isAdmin = true;
-            user.isOwner = true;
-          }
           // Keep the signed-in member's roster avatar current with their Discord
           // profile picture (only writes when it actually changed).
           if (config && avatar) {

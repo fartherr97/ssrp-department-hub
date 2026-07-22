@@ -128,7 +128,6 @@ export function canManageGroupMembers(user, config, group) {
  * A groupless backend super-admin (isAdmin, no group) bypasses all of it.
  */
 export function authorizeGroupHierarchy(user, current, incoming) {
-  if (user?.isOwner) return null; // deployment owner bypasses all of this
   if (user?.isAdmin && !userGroup(current, user)) return null;
   const myLevel = userLevel(user, current);
   const canAccess = canManageAccess(user, current);
@@ -221,7 +220,6 @@ export function canWriteLogs(user, config) {
 // (even one with Manage site / Manage access) can grant itself the ability to
 // alter the record. A groupless super-admin still bypasses.
 export function canModerateLogs(user, config) {
-  if (user?.isOwner) return true; // bootstrap deployment owner
   if (user?.isAdmin && !userGroup(config, user)) return true; // groupless super-admin
   const g = userGroup(config, user);
   if (!g) return false;
