@@ -128,11 +128,41 @@ export function canManageGroupMembers(user, config, group) {
  * A groupless backend super-admin (isAdmin, no group) bypasses all of it.
  */
 export function authorizeGroupHierarchy(user, current, incoming) {
+  if (user?.isOwner) return null; // deployment owner bypasses all of this
   if (user?.isAdmin && !userGroup(current, user)) return null;
   const myLevel = userLevel(user, current);
   const canAccess = canManageAccess(user, current);
   const curById = new Map((current?.groups || []).map((g) => [g.id, g]));
   const incById = new Map((incoming?.groups || []).map((g) => [g.id, g]));
+
+  // Hierarchy integrity: levels are the ordering. A group may be renumbered, but
+  // it can never be raised to reach or pass a group that currently sits above it
+  // — that would let someone leapfrog the chain. To move a group up past
+  // another, the higher one has to be moved up first (freeing the slot). This
+  // keeps the order (and the top group) fixed against reordering-by-number.
+  for (const [gid, before] of curById) {
+    const after = incById.get(gid);
+    if (!after) continue;
+    const gBefore = before.level ?? 0;
+    const gAfter = after.level ?? 0;
+    for (const [hid, h] of curById) {
+      if (hid === gid) continue;
+      const hAfter = incById.get(hid);
+      if (!hAfter) continue;
+      const hBeforeL = h.level ?? 0;
+      // h was strictly above g → g must stay strictly below h afterwards.
+      if (hBeforeL > gBefore && gAfter >= (hAfter.level ?? 0)) {
+        return "the hierarchy order — a group can't be moved above another; move the higher one up first";
+      }
+    }
+  }
+
+  // The top of the hierarchy (highest level) can't be deleted here — it would
+  // orphan the chain. (A deployment owner, bypassed above, still can.)
+  if (curById.size) {
+    const topId = [...curById.values()].sort((a, b) => (b.level ?? 0) - (a.level ?? 0))[0].id;
+    if (!incById.has(topId)) return "the top group (it can't be deleted)";
+  }
 
   for (const id of new Set([...curById.keys(), ...incById.keys()])) {
     const before = curById.get(id);

@@ -241,8 +241,16 @@ function GroupCard({ group, user }) {
   // But you can always change your OWN group's level (otherwise lowering it would
   // trap you: your ceiling would drop with it and you couldn't raise it back). A
   // groupless backend super-admin isn't bounded either.
-  const superAdmin = user?.isAdmin && !userGroup(config, user);
-  const maxLevel = superAdmin || isOwnGroup ? 999 : userLevel(user, config);
+  const superAdmin = (user?.isAdmin && !userGroup(config, user)) || user?.isOwner;
+  const rankCeiling = superAdmin || isOwnGroup ? 999 : userLevel(user, config);
+  // Hierarchy integrity: a group can't be raised to reach or pass a group that
+  // sits above it (no leapfrogging). Cap it just below the nearest group above.
+  const above = (config.groups || []).filter((g) => g.id !== group.id && (g.level ?? 0) > (group.level ?? 0));
+  const orderCeiling = superAdmin ? 999 : above.length ? Math.min(...above.map((g) => g.level ?? 0)) - 1 : 999;
+  const maxLevel = Math.min(rankCeiling, orderCeiling);
+  // The top group (highest level) can't be deleted here.
+  const topLevel = Math.max(0, ...(config.groups || []).map((g) => g.level ?? 0));
+  const isTopGroup = (group.level ?? 0) >= topLevel;
 
   const update = (patch) =>
     mutate((cfg) => ({
@@ -293,8 +301,16 @@ function GroupCard({ group, user }) {
         ) : (
           <IconButton
             icon={Trash2}
-            label={isOwnGroup ? "You can't delete your own group" : canAdmin ? "Delete group" : "Need manage-access"}
-            disabled={!canAdmin || isOwnGroup}
+            label={
+              isOwnGroup
+                ? "You can't delete your own group"
+                : isTopGroup && !superAdmin
+                ? "The top group can't be deleted"
+                : canAdmin
+                ? "Delete group"
+                : "Need manage-access"
+            }
+            disabled={!canAdmin || isOwnGroup || (isTopGroup && !superAdmin)}
             onClick={remove}
             className="hover:border-red-500/40 hover:text-red-300 disabled:opacity-30"
           />
