@@ -191,7 +191,8 @@ export function canWriteLogs(user, config) {
 // (even one with Manage site / Manage access) can grant itself the ability to
 // alter the record. A groupless super-admin still bypasses.
 export function canModerateLogs(user, config) {
-  if (user?.isAdmin && !userGroup(config, user)) return true;
+  if (user?.isOwner) return true; // bootstrap deployment owner
+  if (user?.isAdmin && !userGroup(config, user)) return true; // groupless super-admin
   const g = userGroup(config, user);
   if (!g) return false;
   return g.id === "management" || /^management$/i.test(g.label || "");

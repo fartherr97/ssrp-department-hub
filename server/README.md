@@ -73,7 +73,25 @@ these **Variables** (Settings → Variables):
 | `DISCORD_CALLBACK_URL` | `https://YOUR-APP.up.railway.app/auth/discord/callback` |
 | `BOT_SYNC_SECRET` | a random string (only if you use the rank-sync bot) |
 | `DISCORD_BOT_TOKEN` | optional bot token, lets the Admin Log resolve any member's guild display name from a Discord ID (see below) |
+| `OWNER_DISCORD_IDS` | optional comma-separated Discord **user** ids that always get full super-admin access — use it to bootstrap a fresh deploy (see below) |
 | `VITE_USE_BACKEND` | `true` — **build-time** flag so the front-end calls the API |
+
+### First-login access (bootstrap)
+On login, a member's permission group is resolved from **role mappings**
+(Access & Roles → a Discord role id linked to a group) or an explicit member
+assignment. A brand-new config has none, so the very first Discord login would
+land with no group and no access. Two ways to avoid a lockout:
+
+- **`OWNER_DISCORD_IDS`** — put the deployment owner's Discord user id(s) here.
+  They get full super-admin access regardless of mappings, sign in, set up
+  Access & Roles (map the Management, Director, etc. roles to groups), and can
+  then clear this var. This is the recommended bootstrap.
+- Or seed the config in the DB with at least one role mapping before the first
+  login.
+
+Role mappings are per-department config (not code): map each Discord **role**
+id to a group under Access & Roles. Admin-log moderation is reserved for the
+**Management** group; owners in `OWNER_DISCORD_IDS` also have it.
 
 ### Admin Log name lookup (optional)
 When logging an entry, pasting a **Subject Discord ID** auto-fills the name. It
