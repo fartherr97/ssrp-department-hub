@@ -16,6 +16,8 @@
  * routes/config.js separately blocks changes to sections they may not touch.)
  */
 
+import { env } from "./env.js";
+
 // A sentinel that survives a JSON round-trip and is easy to detect on write-back.
 export const REDACTED = "__redacted__";
 
@@ -34,8 +36,12 @@ export function publicConfig(config) {
       label: g.label,
       level: g.level ?? 0,
     })),
-    // The single flag the login screen reads to decide whether to show dev login.
-    auth: { devLoginEnabled: !!config.auth?.devLoginEnabled },
+    // The single flag the login screen reads to decide whether to show dev login
+    // (and hide the Discord button). Driven by the server's DEV_LOGIN_ENABLED —
+    // the same fail-closed flag that gates the /auth/dev-login route — so one env
+    // var flips both, and it can never advertise a login the backend won't honor.
+    // A per-config auth.devLoginEnabled still works as an override.
+    auth: { devLoginEnabled: env.devLoginEnabled || !!config.auth?.devLoginEnabled },
     // Nav shape is harmless and lets the shell paint immediately after login.
     navGroups: config.navGroups || [],
     dropdownGroups: config.dropdownGroups || [],

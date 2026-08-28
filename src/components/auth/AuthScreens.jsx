@@ -1,7 +1,9 @@
+import { useMemo, useState } from "react";
 import Logo from "../common/Logo.jsx";
-import { BrandName } from "../common/index.jsx";
+import { BrandName, Select } from "../common/index.jsx";
 import { getIcon } from "../../lib/icons.js";
 import { safeLinkUrl, safeMediaUrl } from "../../lib/urls.js";
+import * as api from "../../lib/api.js";
 
 // ─── Loading ─────────────────────────────────────────────────────────────────
 
@@ -49,6 +51,67 @@ function DiscordButton({ className = "" }) {
   );
 }
 
+// ─── Dev / preview login (no Discord) ────────────────────────────────────────
+
+// Shown instead of the Discord button when the server has DEV_LOGIN_ENABLED on.
+// Pick a permission group and sign in without Discord — the backend only mints a
+// session when dev login is enabled, and never grants more than that group would.
+function DevLoginPanel({ config, onLogin }) {
+  // Public config exposes groups as { id, label, level }. Offer them highest
+  // level first, plus a plain "member", and default to the top group so you land
+  // able to preview the Builder.
+  const groups = useMemo(() => {
+    const list = [...(config?.groups || [])].sort((a, b) => (b.level ?? 0) - (a.level ?? 0));
+    if (!list.some((g) => g.id === "member")) list.push({ id: "member", label: "Member" });
+    return list;
+  }, [config]);
+
+  const [group, setGroup] = useState(groups[0]?.id || "member");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function enter() {
+    setBusy(true);
+    setError("");
+    try {
+      const user = await api.devLogin(group);
+      onLogin?.(user);
+    } catch (e) {
+      setError(e?.message || "Dev login failed");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-8 w-full max-w-xs">
+      <div className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-amber-300">
+        Preview mode
+      </div>
+      <div className="flex flex-col gap-2.5">
+        <Select value={group} onChange={setGroup} name="dev-group">
+          {groups.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.label || g.id}
+            </option>
+          ))}
+        </Select>
+        <button
+          type="button"
+          onClick={enter}
+          disabled={busy}
+          className="btn-glossy inline-flex items-center justify-center rounded-full bg-[linear-gradient(90deg,var(--color-primary),var(--color-hover))] px-8 py-3 text-[15px] font-semibold leading-none text-white shadow-xl shadow-black/25 hover:brightness-110 disabled:opacity-60"
+        >
+          {busy ? "Signing in…" : "Enter preview"}
+        </button>
+      </div>
+      {error && <div className="mt-2 text-[11px] text-rose-400">{error}</div>}
+      <div className="mt-3 text-[11px] text-[var(--color-text-muted)]">
+        Discord login is off — signing in without Discord for preview/testing.
+      </div>
+    </div>
+  );
+}
+
 // ─── Community socials row ("Connect With Us") ───────────────────────────────
 
 function SocialRow({ socials }) {
@@ -82,9 +145,12 @@ function SocialRow({ socials }) {
 
 // ─── Login screen ────────────────────────────────────────────────────────────
 
-export function LoginScreen({ config }) {
+export function LoginScreen({ config, onLogin }) {
   const branding = config?.branding || {};
   const socials = branding.socials || [];
+  // When the server has dev login enabled, show the preview picker and hide the
+  // Discord button (see publicConfig / DEV_LOGIN_ENABLED).
+  const devMode = !!config?.auth?.devLoginEnabled;
 
   return (
     <div className="relative flex min-h-screen flex-col overflow-hidden bg-[var(--color-body-bg)] text-white">
@@ -132,11 +198,17 @@ export function LoginScreen({ config }) {
             </p>
           )}
 
-          {/* Connect Discord, centered */}
-          <DiscordButton className="mt-8" />
-          <div className="mt-3 text-[11px] text-[var(--color-text-muted)]">
-            Connect with Discord to access the system
-          </div>
+          {devMode ? (
+            <DevLoginPanel config={config} onLogin={onLogin} />
+          ) : (
+            <>
+              {/* Connect Discord, centered */}
+              <DiscordButton className="mt-8" />
+              <div className="mt-3 text-[11px] text-[var(--color-text-muted)]">
+                Connect with Discord to access the system
+              </div>
+            </>
+          )}
 
           <SocialRow socials={socials} />
         </div>

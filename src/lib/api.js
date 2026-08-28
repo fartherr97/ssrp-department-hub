@@ -158,3 +158,13 @@ export async function logout() {
   await fetch("/auth/logout", { method: "POST", credentials: "include" });
   return null;
 }
+
+// Preview / dev login: mint a session for a chosen group WITHOUT Discord. The
+// backend only honors this when DEV_LOGIN_ENABLED is set (fail-closed, and never
+// grants more than that group's real capabilities). Returns the signed-in user.
+export async function devLogin(group) {
+  return await http("/../auth/dev-login", {
+    method: "POST",
+    body: JSON.stringify({ group }),
+  });
+}
